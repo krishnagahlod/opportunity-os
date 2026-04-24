@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { saveOnboarding } from "./actions";
 
 const INTEREST_OPTIONS = [
@@ -66,16 +68,38 @@ function Chips({
             type="button"
             key={opt}
             onClick={() => onToggle(opt)}
-            className={`rounded-full border px-3 py-1 text-sm transition ${
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
               active
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background hover:bg-muted"
-            }`}
+                ? "border-primary/40 bg-primary/10 text-primary dark:bg-primary/15"
+                : "border-border bg-background hover:border-border hover:bg-muted",
+            )}
           >
+            {active && <Check className="size-3" />}
             {opt}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      {children}
     </div>
   );
 }
@@ -119,103 +143,129 @@ export function OnboardingForm({
   return (
     <form
       action={onSubmit}
-      className="space-y-6 rounded-lg border bg-card p-6 shadow-sm"
+      className="space-y-8 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-[0_30px_80px_-24px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur sm:p-8"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="full_name">Full name</Label>
-          <Input
-            id="full_name"
-            name="full_name"
-            defaultValue={initialName}
-            required
-          />
+      <Section title="Basics">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="full_name" className="text-xs">
+              Full name
+            </Label>
+            <Input
+              id="full_name"
+              name="full_name"
+              defaultValue={initialName}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Email</Label>
+            <Input value={initialEmail} disabled />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="college" className="text-xs">
+              College / University
+            </Label>
+            <Input
+              id="college"
+              name="college"
+              placeholder="IIT Bombay"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="graduation_year" className="text-xs">
+              Graduation year
+            </Label>
+            <Input
+              id="graduation_year"
+              name="graduation_year"
+              type="number"
+              min={2020}
+              max={2035}
+              placeholder="2027"
+              required
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input value={initialEmail} disabled />
-        </div>
-      </div>
+      </Section>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="college">College / University</Label>
-          <Input id="college" name="college" placeholder="IIT Bombay" required />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="graduation_year">Graduation year</Label>
-          <Input
-            id="graduation_year"
-            name="graduation_year"
-            type="number"
-            min={2020}
-            max={2035}
-            placeholder="2027"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Interests — pick any that apply</Label>
+      <Section
+        title="Interests"
+        hint="Pick every area you're genuinely curious about — we score matches against these."
+      >
         <Chips
           options={INTEREST_OPTIONS}
           selected={interests}
           onToggle={toggleInterest}
         />
-      </div>
+      </Section>
 
-      <div className="space-y-2">
-        <Label>Skills — what are you comfortable with?</Label>
+      <Section title="Skills" hint="What are you comfortable with?">
         <Chips options={SKILL_OPTIONS} selected={skills} onToggle={toggleSkill} />
-      </div>
+      </Section>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="preferred_location">Preferred location</Label>
-          <Input
-            id="preferred_location"
-            name="preferred_location"
-            placeholder="Bangalore, Mumbai, anywhere, ..."
-          />
+      <Section title="Preferences">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="preferred_location" className="text-xs">
+              Preferred location
+            </Label>
+            <Input
+              id="preferred_location"
+              name="preferred_location"
+              placeholder="Bangalore, Mumbai, anywhere, ..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="remote_preference" className="text-xs">
+              Remote preference
+            </Label>
+            <Select name="remote_preference" defaultValue="any">
+              <SelectTrigger id="remote_preference">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="remote">Remote only</SelectItem>
+                <SelectItem value="onsite">On-site only</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="time_commitment" className="text-xs">
+              What are you looking for?
+            </Label>
+            <Select name="time_commitment" defaultValue="any">
+              <SelectTrigger id="time_commitment">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="internship">Internships</SelectItem>
+                <SelectItem value="full-time">Full-time roles</SelectItem>
+                <SelectItem value="part-time">Part-time / gigs</SelectItem>
+                <SelectItem value="any">Anything relevant</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="remote_preference">Remote preference</Label>
-          <Select name="remote_preference" defaultValue="any">
-            <SelectTrigger id="remote_preference">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="remote">Remote only</SelectItem>
-              <SelectItem value="onsite">On-site only</SelectItem>
-              <SelectItem value="hybrid">Hybrid</SelectItem>
-              <SelectItem value="any">Any</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="time_commitment">What are you looking for?</Label>
-        <Select name="time_commitment" defaultValue="any">
-          <SelectTrigger id="time_commitment">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="internship">Internships</SelectItem>
-            <SelectItem value="full-time">Full-time roles</SelectItem>
-            <SelectItem value="part-time">Part-time / gigs</SelectItem>
-            <SelectItem value="any">Anything relevant</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      </Section>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
       )}
 
-      <Button type="submit" size="lg" className="w-full" disabled={isPending}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full gap-2"
+        disabled={isPending}
+      >
         {isPending ? "Saving..." : "Save and see my feed"}
+        {!isPending && <ArrowRight className="size-4" />}
       </Button>
     </form>
   );

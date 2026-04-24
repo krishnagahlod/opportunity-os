@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { OpportunityCard } from "@/components/OpportunityCard";
@@ -44,16 +45,19 @@ export default async function SavedPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-3xl font-bold tracking-tight">Saved</h1>
-        <p className="mt-1 mb-8 text-muted-foreground">
-          {opps.length} saved {opps.length === 1 ? "opportunity" : "opportunities"}.
-        </p>
-        {opps.length === 0 ? (
-          <div className="rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            Nothing saved yet. Tap <span className="font-medium">Save</span> on
-            any card in your feed to bookmark it here.
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Saved
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {opps.length} bookmarked {opps.length === 1 ? "opportunity" : "opportunities"}.
+            </p>
           </div>
+        </div>
+        {opps.length === 0 ? (
+          <EmptyState />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {opps.map((opp) => (
@@ -67,6 +71,21 @@ export default async function SavedPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-12 text-center">
+      <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+        <Bookmark className="size-5" />
+      </div>
+      <p className="mt-4 text-base font-medium">No saves yet</p>
+      <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+        Hit <span className="font-medium text-foreground">Save</span> on any
+        card in your feed to bookmark it here.
+      </p>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { differenceInDays, parseISO } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { OpportunityCard } from "@/components/OpportunityCard";
+import { StatsStrip } from "@/components/StatsStrip";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -50,42 +52,84 @@ export default async function DashboardPage() {
   const opps: Opportunity[] = (opportunities as Opportunity[] | null) ?? [];
   const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
 
+  const closingSoon = opps.filter((o) => {
+    if (!o.deadline) return false;
+    const d = differenceInDays(parseISO(o.deadline), new Date());
+    return d >= 0 && d <= 7;
+  }).length;
+  const appliedCount = [...appliedMap.values()].filter((s) =>
+    ["applied", "interviewing", "won"].includes(s),
+  ).length;
+
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Good to see you, {firstName}
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {opps.length > 0
-              ? `${opps.length} opportunities in your feed. Sorted by deadline.`
-              : "No opportunities yet — run the seed script to populate your feed."}
-          </p>
-        </div>
 
+      {/* Hero */}
+      <section className="border-b border-border/60 bg-hero-radial dark:bg-hero-radial-dark">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+          <p className="text-sm font-medium text-muted-foreground">
+            Welcome back, {firstName}
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Opportunities that{" "}
+            <span className="text-gradient-brand">actually fit you</span>.
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+            {opps.length > 0
+              ? `${opps.length} live opportunities in your feed, sorted by urgency. ${closingSoon} closing this week.`
+              : "Your feed will fill in once ingestion runs — or apply the seed SQL for starter data."}
+          </p>
+
+          <div className="mt-8">
+            <StatsStrip
+              stats={[
+                { label: "In your feed", value: opps.length, icon: "feed" },
+                {
+                  label: "Closing ≤ 7 days",
+                  value: closingSoon,
+                  icon: "urgent",
+                  tone: closingSoon > 0 ? "warn" : "default",
+                },
+                { label: "Saved", value: savedSet.size, icon: "saved" },
+                { label: "Applied", value: appliedCount, icon: "applied" },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Feed */}
+      <main className="mx-auto max-w-6xl px-4 py-10">
         {opps.length === 0 ? (
-          <div className="rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Your feed is empty.</p>
-            <p className="mt-2">
-              Apply the seed SQL file at{" "}
-              <code className="text-xs">supabase/seed_opportunities.sql</code>{" "}
-              to load starter data, or wait for ingestion workflows to populate
-              this (Phase 2).
+          <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-12 text-center">
+            <p className="text-base font-medium">Your feed is empty.</p>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Run <code className="rounded bg-muted px-1.5 py-0.5 text-xs">supabase/seed_opportunities.sql</code> to load 18 starter opportunities,
+              or wait for n8n ingestion to populate the feed (Phase 2).
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {opps.map((opp) => (
-              <OpportunityCard
-                key={opp.id}
-                opportunity={opp}
-                isSaved={savedSet.has(opp.id)}
-                applicationStatus={appliedMap.get(opp.id)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground/80">
+                Top picks for you
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Sorted by deadline
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {opps.map((opp) => (
+                <OpportunityCard
+                  key={opp.id}
+                  opportunity={opp}
+                  isSaved={savedSet.has(opp.id)}
+                  applicationStatus={appliedMap.get(opp.id)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
