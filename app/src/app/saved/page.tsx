@@ -6,7 +6,7 @@ import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function SavedPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,26 +15,20 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("role,onboarded")
     .eq("id", user.id)
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
-  const { data: opportunities } = await supabase
-    .from("opportunities")
-    .select("*")
-    .eq("status", "active")
-    .order("featured", { ascending: false })
-    .order("deadline", { ascending: true, nullsFirst: false })
-    .limit(50);
-
-  const { data: savedRows } = await supabase
+  const { data } = await supabase
     .from("saved_opportunities")
-    .select("opportunity_id")
-    .eq("user_id", user.id);
-  const savedSet = new Set(
-    (savedRows ?? []).map((s) => s.opportunity_id as string),
-  );
+    .select("opportunity_id, opportunities(*)")
+    .eq("user_id", user.id)
+    .order("saved_at", { ascending: false });
+
+  const opps: Opportunity[] = (data ?? [])
+    .map((row) => row.opportunities as unknown as Opportunity)
+    .filter(Boolean);
 
   const { data: applicationRows } = await supabase
     .from("applications")
@@ -47,33 +41,18 @@ export default async function DashboardPage() {
     ]),
   );
 
-  const opps: Opportunity[] = (opportunities as Opportunity[] | null) ?? [];
-  const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
-
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Good to see you, {firstName}
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {opps.length > 0
-              ? `${opps.length} opportunities in your feed. Sorted by deadline.`
-              : "No opportunities yet — run the seed script to populate your feed."}
-          </p>
-        </div>
-
+        <h1 className="text-3xl font-bold tracking-tight">Saved</h1>
+        <p className="mt-1 mb-8 text-muted-foreground">
+          {opps.length} saved {opps.length === 1 ? "opportunity" : "opportunities"}.
+        </p>
         {opps.length === 0 ? (
           <div className="rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Your feed is empty.</p>
-            <p className="mt-2">
-              Apply the seed SQL file at{" "}
-              <code className="text-xs">supabase/seed_opportunities.sql</code>{" "}
-              to load starter data, or wait for ingestion workflows to populate
-              this (Phase 2).
-            </p>
+            Nothing saved yet. Tap <span className="font-medium">Save</span> on
+            any card in your feed to bookmark it here.
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -81,7 +60,7 @@ export default async function DashboardPage() {
               <OpportunityCard
                 key={opp.id}
                 opportunity={opp}
-                isSaved={savedSet.has(opp.id)}
+                isSaved={true}
                 applicationStatus={appliedMap.get(opp.id)}
               />
             ))}
