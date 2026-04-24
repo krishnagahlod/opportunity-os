@@ -13,6 +13,9 @@ app/.env
 app/.env.local
 app/.env.*.local
 
+# MCP config contains API keys for MCP servers — never commit
+.mcp.json
+
 # ==== Node / Next.js ====
 node_modules/
 app/node_modules/
