@@ -1,12 +1,26 @@
+import { redirect } from "next/navigation";
 import { Sparkles, Radar, Target, Bell } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; message?: string; error?: string }>;
+  searchParams: Promise<{
+    next?: string;
+    message?: string;
+    error?: string;
+    code?: string;
+  }>;
 }) {
   const params = await searchParams;
+
+  // Defensive redirect: if Supabase falls back to Site URL with a code in the
+  // query (because the exact /auth/callback Redirect URL isn't whitelisted),
+  // forward to the proper auth handler instead of dead-ending here.
+  if (params.code) {
+    const next = params.next ?? "/";
+    redirect(`/auth/callback?code=${params.code}&next=${encodeURIComponent(next)}`);
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-hero-radial dark:bg-hero-radial-dark">
