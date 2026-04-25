@@ -66,12 +66,24 @@ export function OpportunityCard({
   const Icon = cat.Icon;
   const summary = opportunity.summary ?? opportunity.description ?? "";
   const tags = (opportunity.tags ?? []).slice(0, 3);
+  const lowConfidence =
+    opportunity.extraction_confidence !== null &&
+    opportunity.extraction_confidence !== undefined &&
+    opportunity.extraction_confidence < 0.7;
 
   return (
     <Card className="card-hover-lift group relative flex h-full flex-col gap-0 overflow-hidden border-border/70">
       {opportunity.featured && (
         <span className="absolute right-3 top-3 rounded-full bg-gradient-to-r from-indigo-500/15 to-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
           Featured
+        </span>
+      )}
+      {lowConfidence && !opportunity.featured && (
+        <span
+          className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+          title={`AI confidence: ${Math.round((opportunity.extraction_confidence ?? 0) * 100)}%`}
+        >
+          Low confidence
         </span>
       )}
 

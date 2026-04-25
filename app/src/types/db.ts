@@ -66,9 +66,32 @@ export type Opportunity = {
   source_id: string | null;
   difficulty: Difficulty | null;
   estimated_value_score: number | null;
+  /** AI's self-rated 0..1 confidence in the extraction. Null on pre-2.5 rows. */
+  extraction_confidence: number | null;
   date_added: string;
   featured: boolean;
   status: OpportunityStatus;
+};
+
+export type IngestionLogStatus =
+  | "extracted"
+  | "upserted"
+  | "skipped_duplicate"
+  | "skipped_filtered"
+  | "failed";
+
+export type IngestionLog = {
+  id: string;
+  source_id: string | null;
+  source_name: string | null;
+  source_url: string | null;
+  status: IngestionLogStatus;
+  reason: string | null;
+  provider: "gemini" | "groq" | null;
+  tokens_used: number | null;
+  duration_ms: number | null;
+  opportunity_id: string | null;
+  created_at: string;
 };
 
 export type SavedOpportunity = {

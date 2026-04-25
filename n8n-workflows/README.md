@@ -3,8 +3,85 @@
 This folder contains version-controlled exports of the ingestion workflows that
 populate the `opportunities` table.
 
-Current status: **Phase 2 in progress.** Backend endpoints are live; workflows
-are built by hand in the n8n UI and exported here once working.
+Current status: **Phase 2.5 complete** — full pipeline with pre-AI dedup,
+keyword filter, and observability via `ingestion_logs`. Workflows are built
+by hand in the n8n UI and exported here once working.
+
+## Pipeline architecture (post Phase 2.5)
+
+```
+Schedule Trigger (every 6h)
+    ↓
+RSS Read   ← any RSS feed (HN Jobs, WeWorkRemotely, Substack, …)
+    ↓
+Limit (e.g. 20)
+    ↓
+Loop Over Items
+    │  loop output (one item at a time)
+    ▼
+Filter Keywords (n8n IF node, OR-combined)
+    │  contains any of: hiring, intern, fellowship, hackathon,
+    │  competition, role, apply, opportunity?
+    │
+    ├── false → POST /api/log {status: "skipped_filtered"} (then end)
+    │
+    └── true → Check Exists (HTTP POST /api/ingest/check-exists)
+                   │
+                   ▼
+               If New (n8n IF on $json.exists)
+                   │
+                   ├── exists=true → POST /api/log {status: "skipped_duplicate"} (end)
+                   │
+                   └── exists=false → Wait (7s)
+                                          ↓
+                                     AI Extract (POST /api/ai/extract)
+                                          ↓
+                                     Upsert Opportunity (POST /api/ingest/upsert)
+                                          ↓
+                                     loop back to Loop Over Items
+```
+
+Every path writes to `ingestion_logs`. Query in Supabase:
+
+```sql
+select status, count(*) from public.ingestion_logs
+where created_at > now() - interval '1 hour'
+group by status;
+```
+
+## Critical n8n expression rule
+
+After the **Check Exists** node, `$json` becomes `{exists: bool, opportunity_id?: uuid}`
+— the original RSS data is gone. To reach the RSS item from any node downstream
+of Check Exists, use:
+
+```
+{{ $('Loop Over Items').item.json.title }}
+{{ $('Loop Over Items').item.json.link }}
+{{ $('Loop Over Items').item.json.contentSnippet }}
+```
+
+This is the most common gotcha when extending the workflow.
+
+## RSS feed catalog (reliable feeds)
+
+Pick one for the RSS Read node based on the source's content:
+
+| Feed | URL | Notes |
+|---|---|---|
+| WeWorkRemotely (all) | `https://weworkremotely.com/remote-jobs.rss` | ~50 fresh remote jobs/day, well-formatted, large content (truncate to 4000 chars in expression) |
+| WeWorkRemotely (programming) | `https://weworkremotely.com/categories/remote-programming-jobs.rss` | Tech-focused subset |
+| Indeed (search query) | `https://in.indeed.com/rss?q=internship&l=India` | Customizable via `q=` and `l=` params |
+| Hacker News Jobs | `https://hnrss.org/jobs` | Mostly senior tech roles, third-party feed (occasionally flakes) |
+| Hacker News new | `https://hnrss.org/newest` | All new submissions, mostly noise — heavy filter test |
+
+For text-heavy feeds (WeWorkRemotely), cap content in the AI Extract `text` field:
+
+```
+{{ ($('Loop Over Items').item.json.title + '\n\n' + ($('Loop Over Items').item.json.contentSnippet || $('Loop Over Items').item.json.content || '')).slice(0, 4000) }}
+```
+
+Without `.slice()`, you'll hit the 20K char limit on the extract endpoint.
 
 ---
 

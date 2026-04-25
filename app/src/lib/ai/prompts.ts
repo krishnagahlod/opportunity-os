@@ -52,11 +52,14 @@ export const ExtractedOpportunitySchema = z.object({
     .nullable()
     .optional()
     .default(null),
+  // 0..1 self-rated by AI: how confident is the extraction?
+  // 1.0 = explicit, well-formed job posting; 0.5 = ambiguous; 0.2 = doesn't look like a real opportunity.
+  extraction_confidence: z.number().min(0).max(1).default(0.7),
 });
 
 export type ExtractedOpportunity = z.infer<typeof ExtractedOpportunitySchema>;
 
-export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. Don't invent facts.`;
+export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. extraction_confidence = your 0..1 self-rating: 1.0 = explicit, well-formed posting with clear org+role; 0.5 = ambiguous (announcement, vague pitch); 0.2 = doesn't really look like an opportunity at all (Show HN, blog, news). Don't invent facts.`;
 
 export function buildExtractPrompt({
   rawText,
@@ -87,7 +90,8 @@ export function buildExtractPrompt({
   "is_remote": boolean,
   "apply_url": URL | null,
   "difficulty": "low" | "medium" | "high" | null,
-  "estimated_value_score": number 0-100 | null
+  "estimated_value_score": number 0-100 | null,
+  "extraction_confidence": number 0..1 (your honest self-rating, see system instruction)
 }`);
   parts.push("");
   parts.push("--- Raw text ---");
