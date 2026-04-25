@@ -79,22 +79,35 @@ export default async function DashboardPage() {
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
 
       {/* Hero */}
-      <section className="border-b border-border/60 bg-hero-radial dark:bg-hero-radial-dark">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-          <p className="text-sm font-medium text-muted-foreground">
+      <section className="relative overflow-hidden border-b border-border/60 bg-hero-radial dark:bg-hero-radial-dark">
+        <div className="bg-grid-dots pointer-events-none absolute inset-0 opacity-30" />
+        <div className="relative mx-auto max-w-6xl px-4 py-12 sm:py-16">
+          <p
+            className="animate-fade-up text-sm font-medium text-muted-foreground"
+            style={{ animationDelay: "0ms" }}
+          >
             Welcome back, {firstName}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1
+            className="animate-fade-up mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+            style={{ animationDelay: "60ms" }}
+          >
             Opportunities that{" "}
             <span className="text-gradient-brand">actually fit you</span>.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+          <p
+            className="animate-fade-up mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base"
+            style={{ animationDelay: "120ms" }}
+          >
             {top.length > 0
               ? `${top.length} live opportunities, ranked by personal fit. ${closingSoon} closing this week.`
-              : "Your feed will fill in once ingestion runs — or apply the seed SQL for starter data."}
+              : "Your feed will fill in once your n8n workflow runs."}
           </p>
 
-          <div className="mt-8">
+          <div
+            className="animate-fade-up mt-8"
+            style={{ animationDelay: "180ms" }}
+          >
             <StatsStrip
               stats={[
                 { label: "In your feed", value: top.length, icon: "feed" },
@@ -115,41 +128,66 @@ export default async function DashboardPage() {
       {/* Feed */}
       <main className="mx-auto max-w-6xl px-4 py-10">
         {top.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-12 text-center">
-            <p className="text-base font-medium">Your feed is empty.</p>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Run <code className="rounded bg-muted px-1.5 py-0.5 text-xs">supabase/seed_opportunities.sql</code> to load 18 starter opportunities,
-              or wait for n8n ingestion to populate the feed (Phase 2).
-            </p>
-          </div>
+          <EmptyFeed />
         ) : (
           <>
-            <div className="mb-4 flex items-baseline justify-between">
+            <div className="mb-5 flex items-baseline justify-between">
               <h2 className="text-sm font-semibold tracking-tight text-foreground/80">
                 Top picks for you
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
                 Ranked by personalized score
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {top.map((opp) => {
+              {top.map((opp, i) => {
                 const s = scoreMap.get(opp.id);
                 return (
-                  <OpportunityCard
+                  <div
                     key={opp.id}
-                    opportunity={opp}
-                    isSaved={savedSet.has(opp.id)}
-                    applicationStatus={appliedMap.get(opp.id)}
-                    score={s?.score ?? null}
-                    why={s?.why ?? null}
-                  />
+                    className="animate-fade-up"
+                    style={{
+                      animationDelay: `${Math.min(i, 11) * 40}ms`,
+                    }}
+                  >
+                    <OpportunityCard
+                      opportunity={opp}
+                      isSaved={savedSet.has(opp.id)}
+                      applicationStatus={appliedMap.get(opp.id)}
+                      score={s?.score ?? null}
+                      why={s?.why ?? null}
+                    />
+                  </div>
                 );
               })}
             </div>
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+function EmptyFeed() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-dashed border-border/80 bg-card/40 p-12 text-center">
+      {/* Ghost rows behind the message — gives a "loading-like" feel instead of a flat empty box */}
+      <div className="mask-bottom-fade pointer-events-none absolute inset-x-6 bottom-0 top-20 space-y-3 opacity-50">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-12 rounded-xl border border-border/60 bg-muted/40"
+            style={{ animationDelay: `${i * 80}ms` }}
+          />
+        ))}
+      </div>
+      <div className="relative">
+        <p className="text-base font-medium">Your feed is empty.</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          Run an n8n workflow to ingest fresh opportunities, or trigger one
+          manually from the n8n dashboard.
+        </p>
+      </div>
     </div>
   );
 }
