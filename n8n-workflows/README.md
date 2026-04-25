@@ -106,7 +106,7 @@ manually instead of waiting 6 hours.)
 
 1. Click **+** after Schedule Trigger → search **"RSS Feed"** → pick **"RSS Feed Read"**.
 2. Parameters:
-   - **URL**: `https://news.ycombinator.com/jobs.rss`
+   - **URL**: `https://hnrss.org/jobs`
      (Or any RSS feed of career opportunities — Unstop's RSS, a Substack job
      newsletter, a company's careers RSS, etc. HN Jobs works for testing.)
 3. Click **Execute node** — you should see a list of items with fields like
@@ -130,20 +130,17 @@ This is the AI step — turns the RSS item's messy text into structured JSON.
    - **URL**: `http://host.docker.internal:3000/api/ai/extract`
    - **Authentication**: None
    - **Send Headers**: ON → **Specify**: Using Fields Below
-     - Add header: Name = `X-Ingest-Secret`, Value = _(paste your INGEST_SHARED_SECRET)_
-     - Add header: Name = `Content-Type`, Value = `application/json`
-   - **Send Body**: ON → **Body Content Type**: JSON → **Specify Body**: Using JSON
-   - **JSON**:
-     ```json
-     {
-       "text": "={{ $json.title + '\n\n' + ($json.contentSnippet || $json.content || '') }}",
-       "source_url": "={{ $json.link }}",
-       "hint": "RSS feed: Hacker News Jobs"
-     }
-     ```
+     - Header: Name = `X-Ingest-Secret`, Value = _(paste your INGEST_SHARED_SECRET)_
+   - **Send Body**: ON → **Body Content Type**: JSON → **Specify Body**: **Using Fields Below**
+     (Don't pick "Using JSON" — it requires manual JSON escaping. Fields Below
+     handles escaping for you, so newlines/quotes/etc. in expressions are safe.)
+   - Add three fields:
+     - Name `text`, Value: `={{ $json.title + '\n\n' + ($json.contentSnippet || $json.content || '') }}`
+     - Name `source_url`, Value: `={{ $json.link }}`
+     - Name `hint`, Value: `RSS feed: HN Jobs`
    - **Options** → **Response** → **Response Format**: JSON
 3. Rename the node to `AI Extract`.
-4. Execute node — you should see `{ "opportunity": {...}, "provider": "gemini" }`.
+4. Execute node — you should see `{ "opportunity": {...}, "provider": "gemini" }` (or `"groq"` if Gemini's quota is tapped).
 
 ### Step 6 — HTTP Request to `/api/ingest/upsert`
 
@@ -153,19 +150,18 @@ Takes the structured opportunity from step 5 and writes it to Supabase.
 2. Parameters:
    - **Method**: POST
    - **URL**: `http://host.docker.internal:3000/api/ingest/upsert`
-   - **Headers**: same two as above (`X-Ingest-Secret`, `Content-Type: application/json`)
-   - **Send Body**: ON → JSON:
-     ```json
-     {
-       "opportunity": {{ $json.opportunity }},
-       "source_url": "={{ $('AI Extract').item.json.opportunity.apply_url }}",
-       "source_name": "Manual Admin Entry"
-     }
-     ```
+   - **Headers**: same `X-Ingest-Secret` as above
+   - **Send Body**: ON → **Body Content Type**: JSON → **Specify Body**: **Using Fields Below**
+   - Add three fields:
+     - Name `opportunity`, Value: `={{ $json.opportunity }}` ← n8n auto-serializes the object
+     - Name `source_url`, Value: `={{ $('AI Extract').item.json.opportunity.apply_url }}`
+     - Name `source_name`, Value: `Manual Admin Entry`
      (`Manual Admin Entry` is a pre-existing row in `sources` from migration
      0001. We'll add a proper "HN Jobs RSS" source later.)
 3. Rename the node to `Upsert Opportunity`.
 4. Execute — should return `{ "id": "...", "ok": true }`.
+
+> **If you used "Using JSON" mode and got `Bad control character in string literal`**: that's because raw `\n\n` in an n8n expression evaluates to literal newline characters — which are not valid inside JSON strings. Switch to "Using Fields Below" or replace `'\n\n'` with a space/em-dash separator.
 
 ### Step 7 — Close the batch loop
 
@@ -213,9 +209,32 @@ Once a workflow is working, version it here:
 
 ---
 
+## Importing a saved workflow
+
+When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
+
+1. n8n UI → **Workflows** → top-right **+ Create Workflow** → **⋯ menu** → **Import from File**.
+2. Pick the JSON file. The graph appears.
+3. Open **AI Extract** and **Upsert Opportunity** nodes — replace the placeholder
+   `REPLACE_WITH_YOUR_INGEST_SHARED_SECRET` in the **X-Ingest-Secret** header
+   with the value from your `app/.env.local`.
+4. Save → click **Execute Workflow** to test → toggle **Active** (top right)
+   when ready to let the cron fire automatically every 6 hours.
+
 ## Planned workflows
 
-- [ ] **`01-rss-aggregator`** — polls a list of RSS feeds (career pages, newsletters)
+- [x] **`01-rss-hn-jobs`** — polls Hacker News RSS for "Who's hiring" listings, AI-extracts and upserts
 - [ ] **`02-unstop-scraper`** — hits Unstop listing pages, parses HTML
 - [ ] **`03-wellfound-scraper`** — startup jobs from Wellfound
 - [ ] **`04-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+
+## Lessons from building 01
+
+Real things that bit us, recorded so the next workflow doesn't repeat them:
+
+- **n8n is in Docker, your Next.js app is on the host.** Use `http://host.docker.internal:3000` from inside n8n; never `localhost`. From WSL bash, the same hostname works to reach the Windows host.
+- **Body field expressions**: in **Expression mode**, type just `{{ ... }}` — no leading `=`. The `=` is n8n's internal marker; if you type it in Expression mode, it leaks into the value as a literal character (e.g. `=https://...`). Or stay in Fixed mode and use `={{ ... }}` (the `=` flips that field to expression).
+- **Use "Specify Body: Using Fields Below"**, not "Using JSON". Fields-below auto-escapes strings; JSON mode requires manual escaping which fails on newlines.
+- **Free-tier rate limits are real.** Llama 3.1 8B Instant on Groq free tier is **6,000 TPM**. Each AI Extract call uses ~600–1500 tokens. So pace ~5–8 calls per minute. The Wait node (7s) + server-side retry-on-429 (in `lib/ai/fallover.ts`) work together to keep things flowing.
+- **Always pair with `Continue On Fail`** + idempotent dedup. RSS feeds repeat the same items; `source_url` UNIQUE constraint upserts in place; cron retries pick up only what's actually new.
+- **Split In Batches outputs**: connect the **`loop`** output (bottom) to your processing chain, and connect the LAST node back to Loop Over Items input. Leave **`done`** (top) disconnected unless you specifically want a post-loop action. Wiring `done` to processing causes silent re-firing with empty data.

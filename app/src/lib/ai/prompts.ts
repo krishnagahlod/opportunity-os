@@ -56,18 +56,7 @@ export const ExtractedOpportunitySchema = z.object({
 
 export type ExtractedOpportunity = z.infer<typeof ExtractedOpportunitySchema>;
 
-export const EXTRACT_SYSTEM_INSTRUCTION = `You are an opportunity-ingestion assistant for Opportunity OS, a platform that aggregates career opportunities (internships, full-time roles, case competitions, hackathons, fellowships, scholarships, etc.) for ambitious students and early professionals.
-
-You extract clean, structured JSON from messy text scraped from career pages, Unstop, Wellfound, RSS feeds, and similar sources.
-
-Rules:
-- Respond with ONLY a valid JSON object — no prose, no markdown fences.
-- If a field can't be determined with confidence, use null (or [] for arrays).
-- Dates must be ISO 8601 ("YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SSZ"). If no date, null.
-- "summary" is a 1-2 sentence plain-English pitch. Never empty if description exists.
-- "tags" is 3-6 lowercase topical keywords (e.g. "fintech", "backend", "consulting").
-- "estimated_value_score" is your honest 0-100 estimate of this opportunity's value to an ambitious student. Factor in brand, compensation, selectivity, career impact.
-- Do not invent facts. If the text says "stipend unknown", write compensation: null, not a made-up number.`;
+export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. Don't invent facts.`;
 
 export function buildExtractPrompt({
   rawText,
@@ -102,7 +91,7 @@ export function buildExtractPrompt({
 }`);
   parts.push("");
   parts.push("--- Raw text ---");
-  parts.push(rawText.slice(0, 8000)); // cap input for free-tier token budget
+  parts.push(rawText.slice(0, 1500)); // cap input for free-tier token budget
   parts.push("--- End raw text ---");
   return parts.join("\n");
 }

@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
 
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) {
+    console.error(
+      "[/api/ai/extract] body rejected by zod. Body:",
+      JSON.stringify(body),
+      "Issues:",
+      JSON.stringify(parsed.error.issues),
+    );
     return NextResponse.json(
       { error: "Bad request", issues: parsed.error.issues },
       { status: 400 },
@@ -51,6 +57,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    console.error("[/api/ai/extract] AI call failed:", message);
     return NextResponse.json(
       { error: "Extraction failed", detail: message },
       { status: 502 },

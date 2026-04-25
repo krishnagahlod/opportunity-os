@@ -23,13 +23,15 @@ export type LLMCallResult<T> = {
 };
 
 const GEMINI_MODEL = "gemini-2.0-flash";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Llama 3.1 8B Instant — 30K TPM (2.5x more than 70B Versatile), faster,
+// doesn't truncate on simple JSON. Plenty smart for structured extraction.
+const GROQ_MODEL = "llama-3.1-8b-instant";
 
 export async function callLLM<T>({
   prompt,
   schema,
   systemInstruction,
-  maxTokens = 1500,
+  maxTokens = 600,
 }: {
   prompt: string;
   schema: ZodSchema<T>;
@@ -129,17 +131,46 @@ async function callGroq(
   }
   messages.push({ role: "user", content: prompt });
 
-  const chat = await client.chat.completions.create({
-    model: GROQ_MODEL,
-    messages,
-    response_format: { type: "json_object" },
-    max_tokens: maxTokens,
-    temperature: 0.2,
-  });
+  // Retry once on TPM rate-limit. Groq tells us how long to wait in the error;
+  // we honor that (capped at 15s) and try again instead of failing the request.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const chat = await client.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        response_format: { type: "json_object" },
+        max_tokens: maxTokens,
+        temperature: 0.2,
+      });
+      const content = chat.choices[0]?.message?.content ?? "";
+      if (!content) throw new Error("Groq returned empty content");
+      return content;
+    } catch (e) {
+      if (attempt === 0 && isRateLimited(e)) {
+        const waitMs = Math.min(parseGroqRetryMs(e) ?? 6000, 15000);
+        console.warn(
+          `[fallover] Groq TPM hit, sleeping ${waitMs}ms then retrying once`,
+        );
+        await sleep(waitMs);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("Unreachable");
+}
 
-  const content = chat.choices[0]?.message?.content ?? "";
-  if (!content) throw new Error("Groq returned empty content");
-  return content;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Parse "Please try again in 5.32s" or "Please try again in 1.66s" out of Groq's error string. */
+function parseGroqRetryMs(e: unknown): number | null {
+  const msg = errMsg(e);
+  const m = msg.match(/try again in ([\d.]+)\s*s/i);
+  if (!m) return null;
+  const seconds = Number(m[1]);
+  return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) : null;
 }
 
 /* ============ Helpers ============ */
