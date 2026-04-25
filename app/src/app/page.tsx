@@ -36,9 +36,8 @@ export default async function DashboardPage() {
   // Compute / fetch cached personalized scores for all opps in one batch
   const scoreMap = await refreshScores(profile as Profile, opps);
 
-  // Sort by score (desc), with featured items pinned to the top
+  // Sort purely by personalized score (desc)
   const ranked = [...opps].sort((a, b) => {
-    if (a.featured !== b.featured) return a.featured ? -1 : 1;
     const sa = scoreMap.get(a.id)?.score ?? 0;
     const sb = scoreMap.get(b.id)?.score ?? 0;
     return sb - sa;

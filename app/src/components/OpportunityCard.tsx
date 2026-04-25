@@ -99,43 +99,30 @@ export function OpportunityCard({
 
   return (
     <Card className="card-hover-lift group relative flex h-full flex-col gap-0 overflow-hidden border-border/70 bg-card">
-      {/* Top accent strip — gradient line for featured, amber for low-confidence, none otherwise */}
-      {opportunity.featured && (
-        <div className="h-0.5 w-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-pink-500" />
-      )}
-      {!opportunity.featured && lowConfidence && (
-        <div className="h-0.5 w-full bg-amber-400/70" />
-      )}
+      {/* Top accent — only for low-confidence as a quality signal */}
+      {lowConfidence && <div className="h-0.5 w-full bg-amber-400/70" />}
 
-      {/* Inline status pills (only render if there's something) */}
-      {(opportunity.featured || lowConfidence) && (
-        <div className="flex items-center gap-1.5 px-4 pt-3">
-          {opportunity.featured && (
-            <span className="rounded-full bg-gradient-to-r from-indigo-500/10 to-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
-              Featured
-            </span>
-          )}
-          {lowConfidence && (
-            <span
-              className="rounded-full bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-              title={`AI confidence: ${Math.round((opportunity.extraction_confidence ?? 0) * 100)}%`}
-            >
-              Low confidence
-            </span>
-          )}
+      {lowConfidence && (
+        <div className="px-4 pt-3">
+          <span
+            className="rounded-full bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+            title={`AI confidence: ${Math.round((opportunity.extraction_confidence ?? 0) * 100)}%`}
+          >
+            Low confidence
+          </span>
         </div>
       )}
 
-      <CardHeader className="gap-3 pb-3">
-        <div className="flex items-start gap-3">
+      <CardHeader className="gap-4 pb-3 pt-5">
+        <div className="flex items-start gap-3.5">
           <span
             className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-inset ring-black/[0.04] dark:ring-white/[0.04]",
+              "flex size-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ring-1 ring-inset ring-black/[0.04] dark:ring-white/[0.04]",
               cat.chipBg,
               cat.chipText,
             )}
           >
-            <Icon className="size-[18px]" />
+            <Icon className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
@@ -149,13 +136,13 @@ export function OpportunityCard({
               </p>
               {score !== null && <ScoreBadge score={score} />}
             </div>
-            <h3 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground">
+            <h3 className="mt-1.5 line-clamp-2 text-[16px] font-semibold leading-[1.3] tracking-tight text-foreground">
               {opportunity.title}
             </h3>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground/85">
             <span className="inline-flex size-[18px] items-center justify-center rounded-full bg-muted text-[8.5px] font-bold text-foreground/70">
               {orgInitials(opportunity.organization)}
@@ -164,7 +151,7 @@ export function OpportunityCard({
           </span>
           {opportunity.location && (
             <>
-              <span aria-hidden className="text-muted-foreground/50">
+              <span aria-hidden className="text-muted-foreground/40">
                 ·
               </span>
               <span className="inline-flex items-center gap-1">
@@ -203,11 +190,11 @@ export function OpportunityCard({
         </div>
 
         {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((t) => (
+          <div className="flex flex-wrap gap-1">
+            {tags.slice(0, 3).map((t) => (
               <span
                 key={t}
-                className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                className="rounded-md border border-border/50 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
               >
                 {t}
               </span>
