@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Clock, MapPin } from "lucide-react";
+import { ArrowUpRight, Clock, MapPin, Sparkles } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import {
   Card,
@@ -13,6 +13,30 @@ import { ApplyButton } from "./ApplyButton";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
+
+function ScoreBadge({ score }: { score: number }) {
+  // Color-coded by quality bracket
+  const tone =
+    score >= 80
+      ? "bg-emerald-100 text-emerald-700 ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300"
+      : score >= 60
+        ? "bg-indigo-100 text-indigo-700 ring-indigo-500/20 dark:bg-indigo-500/15 dark:text-indigo-300"
+        : score >= 40
+          ? "bg-amber-100 text-amber-700 ring-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300"
+          : "bg-muted text-muted-foreground ring-border";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ring-1 ring-inset",
+        tone,
+      )}
+      title={`Personal fit: ${score}/100`}
+    >
+      <Sparkles className="size-2.5" />
+      {score}
+    </span>
+  );
+}
 
 function DeadlineLabel({ deadline }: { deadline: string | null }) {
   if (!deadline) {
@@ -57,10 +81,14 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
+  score = null,
+  why = null,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
+  score?: number | null;
+  why?: string | null;
 }) {
   const cat = getCategoryStyle(opportunity.category);
   const Icon = cat.Icon;
@@ -99,14 +127,17 @@ export function OpportunityCard({
             <Icon className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p
-              className={cn(
-                "text-[11px] font-semibold uppercase tracking-wider",
-                cat.badgeText,
-              )}
-            >
-              {cat.label}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p
+                className={cn(
+                  "text-[11px] font-semibold uppercase tracking-wider",
+                  cat.badgeText,
+                )}
+              >
+                {cat.label}
+              </p>
+              {score !== null && <ScoreBadge score={score} />}
+            </div>
             <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug">
               {opportunity.title}
             </h3>
@@ -133,6 +164,11 @@ export function OpportunityCard({
       </CardHeader>
 
       <CardContent className="flex-1 space-y-3 pb-3">
+        {why && (
+          <p className="rounded-lg bg-primary/5 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-primary/90">
+            {why}
+          </p>
+        )}
         {summary && (
           <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
             {summary}

@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { StatsStrip } from "@/components/StatsStrip";
-import type { ApplicationStatus, Opportunity } from "@/types/db";
+import { refreshScores } from "@/lib/scoring/refresh";
+import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +23,27 @@ export default async function DashboardPage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
+  // Fetch a wide pool — we'll re-rank by per-user score below
   const { data: opportunities } = await supabase
     .from("opportunities")
     .select("*")
     .eq("status", "active")
-    .order("featured", { ascending: false })
-    .order("deadline", { ascending: true, nullsFirst: false })
-    .limit(50);
+    .order("date_added", { ascending: false })
+    .limit(80);
+
+  const opps: Opportunity[] = (opportunities as Opportunity[] | null) ?? [];
+
+  // Compute / fetch cached personalized scores for all opps in one batch
+  const scoreMap = await refreshScores(profile as Profile, opps);
+
+  // Sort by score (desc), with featured items pinned to the top
+  const ranked = [...opps].sort((a, b) => {
+    if (a.featured !== b.featured) return a.featured ? -1 : 1;
+    const sa = scoreMap.get(a.id)?.score ?? 0;
+    const sb = scoreMap.get(b.id)?.score ?? 0;
+    return sb - sa;
+  });
+  const top = ranked.slice(0, 50);
 
   const { data: savedRows } = await supabase
     .from("saved_opportunities")
@@ -49,10 +64,9 @@ export default async function DashboardPage() {
     ]),
   );
 
-  const opps: Opportunity[] = (opportunities as Opportunity[] | null) ?? [];
   const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
 
-  const closingSoon = opps.filter((o) => {
+  const closingSoon = top.filter((o) => {
     if (!o.deadline) return false;
     const d = differenceInDays(parseISO(o.deadline), new Date());
     return d >= 0 && d <= 7;
@@ -76,15 +90,15 @@ export default async function DashboardPage() {
             <span className="text-gradient-brand">actually fit you</span>.
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            {opps.length > 0
-              ? `${opps.length} live opportunities in your feed, sorted by urgency. ${closingSoon} closing this week.`
+            {top.length > 0
+              ? `${top.length} live opportunities, ranked by personal fit. ${closingSoon} closing this week.`
               : "Your feed will fill in once ingestion runs — or apply the seed SQL for starter data."}
           </p>
 
           <div className="mt-8">
             <StatsStrip
               stats={[
-                { label: "In your feed", value: opps.length, icon: "feed" },
+                { label: "In your feed", value: top.length, icon: "feed" },
                 {
                   label: "Closing ≤ 7 days",
                   value: closingSoon,
@@ -101,7 +115,7 @@ export default async function DashboardPage() {
 
       {/* Feed */}
       <main className="mx-auto max-w-6xl px-4 py-10">
-        {opps.length === 0 ? (
+        {top.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-12 text-center">
             <p className="text-base font-medium">Your feed is empty.</p>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
@@ -116,18 +130,23 @@ export default async function DashboardPage() {
                 Top picks for you
               </h2>
               <p className="text-xs text-muted-foreground">
-                Sorted by deadline
+                Ranked by personalized score
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {opps.map((opp) => (
-                <OpportunityCard
-                  key={opp.id}
-                  opportunity={opp}
-                  isSaved={savedSet.has(opp.id)}
-                  applicationStatus={appliedMap.get(opp.id)}
-                />
-              ))}
+              {top.map((opp) => {
+                const s = scoreMap.get(opp.id);
+                return (
+                  <OpportunityCard
+                    key={opp.id}
+                    opportunity={opp}
+                    isSaved={savedSet.has(opp.id)}
+                    applicationStatus={appliedMap.get(opp.id)}
+                    score={s?.score ?? null}
+                    why={s?.why ?? null}
+                  />
+                );
+              })}
             </div>
           </>
         )}

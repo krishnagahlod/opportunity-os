@@ -109,11 +109,21 @@ export type Application = {
   updated_at: string;
 };
 
+export type ScoreBreakdown = {
+  profile_relevance: number;
+  career_value: number;
+  brand_value: number;
+  compensation: number;
+  ease: number;
+  urgency: number;
+  confidence: number;
+};
+
 export type Score = {
   user_id: string;
   opportunity_id: string;
   score: number;
-  breakdown: Record<string, number> | null;
+  breakdown: ScoreBreakdown | Record<string, number> | null;
   why: string | null;
   computed_at: string;
 };

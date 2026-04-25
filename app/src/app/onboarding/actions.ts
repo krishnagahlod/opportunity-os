@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { invalidateUserScores } from "@/lib/scoring/refresh";
 
 export async function saveOnboarding(formData: FormData) {
   const supabase = await createClient();
@@ -56,6 +57,10 @@ export async function saveOnboarding(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  // Profile changed → drop cached scores so the next dashboard load recomputes
+  // against the new interests/skills.
+  await invalidateUserScores(user.id);
 
   redirect("/");
 }
