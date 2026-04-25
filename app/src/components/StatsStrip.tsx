@@ -15,6 +15,13 @@ const ICONS = {
   applied: Star,
 };
 
+const ICON_TINTS = {
+  feed: "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-400/15 dark:text-indigo-300",
+  urgent: "bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300",
+  saved: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300",
+  applied: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
+};
+
 export function StatsStrip({ stats }: { stats: Stat[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -23,24 +30,27 @@ export function StatsStrip({ stats }: { stats: Stat[] }) {
         return (
           <div
             key={s.label}
-            className="group relative overflow-hidden rounded-xl border border-border/70 bg-card px-4 py-3 transition hover:border-border"
+            className="group relative overflow-hidden rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
           >
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">
+            {/* Subtle gradient wash for depth */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-muted/30" />
+
+            <div className="relative flex items-start justify-between gap-2">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
                 {s.label}
               </p>
-              <Icon
+              <span
                 className={cn(
-                  "size-4",
-                  s.tone === "warn"
-                    ? "text-amber-500"
-                    : "text-muted-foreground/60",
+                  "flex size-7 items-center justify-center rounded-lg",
+                  ICON_TINTS[s.icon],
                 )}
-              />
+              >
+                <Icon className="size-3.5" />
+              </span>
             </div>
             <p
               className={cn(
-                "mt-2 text-2xl font-semibold tabular-nums tracking-tight",
+                "relative mt-3 text-[28px] font-semibold leading-none tabular-nums tracking-tight",
                 s.tone === "warn" && "text-amber-600 dark:text-amber-300",
               )}
             >
