@@ -12,10 +12,14 @@ export type TelegramSendResult =
  * One-way push to a Telegram chat. Uses the Bot API directly via fetch — no
  * SDK / no polling / no webhook needed. Caller passes the chat_id; we look
  * up the bot token from env.
+ *
+ * Uses HTML parse mode (not Markdown) — Telegram's legacy Markdown is
+ * fragile (one stray special char silently breaks ALL formatting in the
+ * message). HTML is strict and predictable.
  */
 export async function sendTelegramMessage(
   chatId: string,
-  text: string,
+  html: string,
 ): Promise<TelegramSendResult> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return { ok: false, error: "TELEGRAM_BOT_TOKEN not set" };
@@ -26,8 +30,8 @@ export async function sendTelegramMessage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text,
-        parse_mode: "Markdown",
+        text: html,
+        parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
     });
@@ -35,7 +39,7 @@ export async function sendTelegramMessage(
       const body = await res.text();
       return {
         ok: false,
-        error: `Telegram ${res.status}: ${body.slice(0, 200)}`,
+        error: `Telegram ${res.status}: ${body.slice(0, 300)}`,
       };
     }
     return { ok: true };
@@ -45,7 +49,7 @@ export async function sendTelegramMessage(
   }
 }
 
-/** Render a digest as a compact Markdown message for Telegram. */
+/** Render a digest as a compact HTML message for Telegram. */
 export function renderDigestForTelegram({
   firstName,
   topPicks,
@@ -58,11 +62,11 @@ export function renderDigestForTelegram({
   appUrl: string;
 }): string {
   const lines: string[] = [];
-  lines.push(`*Hey ${escapeMd(firstName)} — here's your digest*`);
+  lines.push(`<b>Hey ${escapeHtml(firstName)} — here's your digest</b>`);
   lines.push("");
 
   if (closingSoon.length > 0) {
-    lines.push("⏰ *Closing soon*");
+    lines.push("⏰ <b>Closing soon</b>");
     for (const i of closingSoon.slice(0, 5)) {
       lines.push(formatItem(i));
     }
@@ -70,30 +74,47 @@ export function renderDigestForTelegram({
   }
 
   if (topPicks.length > 0) {
-    lines.push("✨ *Top picks*");
+    lines.push("✨ <b>Top picks</b>");
     for (const i of topPicks) {
       lines.push(formatItem(i));
     }
     lines.push("");
   }
 
-  lines.push(`[Open dashboard](${appUrl})`);
+  // Only emit a clickable link to the dashboard when we have a non-localhost
+  // URL — Telegram won't make localhost links useful from a phone anyway.
+  if (appUrl && !appUrl.includes("localhost") && !appUrl.includes("127.0.0.1")) {
+    lines.push(`<a href="${escapeAttr(appUrl)}">Open dashboard →</a>`);
+  } else {
+    lines.push(
+      `<i>Dashboard: ${escapeHtml(appUrl)} (local — open from your laptop)</i>`,
+    );
+  }
+
   return lines.join("\n");
 }
 
 function formatItem({ opportunity: o, score }: DigestItem): string {
-  const link = o.apply_url ?? "";
-  const titleMd = link
-    ? `[${escapeMd(o.title)}](${link})`
-    : escapeMd(o.title);
-  const meta: string[] = [escapeMd(o.organization), `${score}/100`];
+  const link = o.apply_url;
+  const titleHtml = link
+    ? `<a href="${escapeAttr(link)}"><b>${escapeHtml(o.title)}</b></a>`
+    : `<b>${escapeHtml(o.title)}</b>`;
+  const meta: string[] = [escapeHtml(o.organization), `${score}/100`];
   if (o.deadline) {
-    meta.push(`Due ${format(parseISO(o.deadline), "MMM d")}`);
+    meta.push(`Due ${escapeHtml(format(parseISO(o.deadline), "MMM d"))}`);
   }
-  return `• ${titleMd} — ${meta.join(" · ")}`;
+  return `• ${titleHtml} — ${meta.join(" · ")}`;
 }
 
-/** Telegram Markdown is finicky; escape the characters that have meaning. */
-function escapeMd(s: string): string {
-  return s.replace(/([_*\[\]()`])/g, "\\$1");
+/** Escape HTML special chars in a text node. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Escape HTML special chars + quotes for inside an attribute value. */
+function escapeAttr(s: string): string {
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }

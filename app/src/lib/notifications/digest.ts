@@ -16,7 +16,6 @@ export type DigestPayload = {
   generatedAt: string;
 };
 
-const MIN_SCORE_FOR_DIGEST = 40;
 const TOP_PICKS_LIMIT = 5;
 const CLOSING_SOON_DAYS = 3;
 
@@ -56,17 +55,17 @@ export async function buildDigestForUser(
     scoreMap.set(s.opportunity_id, { score: s.score, why: s.why });
   }
 
-  const items: DigestItem[] = (opps as Opportunity[])
-    .map((o) => {
-      const s = scoreMap.get(o.id);
-      return {
-        opportunity: o,
-        score: s?.score ?? 0,
-        why: s?.why ?? null,
-      };
-    })
-    .filter((i) => i.score >= MIN_SCORE_FOR_DIGEST);
+  const items: DigestItem[] = (opps as Opportunity[]).map((o) => {
+    const s = scoreMap.get(o.id);
+    return {
+      opportunity: o,
+      score: s?.score ?? 0,
+      why: s?.why ?? null,
+    };
+  });
 
+  // Always show top N — score is the rank, no quality floor. Filtering would
+  // hide all picks on cold-start days when the score cache is sparse.
   const topPicks = [...items]
     .sort((a, b) => b.score - a.score)
     .slice(0, TOP_PICKS_LIMIT);
