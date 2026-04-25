@@ -29,9 +29,13 @@ export function NavBar({
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
+          <Link
+            href="/settings"
+            className="hidden text-xs text-muted-foreground transition hover:text-foreground sm:inline"
+            title="Settings"
+          >
             {email}
-          </span>
+          </Link>
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="outline" size="sm">
               Sign out
