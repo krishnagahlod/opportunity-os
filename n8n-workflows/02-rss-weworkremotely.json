@@ -1,0 +1,263 @@
+{
+  "name": "RSS — WeWorkRemotely (Phase 2.5 reference)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            },
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "29c269fd-8698-4d76-b946-95028744e14f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://weworkremotely.com/remote-jobs.rss",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [208, 0],
+      "id": "652d0751-8587-4120-8077-5a93e3874aac",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": { "maxItems": 20 },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [416, 0],
+      "id": "2d3aa44e-40df-455c-8ef1-8ce2c1f28841",
+      "name": "Limit"
+    },
+    {
+      "parameters": { "options": { "reset": false } },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [624, 0],
+      "id": "c00b92be-07d1-4424-9efe-ed4182e7d384",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            { "id": "k1", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "hiring",     "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k2", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "intern",     "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k3", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "fellowship", "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k4", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "hackathon",  "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k5", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "competition","operator": { "type": "string", "operation": "contains" } },
+            { "id": "k6", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "role",       "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k7", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "apply",      "operator": { "type": "string", "operation": "contains" } },
+            { "id": "k8", "leftValue": "={{ ($json.title + ' ' + ($json.contentSnippet || $json.content || '')).toLowerCase() }}", "rightValue": "opportunity","operator": { "type": "string", "operation": "contains" } }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [832, 0],
+      "id": "3670b4ae-d782-4138-ba8d-d7bc6dc65e35",
+      "name": "Filter Keywords"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/check-exists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "source_url", "value": "={{ $json.link }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1040, 0],
+      "id": "6f83a659-a5f8-4258-a256-ae029c81bce5",
+      "name": "Check Exists"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "n1",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1248, 0],
+      "id": "7f2d155b-0205-4858-93e1-1ddc92c540aa",
+      "name": "If New"
+    },
+    {
+      "parameters": { "amount": 7 },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1552, -64],
+      "id": "a17c04d3-7e49-46b4-b117-95d7aabcff0d",
+      "name": "Wait",
+      "webhookId": "97c340e9-be55-4614-85cd-7fa1ce6cfba5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ai/extract",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" },
+            { "name": "Content-Type",    "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "text",        "value": "={{ ($('Loop Over Items').item.json.title + '\\n\\n' + ($('Loop Over Items').item.json.contentSnippet || $('Loop Over Items').item.json.content || '')).slice(0, 4000) }}" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "WeWorkRemotely" },
+            { "name": "hint",        "value": "RSS feed: WeWorkRemotely" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } },
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1744, -64],
+      "id": "ad1bdc9e-c0ef-4f66-8c29-8e176906afb1",
+      "name": "AI Extract",
+      "retryOnFail": true,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/upsert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "opportunity", "value": "={{ $json.opportunity }}" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "WeWorkRemotely" }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1984, -64],
+      "id": "c22b432c-4edf-4732-b3ab-9fcd0ab203e8",
+      "name": "Upsert Opportunity"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status",      "value": "skipped_filtered" },
+            { "name": "source_url",  "value": "={{ $json.link }}" },
+            { "name": "source_name", "value": "WeWorkRemotely" },
+            { "name": "reason",      "value": "no job-related keyword in title/content" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1136, 272],
+      "id": "b07a0d2c-0245-444d-a078-b681489a1026",
+      "name": "Log Filtered"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status",      "value": "skipped_duplicate" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "WeWorkRemotely" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1520, 272],
+      "id": "f9f88724-8828-4a07-a0d5-c421f5952cd5",
+      "name": "Log Duplicate"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger":   { "main": [[{ "node": "RSS Read",         "type": "main", "index": 0 }]] },
+    "RSS Read":           { "main": [[{ "node": "Limit",            "type": "main", "index": 0 }]] },
+    "Limit":              { "main": [[{ "node": "Loop Over Items",  "type": "main", "index": 0 }]] },
+    "Loop Over Items":    { "main": [[], [{ "node": "Filter Keywords","type": "main", "index": 0 }]] },
+    "Filter Keywords":    { "main": [
+      [{ "node": "Check Exists", "type": "main", "index": 0 }],
+      [{ "node": "Log Filtered", "type": "main", "index": 0 }]
+    ] },
+    "Check Exists":       { "main": [[{ "node": "If New",           "type": "main", "index": 0 }]] },
+    "If New":             { "main": [
+      [{ "node": "Wait",          "type": "main", "index": 0 }],
+      [{ "node": "Log Duplicate", "type": "main", "index": 0 }]
+    ] },
+    "Wait":               { "main": [[{ "node": "AI Extract",       "type": "main", "index": 0 }]] },
+    "AI Extract":         { "main": [[{ "node": "Upsert Opportunity","type": "main", "index": 0 }]] },
+    "Upsert Opportunity": { "main": [[{ "node": "Loop Over Items",  "type": "main", "index": 0 }]] },
+    "Log Filtered":       { "main": [[{ "node": "Loop Over Items",  "type": "main", "index": 0 }]] },
+    "Log Duplicate":      { "main": [[{ "node": "Loop Over Items",  "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "tags": []
+}
