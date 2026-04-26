@@ -25,9 +25,9 @@ export const maxDuration = 60;
  * For each onboarded user:
  *   1. Build their digest (top 5 scored ≥40 + items closing in 3 days).
  *   2. Send email via Resend.
- *   3. If TELEGRAM_DEFAULT_CHAT_ID is set, also push to Telegram.
- *      (Multi-user Telegram comes when we add a Settings page that lets
- *       each user link their own chat_id to profile.telegram_chat_id.)
+ *   3. If user.telegram_chat_id is set, push the digest to that chat.
+ *      (Each user controls their own; no env-level default — that previously
+ *       caused other users' digests to leak into the developer's chat.)
  *
  * Best-effort delivery: failures on one user don't stop the rest.
  */
@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const telegramChatId = process.env.TELEGRAM_DEFAULT_CHAT_ID ?? null;
 
   const recipients = await getDigestRecipients();
   const results: Array<{
@@ -76,9 +75,9 @@ export async function GET(req: NextRequest) {
         emailResult = send.ok ? `sent (${send.id})` : `failed: ${send.error}`;
       }
 
-      // --- Telegram (single configured chat for now) ---
+      // --- Telegram (per-user; no env fallback) ---
       let telegramResult = "skipped: no chat_id";
-      const chatId = user.telegram_chat_id ?? telegramChatId;
+      const chatId = user.telegram_chat_id;
       if (chatId) {
         const text = renderDigestForTelegram({
           firstName,
