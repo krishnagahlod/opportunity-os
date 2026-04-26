@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
+import { EmptyState } from "@/components/EmptyState";
 import { KanbanBoard, type KanbanItem } from "./KanbanBoard";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
@@ -40,7 +41,7 @@ export default async function ApplicationsPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main className="mx-auto max-w-7xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-7xl px-4 py-10">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -53,23 +54,23 @@ export default async function ApplicationsPage() {
             </p>
           </div>
         </div>
-        {items.length === 0 ? <EmptyState /> : <KanbanBoard initial={items} />}
+        {items.length === 0 ? (
+          <EmptyState
+            icon={Star}
+            title="No applications yet"
+            description={
+              <>
+                Hit{" "}
+                <span className="font-medium text-foreground">Mark applied</span>{" "}
+                on any feed card to start tracking your pipeline.
+              </>
+            }
+            action={{ label: "Browse the feed", href: "/" }}
+          />
+        ) : (
+          <KanbanBoard initial={items} />
+        )}
       </main>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-12 text-center">
-      <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-        <Star className="size-5" />
-      </div>
-      <p className="mt-4 text-base font-medium">No applications yet</p>
-      <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
-        Hit <span className="font-medium text-foreground">Mark applied</span>{" "}
-        on any feed card to start tracking your pipeline.
-      </p>
     </div>
   );
 }

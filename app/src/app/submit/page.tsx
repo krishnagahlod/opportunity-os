@@ -22,7 +22,7 @@ export default async function SubmitPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main className="mx-auto max-w-2xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-2xl px-4 py-10">
         <header className="mb-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
             Submit an opportunity

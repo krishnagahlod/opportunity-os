@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main className="mx-auto max-w-2xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-2xl px-4 py-10">
         <header className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Settings

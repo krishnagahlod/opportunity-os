@@ -22,7 +22,51 @@ const ICON_TINTS = {
   applied: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
 };
 
-export function StatsStrip({ stats }: { stats: Stat[] }) {
+export function StatsStrip({
+  stats,
+  variant = "default",
+}: {
+  stats: Stat[];
+  variant?: "default" | "compact";
+}) {
+  if (variant === "compact") {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {stats.map((s) => {
+          const Icon = ICONS[s.icon];
+          return (
+            <div
+              key={s.label}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-2.5 py-1 text-xs",
+                s.tone === "warn" &&
+                  "border-amber-300/50 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-4 items-center justify-center rounded-full",
+                  ICON_TINTS[s.icon],
+                )}
+              >
+                <Icon className="size-2.5" />
+              </span>
+              <span
+                className={cn(
+                  "font-semibold tabular-nums",
+                  s.tone === "warn" && "text-amber-700 dark:text-amber-300",
+                )}
+              >
+                {s.value}
+              </span>
+              <span className="text-muted-foreground">{s.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {stats.map((s) => {

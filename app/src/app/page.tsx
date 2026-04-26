@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { differenceInDays, parseISO } from "date-fns";
+import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { FilteredFeed } from "@/components/FilteredFeed";
 import { StatsStrip } from "@/components/StatsStrip";
+import { EmptyState } from "@/components/EmptyState";
 import { refreshScores } from "@/lib/scoring/refresh";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
 import { Landing } from "./Landing";
@@ -108,57 +110,48 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/60 bg-hero-radial dark:bg-hero-radial-dark">
-        <div className="bg-grid-dots pointer-events-none absolute inset-0 opacity-30" />
-        <div className="relative mx-auto max-w-6xl px-4 py-12 sm:py-16">
-          <p
-            className="animate-fade-up text-sm font-medium text-muted-foreground"
-            style={{ animationDelay: "0ms" }}
-          >
-            Welcome back, {firstName}
-          </p>
-          <h1
-            className="animate-fade-up mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
-            style={{ animationDelay: "60ms" }}
-          >
-            Opportunities that{" "}
-            <span className="text-gradient-brand">actually fit you</span>.
-          </h1>
-          <p
-            className="animate-fade-up mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base"
-            style={{ animationDelay: "120ms" }}
-          >
-            {opps.length > 0
-              ? `${opps.length} live opportunities, ranked by personal fit. ${closingSoon} closing this week.`
-              : "Your feed will fill in once your n8n workflow runs."}
-          </p>
-
-          <div
-            className="animate-fade-up mt-8"
-            style={{ animationDelay: "180ms" }}
-          >
+      {/* Slim header strip — greeting + compact stats inline */}
+      <section className="border-b border-border/60 bg-card/30">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div>
+            <p className="text-sm font-semibold tracking-tight">
+              Welcome back, {firstName}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {opps.length > 0
+                ? `${opps.length} live · ranked by personal fit`
+                : "Your feed will fill in once ingestion runs"}
+            </p>
+          </div>
+          {opps.length > 0 && (
             <StatsStrip
+              variant="compact"
               stats={[
-                { label: "In your feed", value: opps.length, icon: "feed" },
+                { label: "live", value: opps.length, icon: "feed" },
                 {
-                  label: "Closing ≤ 7 days",
+                  label: "closing ≤7d",
                   value: closingSoon,
                   icon: "urgent",
                   tone: closingSoon > 0 ? "warn" : "default",
                 },
-                { label: "Saved", value: savedSet.size, icon: "saved" },
-                { label: "Applied", value: appliedCount, icon: "applied" },
+                { label: "saved", value: savedSet.size, icon: "saved" },
+                { label: "applied", value: appliedCount, icon: "applied" },
               ]}
             />
-          </div>
+          )}
         </div>
       </section>
 
       {/* Feed */}
-      <main className="mx-auto max-w-6xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-8">
         {opps.length === 0 ? (
-          <EmptyFeed />
+          <EmptyState
+            icon={Sparkles}
+            title="Your feed is empty"
+            description="Once an ingestion workflow runs, ranked opportunities will appear here. You can also add one manually."
+            action={{ label: "Submit one", href: "/submit" }}
+            decorative
+          />
         ) : (
           <FilteredFeed
             opportunities={opps}
@@ -169,30 +162,6 @@ export default async function HomePage() {
           />
         )}
       </main>
-    </div>
-  );
-}
-
-function EmptyFeed() {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-dashed border-border/80 bg-card/40 p-12 text-center">
-      {/* Ghost rows behind the message — gives a "loading-like" feel instead of a flat empty box */}
-      <div className="mask-bottom-fade pointer-events-none absolute inset-x-6 bottom-0 top-20 space-y-3 opacity-50">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-12 rounded-xl border border-border/60 bg-muted/40"
-            style={{ animationDelay: `${i * 80}ms` }}
-          />
-        ))}
-      </div>
-      <div className="relative">
-        <p className="text-base font-medium">Your feed is empty.</p>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Run an n8n workflow to ingest fresh opportunities, or trigger one
-          manually from the n8n dashboard.
-        </p>
-      </div>
     </div>
   );
 }

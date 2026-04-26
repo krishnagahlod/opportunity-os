@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Clock, MapPin, Sparkles } from "lucide-react";
-import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
+import { ArrowUpRight, MapPin, Sparkles } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +9,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
+import { DeadlineLabel } from "./DeadlineLabel";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
@@ -37,44 +37,6 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
-function DeadlineLabel({ deadline }: { deadline: string | null }) {
-  if (!deadline) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-        <Clock className="size-3" /> Rolling
-      </span>
-    );
-  }
-  const date = parseISO(deadline);
-  const past = isPast(date);
-  const distance = formatDistanceToNowStrict(date, { addSuffix: false });
-
-  if (past) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-        <Clock className="size-3" /> Closed
-      </span>
-    );
-  }
-
-  const days = (date.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  const urgent = days <= 7;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 text-xs font-medium tabular-nums",
-        urgent
-          ? "text-amber-600 dark:text-amber-300"
-          : "text-muted-foreground",
-      )}
-    >
-      <Clock className="size-3" />
-      {distance} left
-    </span>
-  );
-}
-
 export function OpportunityCard({
   opportunity,
   isSaved,
@@ -98,7 +60,7 @@ export function OpportunityCard({
     opportunity.extraction_confidence < 0.7;
 
   return (
-    <Card className="card-hover-lift group relative flex h-full flex-col gap-0 overflow-hidden border-border/70 bg-card">
+    <Card className="card-hover-lift group relative flex h-full flex-col gap-0 overflow-hidden border-border/70 bg-card shadow-card">
       {/* Top accent — only for low-confidence as a quality signal */}
       {lowConfidence && <div className="h-0.5 w-full bg-amber-400/70" />}
 
@@ -144,7 +106,10 @@ export function OpportunityCard({
 
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground/85">
-            <span className="inline-flex size-[18px] items-center justify-center rounded-full bg-muted text-[8.5px] font-bold text-foreground/70">
+            <span
+              aria-hidden
+              className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-foreground/70"
+            >
               {orgInitials(opportunity.organization)}
             </span>
             {opportunity.organization}
@@ -203,7 +168,7 @@ export function OpportunityCard({
         )}
       </CardContent>
 
-      <CardFooter className="mt-auto flex items-center gap-1.5 border-t border-border/60 bg-muted/20 px-3 py-2.5">
+      <CardFooter className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-border/60 bg-muted/20 px-3 py-2.5">
         <SaveButton opportunityId={opportunity.id} isSaved={isSaved} />
         <ApplyButton
           opportunityId={opportunity.id}
@@ -219,7 +184,7 @@ export function OpportunityCard({
                 variant: "default",
                 size: "sm",
                 className:
-                  "ml-auto gap-1 shadow-sm transition-shadow hover:shadow-md",
+                  "w-full justify-center gap-1 shadow-sm transition-shadow hover:shadow-md sm:ml-auto sm:w-auto",
               }),
             )}
           >

@@ -16,6 +16,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
+import { UrgencyDot } from "@/components/DeadlineLabel";
 import { updateApplicationStatus } from "@/app/actions";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
@@ -27,31 +28,45 @@ export type KanbanItem = {
   opportunity: Opportunity;
 };
 
-const COLUMNS: { status: ApplicationStatus; label: string; tone: string }[] = [
+type ColumnEmphasis = "default" | "primary" | "muted";
+
+const COLUMNS: {
+  status: ApplicationStatus;
+  label: string;
+  tone: string;
+  emphasis: ColumnEmphasis;
+}[] = [
   {
     status: "saved",
     label: "Saved",
     tone: "from-slate-400/20 to-transparent text-slate-700 dark:text-slate-300",
+    emphasis: "default",
   },
   {
     status: "applied",
+    // Primary entry point — visually highlighted so the eye lands here.
     label: "Applied",
     tone: "from-indigo-400/25 to-transparent text-indigo-700 dark:text-indigo-300",
+    emphasis: "primary",
   },
   {
     status: "interviewing",
     label: "Interviewing",
     tone: "from-amber-400/25 to-transparent text-amber-700 dark:text-amber-300",
+    emphasis: "default",
   },
   {
     status: "rejected",
+    // Terminal state — dimmed to recede.
     label: "Rejected",
     tone: "from-rose-400/25 to-transparent text-rose-700 dark:text-rose-300",
+    emphasis: "muted",
   },
   {
     status: "won",
     label: "Won",
     tone: "from-emerald-400/25 to-transparent text-emerald-700 dark:text-emerald-300",
+    emphasis: "default",
   },
 ];
 
@@ -118,6 +133,7 @@ export function KanbanBoard({ initial }: { initial: KanbanItem[] }) {
                 status={col.status}
                 label={col.label}
                 tone={col.tone}
+                emphasis={col.emphasis}
                 items={colItems}
               />
             );
@@ -140,33 +156,44 @@ function KanbanColumn({
   status,
   label,
   tone,
+  emphasis,
   items,
 }: {
   status: ApplicationStatus;
   label: string;
   tone: string;
+  emphasis: ColumnEmphasis;
   items: KanbanItem[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const isPrimary = emphasis === "primary";
+  const isMuted = emphasis === "muted";
 
   return (
     <div
       ref={setNodeRef}
+      role="list"
+      aria-label={`${label} applications, ${items.length} card${items.length === 1 ? "" : "s"}. Drop zone.`}
       className={cn(
-        "flex h-full flex-col rounded-2xl border border-border/70 bg-card/40 transition-colors",
+        "flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/40 transition-colors",
+        // Primary entry-point column gets a top accent
+        isPrimary && "border-t-[3px] border-t-primary/60",
+        // Terminal column dims slightly
+        isMuted && "opacity-80",
         isOver && "border-primary/50 bg-primary/5",
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-between rounded-t-2xl bg-gradient-to-b px-3.5 py-2.5",
+          "flex items-center justify-between bg-gradient-to-b px-3.5 py-2.5",
           tone,
+          isMuted && "opacity-80",
         )}
       >
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em]">
           {label}
         </h3>
-        <span className="rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
+        <span className="inline-flex size-5 items-center justify-center rounded-full bg-background/80 text-[10px] font-semibold tabular-nums text-foreground/80 ring-1 ring-inset ring-border/60">
           {items.length}
         </span>
       </div>
@@ -238,26 +265,36 @@ function KanbanCardInner({
             {item.opportunity.title}
           </h4>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="inline-flex size-4 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-foreground/70">
+            <span
+              aria-hidden
+              className="inline-flex size-4 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-foreground/70"
+            >
               {orgInitials(item.opportunity.organization)}
             </span>
             <span className="truncate">{item.opportunity.organization}</span>
           </div>
         </div>
-        <GripVertical className="size-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
+        {/* Grip visible at low opacity, full on hover/focus — keyboard users see it */}
+        <GripVertical
+          aria-hidden
+          className="size-3.5 shrink-0 text-muted-foreground/40 opacity-50 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        />
       </div>
 
-      {item.opportunity.apply_url && (
-        <Link
-          href={item.opportunity.apply_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onPointerDown={(e) => e.stopPropagation()}
-          className="mt-2 inline-flex items-center gap-1 text-[10.5px] font-medium text-primary hover:underline"
-        >
-          Open <ExternalLink className="size-2.5" />
-        </Link>
-      )}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <UrgencyDot deadline={item.opportunity.deadline} />
+        {item.opportunity.apply_url && (
+          <Link
+            href={item.opportunity.apply_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onPointerDown={(e) => e.stopPropagation()}
+            className="ml-auto inline-flex items-center gap-1 text-[10.5px] font-medium text-primary hover:underline"
+          >
+            Open <ExternalLink className="size-2.5" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

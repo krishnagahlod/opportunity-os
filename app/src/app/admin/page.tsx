@@ -114,7 +114,7 @@ export default async function AdminPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin />
-      <main className="mx-auto max-w-6xl px-4 py-10">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-10">
         <header className="mb-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
             Admin
