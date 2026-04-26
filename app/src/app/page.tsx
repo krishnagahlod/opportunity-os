@@ -6,15 +6,18 @@ import { OpportunityCard } from "@/components/OpportunityCard";
 import { StatsStrip } from "@/components/StatsStrip";
 import { refreshScores } from "@/lib/scoring/refresh";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
+import { Landing } from "./Landing";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function HomePage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+
+  // Logged-out visitors see the marketing landing.
+  if (!user) return <Landing />;
 
   const { data: profile } = await supabase
     .from("profiles")

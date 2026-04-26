@@ -137,3 +137,48 @@ n8n keeps using `host.docker.internal:3000` to hit your **local** dev server dur
 **Cron isn't firing automatically**: Vercel Hobby plan has a **2-cron limit** and cron only fires every 24h on Hobby (which is fine for daily digest). Pro is needed for higher frequencies.
 
 **Telegram message still shows "local — open from your laptop"**: `NEXT_PUBLIC_APP_URL` still set to localhost. Update + redeploy.
+
+---
+
+## Phase 6 — Multi-user prep (do these when you're ready to invite others)
+
+### Enable Google OAuth (~5 min)
+
+The login form already supports it; just flip the switch in Supabase + Google Cloud.
+
+1. **Google Cloud Console** → APIs & Services → Credentials → Create OAuth Client ID:
+   - Application type: Web application
+   - Authorized redirect URI: `https://YOUR-SUPABASE-PROJECT-REF.supabase.co/auth/v1/callback`
+   - Save the Client ID + Client Secret
+2. **Supabase Dashboard** → Authentication → Providers → **Google** → Enable, paste Client ID + Secret, save.
+3. The login UI already calls `supabase.auth.signInWithOAuth({ provider: 'google' })` if wired — if not, add a "Continue with Google" button to `app/src/app/login/LoginForm.tsx`.
+
+### Move n8n to 24/7 hosting (~30 min)
+
+Local Docker n8n only runs when your laptop is on. Three options to get always-on ingestion:
+
+| Option | Cost | Effort |
+|---|---|---|
+| **Oracle Cloud Always-Free VM** | $0 forever | ~30 min one-time |
+| **Render free tier** | $0 (sleeps after 15 min idle, bad for crons) | ~10 min |
+| **Fly.io free tier** | $0 (limited resources) | ~15 min |
+
+**Oracle Cloud** is the go-to for free always-on. You get one VM with 1GB RAM, 50GB disk forever. Steps:
+1. Sign up at https://cloud.oracle.com/free
+2. Create a Compute Instance (Always Free shape: VM.Standard.E2.1.Micro)
+3. SSH in, install Docker
+4. `docker run -d --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n -e N8N_SECURE_COOKIE=false -e WEBHOOK_URL=http://YOUR-VM-IP:5678 docker.n8n.io/n8nio/n8n`
+5. Open port 5678 in Oracle's Network Security List
+6. Visit `http://YOUR-VM-IP:5678`, recreate the workflow (or import the JSON from `n8n-workflows/`)
+7. In each HTTP Request node, change `host.docker.internal:3000` → `https://YOUR-VERCEL-URL.vercel.app`
+
+### Add rate limits to AI / ingest endpoints (recommended once multi-user)
+
+`@upstash/ratelimit` + Upstash Redis (free tier: 10K requests/day) is the standard. Wrap each public-ish endpoint with:
+
+```ts
+const { success } = await ratelimit.limit(identifier);
+if (!success) return new Response("Too many requests", { status: 429 });
+```
+
+Identifier could be `INGEST_SHARED_SECRET` (per-API-client) or IP (for unauthenticated routes).

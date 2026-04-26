@@ -25,6 +25,7 @@ export function NavBar({
             <NavLink href="/">Feed</NavLink>
             <NavLink href="/saved">Saved</NavLink>
             <NavLink href="/applications">Applications</NavLink>
+            <NavLink href="/submit">Submit</NavLink>
             {isAdmin && <NavLink href="/admin">Admin</NavLink>}
           </nav>
         </div>

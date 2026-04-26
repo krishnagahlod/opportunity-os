@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/error"];
+// "/" is public — the page itself decides whether to render the marketing
+// landing (logged out) or the dashboard (logged in).
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/auth/error"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -32,7 +34,8 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // Exact match — using startsWith would make "/" match every path.
+  const isPublic = PUBLIC_PATHS.includes(pathname);
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
