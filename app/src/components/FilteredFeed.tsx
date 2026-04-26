@@ -208,23 +208,19 @@ export function FilteredFeed({
             </h2>
           </div>
           <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sorted.map((opp, i) => {
-              const s = scoreMap[opp.id];
-              return (
-                <div
-                  key={opp.id}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
-                >
-                  <OpportunityCard
-                    opportunity={opp}
-                    isSaved={savedSetMemo.has(opp.id)}
-                    applicationStatus={appliedMap[opp.id]}
-                    why={s?.why ?? null}
-                  />
-                </div>
-              );
-            })}
+            {sorted.map((opp, i) => (
+              <div
+                key={opp.id}
+                className="animate-fade-up"
+                style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
+              >
+                <OpportunityCard
+                  opportunity={opp}
+                  isSaved={savedSetMemo.has(opp.id)}
+                  applicationStatus={appliedMap[opp.id]}
+                />
+              </div>
+            ))}
           </div>
         </section>
       )}

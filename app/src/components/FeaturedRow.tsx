@@ -45,13 +45,12 @@ export function FeaturedRow({
         </span>
       </header>
       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ranked.map(({ opp, s }) => (
+        {ranked.map(({ opp }) => (
           <OpportunityCard
             key={opp.id}
             opportunity={opp}
             isSaved={savedSet.has(opp.id)}
             applicationStatus={appliedMap[opp.id]}
-            why={s?.why ?? null}
           />
         ))}
       </div>

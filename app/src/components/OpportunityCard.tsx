@@ -10,48 +10,65 @@ import { cn, stripHtml } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 /**
- * Minimalistic opportunity card. Always-on (no expand state).
+ * Compact opportunity card.
  *
- * Layout (top → bottom):
+ * Visible (default):
  *   ● title (line-clamp-2)
  *   ORG · deadline-urgency
- *   ─────────────────
+ *   ─────
  *   📍 location · 💰 comp · category-badge
- *   "why" rationale (single line, italic)
- *   [Save] [Mark applied]                    [Apply ↗]
  *
- * The whole card body is a Link to apply_url so a tap on the card opens the
- * external posting in a new tab. Inner action buttons stop propagation so
- * Save / Apply do not also navigate.
+ * On hover/focus the metadata strip is replaced (in the same space, no
+ * expansion) by Save / Mark applied / Apply ↗ actions.
+ *
+ * The card itself acts as a link to apply_url via JS — Save / Mark applied
+ * clicks stop propagation so they do NOT also navigate to the apply URL.
+ * The Apply pill inside the action layer is a real Link.
  */
 export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
-  why = null,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
-  why?: string | null;
 }) {
   const cat = getCategoryStyle(opportunity.category);
   const deadline = formatDeadline(opportunity.deadline);
   const compensation = stripHtml(opportunity.compensation);
-  const cleanWhy = stripHtml(why);
   const location = opportunity.is_remote
     ? "Remote"
     : opportunity.location || null;
+  const apply = opportunity.apply_url;
 
-  const wrapperClass = cn(
-    "group relative flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card transition-all",
-    opportunity.apply_url &&
-      "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
-  );
+  const openApply = () => {
+    if (apply) window.open(apply, "_blank", "noopener,noreferrer");
+  };
 
-  const inner = (
-    <>
-      {/* Header */}
+  return (
+    <article
+      role={apply ? "link" : undefined}
+      tabIndex={apply ? 0 : undefined}
+      aria-label={
+        apply
+          ? `${opportunity.title} at ${opportunity.organization} — opens in a new tab`
+          : undefined
+      }
+      onClick={openApply}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && apply) {
+          e.preventDefault();
+          openApply();
+        }
+      }}
+      className={cn(
+        "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card outline-none transition-all",
+        "focus-visible:ring-2 focus-visible:ring-primary/40",
+        apply && "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
+      )}
+    >
+      {/* Header — title + org + deadline */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <span
           aria-hidden
@@ -83,9 +100,17 @@ export function OpportunityCard({
         </div>
       </div>
 
-      {/* Body — divider, secondary metadata, why, then actions sticking to bottom */}
-      <div className="flex flex-1 flex-col gap-3 border-t border-border/50 px-4 pb-4 pt-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-muted-foreground">
+      {/* Body — relative container; metadata + action layers occupy same space */}
+      <div className="relative mt-auto border-t border-border/50">
+        {/* Metadata layer (default visible) */}
+        <div
+          className={cn(
+            "flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-[11.5px] text-muted-foreground transition-opacity duration-200",
+            "group-hover:opacity-0 group-hover:pointer-events-none",
+            "group-focus-within:opacity-0 group-focus-within:pointer-events-none",
+          )}
+          aria-hidden="true"
+        >
           {location && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3" />
@@ -108,55 +133,44 @@ export function OpportunityCard({
           </span>
         </div>
 
-        {cleanWhy && (
-          <p className="line-clamp-2 rounded-md border-l-2 border-primary/40 bg-primary/[0.04] py-1 pl-2.5 pr-2 text-[11.5px] italic leading-snug text-primary/85 dark:bg-primary/[0.06]">
-            {cleanWhy}
-          </p>
-        )}
-
-        {/* Spacer pushes actions to the bottom in equal-height grid rows */}
-        <div className="flex-1" />
-
+        {/* Action layer (revealed on hover / keyboard focus) */}
         <div
-          className="flex items-center gap-1.5"
-          // Don't let action-button clicks navigate the wrapping link
+          className={cn(
+            "absolute inset-0 flex items-center gap-1.5 px-3 opacity-0 transition-opacity duration-150",
+            "pointer-events-none",
+            "group-hover:opacity-100 group-hover:pointer-events-auto",
+            "group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+          )}
+          // Don't let action-area clicks navigate the parent card.
           onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") e.stopPropagation();
-          }}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           <SaveButton
             opportunityId={opportunity.id}
             isSaved={isSaved}
+            compact
           />
           <ApplyButton
             opportunityId={opportunity.id}
             currentStatus={applicationStatus}
+            compact
           />
-          {opportunity.apply_url && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-foreground px-2.5 py-1 text-xs font-medium text-background transition group-hover:bg-foreground/85">
+          {apply && (
+            <Link
+              href={apply}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="ml-auto inline-flex items-center gap-1 rounded-md bg-foreground px-2.5 py-1 text-xs font-medium text-background transition hover:bg-foreground/85"
+            >
               Apply
-              <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5" />
-            </span>
+              <ArrowUpRight className="size-3" />
+            </Link>
           )}
         </div>
       </div>
-    </>
+    </article>
   );
-
-  if (opportunity.apply_url) {
-    return (
-      <Link
-        href={opportunity.apply_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={wrapperClass}
-      >
-        {inner}
-      </Link>
-    );
-  }
-  return <article className={wrapperClass}>{inner}</article>;
 }
 
 /* ============ helpers ============ */
