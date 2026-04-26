@@ -52,11 +52,13 @@ export async function sendTelegramMessage(
 /** Render a digest as a compact HTML message for Telegram. */
 export function renderDigestForTelegram({
   firstName,
+  myDeadlines,
   topPicks,
   closingSoon,
   appUrl,
 }: {
   firstName: string;
+  myDeadlines: DigestItem[];
   topPicks: DigestItem[];
   closingSoon: DigestItem[];
   appUrl: string;
@@ -64,6 +66,14 @@ export function renderDigestForTelegram({
   const lines: string[] = [];
   lines.push(`<b>Hey ${escapeHtml(firstName)} — here's your digest</b>`);
   lines.push("");
+
+  if (myDeadlines.length > 0) {
+    lines.push("🚨 <b>Your saved · closing in 48h</b>");
+    for (const i of myDeadlines.slice(0, 5)) {
+      lines.push(formatItem(i));
+    }
+    lines.push("");
+  }
 
   if (closingSoon.length > 0) {
     lines.push("⏰ <b>Closing soon</b>");

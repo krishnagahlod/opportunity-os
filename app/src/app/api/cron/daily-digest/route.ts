@@ -3,6 +3,7 @@ import { requireCronAuth } from "@/lib/auth/cron";
 import {
   buildDigestForUser,
   getDigestRecipients,
+  markExpiredOpportunities,
 } from "@/lib/notifications/digest";
 import { sendEmail } from "@/lib/email/send";
 import { DigestEmail } from "@/lib/email/digest";
@@ -39,6 +40,10 @@ export async function GET(req: NextRequest) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
+  // Sweep expired opportunities first so today's digest doesn't surface
+  // anything whose deadline already passed.
+  const expired = await markExpiredOpportunities();
+
   const recipients = await getDigestRecipients();
   const results: Array<{
     user: string;
@@ -61,12 +66,17 @@ export async function GET(req: NextRequest) {
       // --- Email ---
       let emailResult = "skipped: no email on profile";
       if (user.email) {
-        const subject = buildSubject(digest.topPicks.length, digest.closingSoon.length);
+        const subject = buildSubject(
+          digest.topPicks.length,
+          digest.closingSoon.length,
+          digest.myDeadlines.length,
+        );
         const send = await sendEmail({
           to: user.email,
           subject,
           react: DigestEmail({
             firstName,
+            myDeadlines: digest.myDeadlines,
             topPicks: digest.topPicks,
             closingSoon: digest.closingSoon,
             appUrl,
@@ -81,6 +91,7 @@ export async function GET(req: NextRequest) {
       if (chatId) {
         const text = renderDigestForTelegram({
           firstName,
+          myDeadlines: digest.myDeadlines,
           topPicks: digest.topPicks,
           closingSoon: digest.closingSoon,
           appUrl,
@@ -102,6 +113,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    expired_swept: expired.count,
     recipients: recipients.length,
     results,
     generated_at: new Date().toISOString(),
@@ -111,7 +123,16 @@ export async function GET(req: NextRequest) {
 /** Lets us trigger the same flow with POST too (some cron services prefer POST). */
 export const POST = GET;
 
-function buildSubject(topCount: number, closingCount: number): string {
+function buildSubject(
+  topCount: number,
+  closingCount: number,
+  myDeadlineCount: number,
+): string {
+  // Prioritise the user's own deadlines — that's the most actionable signal.
+  if (myDeadlineCount > 0) {
+    const noun = myDeadlineCount === 1 ? "saved opportunity" : "saved opportunities";
+    return `🚨 ${myDeadlineCount} ${noun} closing in 48h`;
+  }
   if (closingCount > 0 && topCount > 0) {
     return `${closingCount} closing soon · ${topCount} top picks`;
   }

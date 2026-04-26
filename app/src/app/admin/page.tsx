@@ -98,6 +98,15 @@ export default async function AdminPage() {
   const opps = oppsRes.data ?? [];
   const last24Logs = last24LogsRes.data ?? [];
 
+  // Source health: any enabled source whose last_run_at is older than 26h
+  // (one cycle past our daily schedule) — or never ran at all.
+  const staleThreshold = Date.now() - 26 * 60 * 60 * 1000;
+  const staleSources = sources.filter((s) => {
+    if (!s.enabled) return false;
+    if (!s.last_run_at) return true; // never ran
+    return parseISO(s.last_run_at).getTime() < staleThreshold;
+  });
+
   // Compute success rate (upserted / total terminal-state attempts)
   const terminalStates = last24Logs.filter((l) =>
     ["upserted", "failed"].includes(l.status as string),
@@ -127,6 +136,25 @@ export default async function AdminPage() {
             controls.
           </p>
         </header>
+
+        {/* Source-health alert banner */}
+        {staleSources.length > 0 && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                {staleSources.length} source
+                {staleSources.length === 1 ? "" : "s"} not seen in the last 26 hours
+              </p>
+              <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/70">
+                {staleSources.map((s) => s.name).join(" · ")}
+              </p>
+              <p className="mt-1 text-[11px] text-amber-800/60 dark:text-amber-200/50">
+                Check the matching workflow in n8n is published and active.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* KPIs */}
         <section className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">

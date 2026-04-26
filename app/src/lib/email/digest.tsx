@@ -15,6 +15,7 @@ import type { DigestItem } from "@/lib/notifications/digest";
 
 type Props = {
   firstName: string;
+  myDeadlines: DigestItem[];
   topPicks: DigestItem[];
   closingSoon: DigestItem[];
   appUrl: string;
@@ -22,11 +23,17 @@ type Props = {
 
 export function DigestEmail({
   firstName,
+  myDeadlines,
   topPicks,
   closingSoon,
   appUrl,
 }: Props) {
   const previewLines: string[] = [];
+  if (myDeadlines.length > 0) {
+    previewLines.push(
+      `${myDeadlines.length} of your saved closing in 48h`,
+    );
+  }
   if (topPicks[0]) {
     previewLines.push(`${topPicks[0].score} · ${topPicks[0].opportunity.title}`);
   }
@@ -53,6 +60,17 @@ export function DigestEmail({
           <Text style={paragraphStyle}>
             Here&apos;s what your feed surfaced today.
           </Text>
+
+          {myDeadlines.length > 0 && (
+            <Section style={urgentSectionStyle}>
+              <Heading style={urgentH2Style}>
+                🚨 Your saved · closing in 48h
+              </Heading>
+              {myDeadlines.map((item) => (
+                <ItemRow key={item.opportunity.id} item={item} appUrl={appUrl} />
+              ))}
+            </Section>
+          )}
 
           {closingSoon.length > 0 && (
             <Section style={sectionStyle}>
@@ -175,12 +193,29 @@ const sectionStyle: React.CSSProperties = {
   marginBottom: "20px",
 };
 
+const urgentSectionStyle: React.CSSProperties = {
+  marginBottom: "24px",
+  padding: "16px",
+  borderRadius: "12px",
+  border: "1px solid #fcd34d",
+  backgroundColor: "#fffbeb",
+};
+
 const h2Style: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 600,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
   color: "#71717a",
+  margin: "0 0 8px",
+};
+
+const urgentH2Style: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#92400e",
   margin: "0 0 8px",
 };
 
