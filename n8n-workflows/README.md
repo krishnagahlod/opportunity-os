@@ -298,12 +298,61 @@ When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
 4. Save → click **Execute Workflow** to test → toggle **Active** (top right)
    when ready to let the cron fire automatically every 6 hours.
 
-## Planned workflows
+## Workflows
 
-- [x] **`01-rss-hn-jobs`** — polls Hacker News RSS for "Who's hiring" listings, AI-extracts and upserts
-- [ ] **`02-unstop-scraper`** — hits Unstop listing pages, parses HTML
-- [ ] **`03-wellfound-scraper`** — startup jobs from Wellfound
-- [ ] **`04-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+- [x] **`01-rss-hn-jobs`** — Hacker News "Who's hiring" RSS, every 6h
+- [x] **`02-rss-weworkremotely`** — WeWorkRemotely all-jobs RSS, every 6h
+- [x] **`03-greenhouse-ats`** — Greenhouse JSON Job Board API, multi-company, every 12h
+- [x] **`04-devpost-hackathons`** — Devpost hackathons via internal JSON API (direct upsert, no AI), every 12h
+- [x] **`05-unstop-hackathons`** — Unstop India hackathons via public search API (direct upsert, no AI), every 12h
+- [ ] **`06-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+
+## Workflow 04/05 — Direct upsert pattern (no AI extract)
+
+Both Devpost and Unstop expose JSON APIs that already include all the
+fields we need (title, organization, deadline, prize, description). So
+these workflows construct the Opportunity object inline in a Code node
+and POST straight to `/api/ingest/upsert`, **skipping AI Extract entirely**.
+
+Why this matters:
+- **~zero AI tokens** for hackathon ingestion (vs ~600/extraction)
+- **~10x faster** per item (no Wait, no LLM call)
+- **Higher fidelity** — no AI mistranscription of dates, prize amounts, etc.
+- **`extraction_confidence` set to 0.9–0.95** since data is direct-from-source
+
+The pattern is reusable for any source with a structured listing API:
+write the field mapping in the Fetch Code node, set `extraction_confidence`
+high, point straight at `/api/ingest/upsert`.
+
+To extend either workflow to other Unstop/Devpost categories
+(competitions, internships, fellowships), clone the workflow file and
+change the `opportunity=` query param + the `category` field in the
+Opportunity object construction.
+
+## Workflow 03 — Greenhouse ATS notes
+
+Different shape from the RSS workflows: a single Code node fetches every
+company's JSON listing inside the workflow itself (no RSS Read node),
+flattens, then runs the same dedup → AI extract → upsert pipeline.
+
+**Add a company** by editing the `COMPANIES` array inside the
+`Fetch Greenhouse Jobs` Code node. Find the slug from the company's
+careers URL (e.g. `boards.greenhouse.io/<slug>` or
+`job-boards.greenhouse.io/<slug>`). Verify it works before adding by
+opening `https://boards-api.greenhouse.io/v1/boards/<slug>/jobs` in a
+browser — should return JSON with a `jobs` array.
+
+**Why no keyword filter**: every Greenhouse result is already a job
+listing, so the keyword IF node from the RSS workflows would always
+pass. Skipping it keeps the graph clean.
+
+**Why every 12h** (not 6h): 5 companies × 8 jobs each = up to 40 fresh
+extractions per run. Twice-daily keeps Gemini free-tier headroom while
+still catching new postings within ~12 hours.
+
+**`source_name`** is per-company (`Greenhouse: Anthropic`, etc.) so the
+admin source-health view shows which companies are healthy. The upsert
+endpoint auto-creates the source row on first sighting.
 
 ## Lessons from building 01
 

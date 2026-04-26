@@ -1,0 +1,161 @@
+{
+  "name": "Devpost — Hackathons (direct upsert)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "40dvp001-0000-4000-8000-000000000001",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Devpost Hackathons API ===\n// Devpost exposes a public JSON listing endpoint that powers their UI.\n// Returns ~9-13k hackathons total; we only fetch open ones, capped to 20.\n//\n// Each result has structured fields, so we skip AI extract entirely\n// and construct the Opportunity object inline.\n\nconst MONTHS = {\n  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,\n  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,\n};\n\n// \"Apr 09 - May 20, 2026\" → \"2026-05-20\". Returns null if unparseable.\nfunction parseDeadline(s) {\n  if (!s) return null;\n  const m = s.match(/-\\s*([A-Za-z]{3,9})\\s+(\\d{1,2}),?\\s*(\\d{4})/);\n  if (!m) return null;\n  const month = MONTHS[m[1].slice(0, 3)];\n  if (!month) return null;\n  const day = String(m[2]).padStart(2, '0');\n  const mm = String(month).padStart(2, '0');\n  return `${m[3]}-${mm}-${day}`;\n}\n\nlet data;\ntry {\n  data = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://devpost.com/api/hackathons?status%5B%5D=open&per_page=20',\n    json: true,\n    headers: { Accept: 'application/json' },\n  });\n} catch (e) {\n  throw new Error('Devpost API fetch failed: ' + ((e && e.message) || e));\n}\n\nconst hackathons = Array.isArray(data && data.hackathons) ? data.hackathons : [];\nif (hackathons.length === 0) {\n  throw new Error('Devpost returned 0 hackathons');\n}\n\nconst out = [];\nfor (const h of hackathons) {\n  const orgName = h.organization_name || 'Devpost';\n  const location = (h.displayed_location && h.displayed_location.location) || 'Online';\n  const isRemote = location.toLowerCase().includes('online') ||\n                   location.toLowerCase().includes('remote') ||\n                   location.toLowerCase().includes('worldwide');\n  const themes = Array.isArray(h.themes) ? h.themes.map(t => (t && t.name) || '').filter(Boolean) : [];\n\n  const descriptionParts = [];\n  if (h.submission_period_dates) descriptionParts.push(`Submission period: ${h.submission_period_dates}`);\n  if (h.prize_amount)            descriptionParts.push(`Prize pool: ${h.prize_amount}`);\n  if (h.registrations_count)     descriptionParts.push(`${h.registrations_count.toLocaleString()} registered so far`);\n  if (themes.length)             descriptionParts.push(`Themes: ${themes.join(', ')}`);\n  if (h.invite_only)             descriptionParts.push('Invite-only event');\n\n  const summary = `${orgName} hackathon — ${h.prize_amount || 'prizes available'}, ${h.time_left_to_submission || 'open for submissions'}.`;\n\n  // Build Opportunity object that matches ExtractedOpportunitySchema exactly.\n  const opportunity = {\n    title: h.title,\n    organization: orgName,\n    category: 'hackathon',\n    description: descriptionParts.join('. ') || null,\n    summary: summary.length > 280 ? summary.slice(0, 277) + '...' : summary,\n    tags: themes.slice(0, 6).map(t => t.toLowerCase()),\n    deadline: parseDeadline(h.submission_period_dates),\n    eligibility: h.invite_only ? 'Invite only' : null,\n    location: location,\n    compensation: h.prize_amount || null,\n    is_remote: isRemote,\n    apply_url: h.url,\n    difficulty: null,\n    estimated_value_score: null,\n    // High confidence — pre-structured from source, not AI-extracted.\n    extraction_confidence: 0.95,\n  };\n\n  out.push({ json: { opportunity, source_url: h.url } });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [208, 0],
+      "id": "40dvp001-0000-4000-8000-000000000002",
+      "name": "Fetch Devpost Hackathons"
+    },
+    {
+      "parameters": { "maxItems": 15 },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [416, 0],
+      "id": "40dvp001-0000-4000-8000-000000000003",
+      "name": "Limit"
+    },
+    {
+      "parameters": { "options": { "reset": false } },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [624, 0],
+      "id": "40dvp001-0000-4000-8000-000000000004",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/check-exists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "source_url", "value": "={{ $json.source_url }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [832, 0],
+      "id": "40dvp001-0000-4000-8000-000000000005",
+      "name": "Check Exists"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "n1",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1040, 0],
+      "id": "40dvp001-0000-4000-8000-000000000006",
+      "name": "If New"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/upsert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "opportunity", "value": "={{ $('Loop Over Items').item.json.opportunity }}" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.source_url }}" },
+            { "name": "source_name", "value": "Devpost" }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1280, -64],
+      "id": "40dvp001-0000-4000-8000-000000000007",
+      "name": "Upsert Opportunity"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status",      "value": "skipped_duplicate" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.source_url }}" },
+            { "name": "source_name", "value": "Devpost" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1280, 272],
+      "id": "40dvp001-0000-4000-8000-000000000008",
+      "name": "Log Duplicate"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger":        { "main": [[{ "node": "Fetch Devpost Hackathons", "type": "main", "index": 0 }]] },
+    "Fetch Devpost Hackathons":{ "main": [[{ "node": "Limit",                    "type": "main", "index": 0 }]] },
+    "Limit":                   { "main": [[{ "node": "Loop Over Items",          "type": "main", "index": 0 }]] },
+    "Loop Over Items":         { "main": [[], [{ "node": "Check Exists",         "type": "main", "index": 0 }]] },
+    "Check Exists":            { "main": [[{ "node": "If New",                   "type": "main", "index": 0 }]] },
+    "If New":                  { "main": [
+      [{ "node": "Upsert Opportunity", "type": "main", "index": 0 }],
+      [{ "node": "Log Duplicate",      "type": "main", "index": 0 }]
+    ] },
+    "Upsert Opportunity":      { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] },
+    "Log Duplicate":           { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "tags": []
+}
