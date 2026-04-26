@@ -8,6 +8,10 @@ import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
 
+// Card columns only — skip `description`, `eligibility`, `source_url` etc.
+const CARD_COLUMNS =
+  "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status";
+
 export default async function SavedPage() {
   const supabase = await createClient();
   const {
@@ -22,22 +26,24 @@ export default async function SavedPage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
-  const { data } = await supabase
-    .from("saved_opportunities")
-    .select("opportunity_id, opportunities(*)")
-    .eq("user_id", user.id)
-    .order("saved_at", { ascending: false });
+  const [savedRes, appsRes] = await Promise.all([
+    supabase
+      .from("saved_opportunities")
+      .select(`opportunity_id, opportunities(${CARD_COLUMNS})`)
+      .eq("user_id", user.id)
+      .order("saved_at", { ascending: false }),
+    supabase
+      .from("applications")
+      .select("opportunity_id,status")
+      .eq("user_id", user.id),
+  ]);
 
-  const opps: Opportunity[] = (data ?? [])
+  const opps: Opportunity[] = (savedRes.data ?? [])
     .map((row) => row.opportunities as unknown as Opportunity)
     .filter(Boolean);
 
-  const { data: applicationRows } = await supabase
-    .from("applications")
-    .select("opportunity_id,status")
-    .eq("user_id", user.id);
   const appliedMap = new Map<string, ApplicationStatus>(
-    (applicationRows ?? []).map((a) => [
+    (appsRes.data ?? []).map((a) => [
       a.opportunity_id as string,
       a.status as ApplicationStatus,
     ]),

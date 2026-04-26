@@ -10,6 +10,12 @@ import { Landing } from "./Landing";
 
 export const dynamic = "force-dynamic";
 
+// Columns the feed UI actually consumes. Skips long-text fields
+// (`description`, `eligibility`, `source_url`, etc.) which would otherwise
+// add hundreds of KB to the RSC payload for a 120-row pool.
+const FEED_COLUMNS =
+  "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status";
+
 export default async function HomePage() {
   const supabase = await createClient();
   const {
@@ -19,6 +25,8 @@ export default async function HomePage() {
   // Logged-out visitors see the marketing landing.
   if (!user) return <Landing />;
 
+  // Profile is needed before we can decide onboarding gating, so it's serial.
+  // Everything after the onboarding check is independent and runs in parallel.
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -26,32 +34,43 @@ export default async function HomePage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
-  // Fetch a wide pool — client-side filtering re-ranks below.
-  const { data: opportunities } = await supabase
-    .from("opportunities")
-    .select("*")
-    .eq("status", "active")
-    .order("date_added", { ascending: false })
-    .limit(120);
+  // Parallel batch — these 3 queries don't depend on each other.
+  const [oppsRes, savedRes, appsRes] = await Promise.all([
+    supabase
+      .from("opportunities")
+      .select(FEED_COLUMNS)
+      .eq("status", "active")
+      .order("date_added", { ascending: false })
+      .limit(120),
+    supabase
+      .from("saved_opportunities")
+      .select("opportunity_id")
+      .eq("user_id", user.id),
+    supabase
+      .from("applications")
+      .select("opportunity_id,status")
+      .eq("user_id", user.id),
+  ]);
 
-  const opps: Opportunity[] = (opportunities as Opportunity[] | null) ?? [];
+  const opps: Opportunity[] = (oppsRes.data as Opportunity[] | null) ?? [];
 
-  // Compute / fetch cached personalized scores for all opps in one batch
-  const scoreMapInternal = await refreshScores(profile as Profile, opps);
-
-  // Sources lookup so the filter UI can show "Greenhouse: Anthropic", etc.
+  // Two more parallel queries that need `opps` before they can run:
+  //   - sources: only the ids we actually have in this pool
+  //   - scores: refreshScores reads the score cache and computes any misses
   const sourceIds = Array.from(
     new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
   );
+
+  const [scoreMapInternal, sourcesRes] = await Promise.all([
+    refreshScores(profile as Profile, opps),
+    sourceIds.length > 0
+      ? supabase.from("sources").select("id,name").in("id", sourceIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ]);
+
   const sourceById = new Map<string, string>();
-  if (sourceIds.length > 0) {
-    const { data: sources } = await supabase
-      .from("sources")
-      .select("id,name")
-      .in("id", sourceIds);
-    for (const s of (sources ?? []) as { id: string; name: string }[]) {
-      sourceById.set(s.id, s.name);
-    }
+  for (const s of (sourcesRes.data ?? []) as { id: string; name: string }[]) {
+    sourceById.set(s.id, s.name);
   }
   const sourceMap: Record<string, string> = {};
   for (const o of opps) {
@@ -61,20 +80,12 @@ export default async function HomePage() {
     }
   }
 
-  const { data: savedRows } = await supabase
-    .from("saved_opportunities")
-    .select("opportunity_id")
-    .eq("user_id", user.id);
   const savedSet = new Set(
-    (savedRows ?? []).map((s) => s.opportunity_id as string),
+    (savedRes.data ?? []).map((s) => s.opportunity_id as string),
   );
 
-  const { data: applicationRows } = await supabase
-    .from("applications")
-    .select("opportunity_id,status")
-    .eq("user_id", user.id);
   const appliedMap = new Map<string, ApplicationStatus>(
-    (applicationRows ?? []).map((a) => [
+    (appsRes.data ?? []).map((a) => [
       a.opportunity_id as string,
       a.status as ApplicationStatus,
     ]),

@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Opportunity, Profile, Score as DbScore } from "@/types/db";
 import { computeScore, type Score } from "./score";
@@ -14,7 +15,10 @@ export type ScoreMap = Map<string, Score>;
  *   1. Read all existing score rows for (user, opp) pairs in the input set.
  *   2. Filter to ones that are stale (> 6h) or missing.
  *   3. Compute scores for those locally (deterministic, no AI).
- *   4. Upsert results back into `scores` table.
+ *   4. Upsert results back into `scores` table — deferred via `after()` so
+ *      the response can flush before the write completes. The user only
+ *      cares that subsequent visits hit the cache; this visit already has
+ *      the in-memory scores.
  *   5. Return a Map<opportunity_id, Score> covering ALL inputs.
  *
  * Uses the service-role admin client so we can write scores even from a
@@ -75,15 +79,14 @@ export async function refreshScores(
     });
   }
 
-  // 3) Upsert all new rows in a single round-trip
-  const { error } = await supabase
-    .from("scores")
-    .upsert(newRows, { onConflict: "user_id,opportunity_id" });
-
-  if (error) {
-    console.error("[scoring] upsert failed:", error.message);
-    // Non-fatal — we still return the in-memory scores so the UI works
-  }
+  // 3) Defer the write — runs after the response flushes so the user
+  //    isn't waiting on the upsert round-trip.
+  after(async () => {
+    const { error } = await supabase
+      .from("scores")
+      .upsert(newRows, { onConflict: "user_id,opportunity_id" });
+    if (error) console.error("[scoring] upsert failed:", error.message);
+  });
 
   return result;
 }

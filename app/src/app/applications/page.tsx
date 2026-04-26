@@ -22,9 +22,15 @@ export default async function ApplicationsPage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
+  // Card columns only — skip `description`, `eligibility`, `source_url` etc.
+  const CARD_COLUMNS =
+    "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status";
+
   const { data } = await supabase
     .from("applications")
-    .select("id, opportunity_id, status, updated_at, opportunities(*)")
+    .select(
+      `id, opportunity_id, status, updated_at, opportunities(${CARD_COLUMNS})`,
+    )
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
