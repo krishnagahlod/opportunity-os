@@ -58,8 +58,17 @@ export async function POST(req: NextRequest) {
   const supabase = createAdminClient();
   const start = Date.now();
 
+  // Fallback chain for organization: AI may return null (e.g. for community
+  // forum posts that aren't tied to a specific employer). Derive a reasonable
+  // value rather than failing the upsert against a NOT-NULL column.
+  const cleanOrg = (opp.organization ?? "").trim();
+  const organization =
+    cleanOrg.length > 0
+      ? cleanOrg
+      : deriveOrgFallback(source_url ?? opp.apply_url, source_name);
+
   const dedupUrl =
-    source_url ?? opp.apply_url ?? hashUrl(opp.title, opp.organization);
+    source_url ?? opp.apply_url ?? hashUrl(opp.title, organization);
 
   const source_id = source_name
     ? await resolveOrCreateSource(supabase, source_name)
@@ -67,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   const row = {
     title: opp.title,
-    organization: opp.organization,
+    organization,
     category: opp.category as (typeof CATEGORIES)[number],
     description: opp.description,
     summary: opp.summary,
@@ -147,6 +156,27 @@ export async function POST(req: NextRequest) {
 function hashUrl(title: string, organization: string): string {
   const key = `${title.toLowerCase().trim()}|${organization.toLowerCase().trim()}`;
   return `hash:${createHash("sha1").update(key).digest("hex").slice(0, 16)}`;
+}
+
+/**
+ * Best-effort organization name when AI couldn't infer one.
+ * Tries (in order): URL hostname (capitalized), source_name, "Unknown".
+ */
+function deriveOrgFallback(
+  url: string | null | undefined,
+  sourceName: string | null | undefined,
+): string {
+  if (url) {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, "");
+      const root = host.split(".")[0];
+      if (root) return root.charAt(0).toUpperCase() + root.slice(1);
+    } catch {
+      // not a real URL (could be a hash:xxx string) — fall through
+    }
+  }
+  if (sourceName && sourceName.trim()) return sourceName.trim();
+  return "Unknown";
 }
 
 /**

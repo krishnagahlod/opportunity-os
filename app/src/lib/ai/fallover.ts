@@ -31,7 +31,9 @@ export async function callLLM<T>({
   prompt,
   schema,
   systemInstruction,
-  maxTokens = 600,
+  // 1000 ≈ ~750 words of JSON output. ExtractedOpportunitySchema has ~16 fields;
+  // Groq was previously truncating at 600 on items with longer summaries/why text.
+  maxTokens = 1000,
 }: {
   prompt: string;
   schema: ZodSchema<T>;

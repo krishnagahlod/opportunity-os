@@ -27,7 +27,10 @@ export const CATEGORIES = [
 
 export const ExtractedOpportunitySchema = z.object({
   title: z.string().min(1).max(300),
-  organization: z.string().min(1).max(200),
+  // Some AI extractions can't determine org (e.g., a Reddit megathread).
+  // Allow null here; the upsert endpoint falls back to source_url hostname
+  // or source_name so the DB never gets an actual null in the NOT-NULL column.
+  organization: z.string().max(200).nullable().optional().default(null),
   category: z.enum(CATEGORIES),
   description: z.string().nullable().optional().default(null),
   summary: z.string().max(300).nullable().optional().default(null),
