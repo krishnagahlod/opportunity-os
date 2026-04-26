@@ -129,6 +129,9 @@ export function getCategoryStyle(
   return STYLES[category as OpportunityCategory] ?? DEFAULT;
 }
 
+/** Iterable lookup for use in pickers/filters. Same data as getCategoryStyle. */
+export const CATEGORY_META: Record<OpportunityCategory, CategoryStyle> = STYLES;
+
 /** Stable pastel initial circle for an organization. */
 export function orgInitials(org: string): string {
   const words = org.trim().split(/\s+/).filter(Boolean);
