@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { differenceInDays, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { CATEGORY_META, getCategoryStyle } from "@/lib/categories";
 import type { Opportunity, OpportunityCategory } from "@/types/db";
@@ -9,7 +8,6 @@ import type { Opportunity, OpportunityCategory } from "@/types/db";
 type Stack = {
   category: OpportunityCategory;
   count: number;
-  closingSoon: number;
 };
 
 /**
@@ -40,7 +38,7 @@ export function CategoryStacks({
           {stacks.length === 1 ? "category" : "categories"}.
         </p>
       </header>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {stacks.map((s) => (
           <CategoryStack key={s.category} stack={s} onPick={onPick} />
         ))}
@@ -76,8 +74,8 @@ function CategoryStack({
         className="absolute inset-0 translate-x-[3px] translate-y-[3px] rounded-2xl border border-border/70 bg-card/70 transition-transform group-hover:translate-x-[4px] group-hover:translate-y-[4px]"
       />
 
-      {/* Top card */}
-      <div className="relative rounded-2xl border border-border bg-card px-5 pb-5 pt-5 shadow-card transition-all group-hover:-translate-y-0.5 group-hover:shadow-elevated">
+      {/* Top card — fixed-height to keep the row visually consistent */}
+      <div className="relative flex h-full min-h-[170px] flex-col rounded-2xl border border-border bg-card px-5 py-5 shadow-card transition-all group-hover:-translate-y-0.5 group-hover:shadow-elevated">
         <div className="flex items-start justify-between gap-3">
           <span
             className={cn(
@@ -88,19 +86,17 @@ function CategoryStack({
           >
             <Icon className="size-5" />
           </span>
-          <span
+          <ArrowRight
             aria-hidden
-            className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/70 transition-colors group-hover:text-foreground"
-          >
-            <ArrowRight className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-          </span>
+            className="size-4 text-muted-foreground/40 transition-all group-hover:translate-x-0.5 group-hover:text-foreground"
+          />
         </div>
 
         <h3 className="mt-5 text-[15.5px] font-semibold tracking-tight">
           {cat.label}
         </h3>
 
-        <div className="mt-1 flex items-baseline gap-2">
+        <div className="mt-auto flex items-baseline gap-2 pt-3">
           <span className="text-[28px] font-semibold leading-none tabular-nums tracking-tight">
             {stack.count}
           </span>
@@ -108,12 +104,6 @@ function CategoryStack({
             {stack.count === 1 ? "opportunity" : "opportunities"}
           </span>
         </div>
-
-        {stack.closingSoon > 0 && (
-          <p className="mt-3 text-[11.5px] font-medium text-amber-600 dark:text-amber-300">
-            {stack.closingSoon} closing this week
-          </p>
-        )}
       </div>
     </button>
   );
@@ -138,29 +128,18 @@ const PRIORITY: OpportunityCategory[] = [
 ];
 
 function buildStacks(opps: Opportunity[]): Stack[] {
-  const counts = new Map<OpportunityCategory, { count: number; closing: number }>();
-  const now = new Date();
+  const counts = new Map<OpportunityCategory, number>();
   for (const o of opps) {
     if (!o.category || !(o.category in CATEGORY_META)) continue;
     const c = o.category as OpportunityCategory;
-    const entry = counts.get(c) ?? { count: 0, closing: 0 };
-    entry.count++;
-    if (o.deadline) {
-      const days = differenceInDays(parseISO(o.deadline), now);
-      if (days >= 0 && days <= 7) entry.closing++;
-    }
-    counts.set(c, entry);
+    counts.set(c, (counts.get(c) ?? 0) + 1);
   }
 
   const stacks: Stack[] = [];
   for (const cat of PRIORITY) {
-    const entry = counts.get(cat);
-    if (!entry || entry.count === 0) continue;
-    stacks.push({
-      category: cat,
-      count: entry.count,
-      closingSoon: entry.closing,
-    });
+    const count = counts.get(cat) ?? 0;
+    if (count === 0) continue;
+    stacks.push({ category: cat, count });
   }
   return stacks;
 }

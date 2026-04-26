@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { CategoryStacks } from "@/components/CategoryStacks";
+import { FeaturedRow } from "@/components/FeaturedRow";
 import { CATEGORY_META } from "@/lib/categories";
 import {
   DEFAULT_FILTERS,
@@ -175,10 +176,18 @@ export function FilteredFeed({
       />
 
       {!hasActiveFilter ? (
-        <CategoryStacks
-          opportunities={opportunities}
-          onPick={onPickCategory}
-        />
+        <div className="space-y-10">
+          <FeaturedRow
+            opportunities={opportunities}
+            scoreMap={scoreMap}
+            savedSet={savedSetMemo}
+            appliedMap={appliedMap}
+          />
+          <CategoryStacks
+            opportunities={opportunities}
+            onPick={onPickCategory}
+          />
+        </div>
       ) : sorted.length === 0 ? (
         <NoResults onClear={() => setState(DEFAULT_FILTERS)} />
       ) : (
@@ -198,7 +207,7 @@ export function FilteredFeed({
                 : `${sorted.length} matching`}
             </h2>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sorted.map((opp, i) => {
               const s = scoreMap[opp.id];
               return (

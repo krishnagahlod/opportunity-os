@@ -99,33 +99,33 @@ export function FilterBar({
   }
 
   return (
-    <div className="space-y-2.5">
-      {/* Main control row */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id={searchId}
-            type="search"
-            value={state.q}
-            onChange={(e) => patch({ q: e.target.value })}
-            placeholder="Search title, org, tag…"
-            className="h-8 pl-8 text-sm"
-            aria-label="Search opportunities"
-          />
-          {state.q && (
-            <button
-              type="button"
-              onClick={() => patch({ q: "" })}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="size-3" />
-            </button>
-          )}
-        </div>
+    <div className="space-y-3">
+      {/* Search row — full-width, prominent */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id={searchId}
+          type="search"
+          value={state.q}
+          onChange={(e) => patch({ q: e.target.value })}
+          placeholder="Search title, organization, or tag…"
+          className="h-11 w-full rounded-xl border-border/70 bg-card pl-10 pr-10 text-[14px] shadow-card transition focus-visible:border-primary/50 focus-visible:shadow-elevated"
+          aria-label="Search opportunities"
+        />
+        {state.q && (
+          <button
+            type="button"
+            onClick={() => patch({ q: "" })}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            aria-label="Clear search"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
 
+      {/* Filter row — pill-style buttons */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {/* Category multi-select */}
         <FilterDropdown
           label="Category"
@@ -276,13 +276,6 @@ export function FilterBar({
               label="Remote only"
               type="Mode"
               onRemove={() => patch({ remote: false })}
-            />
-          )}
-          {state.q && (
-            <Chip
-              label={`"${state.q}"`}
-              type="Search"
-              onRemove={() => patch({ q: "" })}
             />
           )}
           <button
