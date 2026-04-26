@@ -302,10 +302,31 @@ When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
 
 - [x] **`01-rss-hn-jobs`** — Hacker News "Who's hiring" RSS, every 6h
 - [x] **`02-rss-weworkremotely`** — WeWorkRemotely all-jobs RSS, every 6h
-- [x] **`03-greenhouse-ats`** — Greenhouse JSON Job Board API, multi-company, every 12h
+- [x] **`03-greenhouse-ats`** — Greenhouse JSON Job Board API, 9 companies (Anthropic, Figma, Vercel, Discord, Airbnb, Postman, Cloudflare, Stripe, Webflow), every 12h
 - [x] **`04-devpost-hackathons`** — Devpost hackathons via internal JSON API (direct upsert, no AI), every 12h
 - [x] **`05-unstop-hackathons`** — Unstop India hackathons via public search API (direct upsert, no AI), every 12h
-- [ ] **`06-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+- [x] **`06-unstop-competitions`** — Unstop case competitions via the same search API; per-item type filter to skip leaked hackathons (direct upsert), every 12h
+- [x] **`07-unstop-internships`** — Unstop India internships with structured stipend extraction (direct upsert), every 6h
+- [x] **`08-internshala-internships`** — Internshala via their internal `/hiring/search` JSON endpoint, programming category (direct upsert), every 6h
+- [x] **`10-rss-reddit-india`** — Aggregates Atom feeds from `r/developersIndia`, `r/cscareerquestionsIndia`, `r/csMajors` with keyword filter and AI extract, every 12h
+- [ ] **`09-mlh-events`** — Reserved. MLH does not expose JSON or iCal; an HTML scrape + AI extract path needs a separate session
+- [ ] **`11-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+
+## How to verify a Greenhouse company before adding
+
+Each company's careers page URL embeds the Greenhouse "board token" — that's the slug we need. Verify a slug is alive by hitting:
+
+```
+https://boards-api.greenhouse.io/v1/boards/<slug>/jobs
+```
+
+A 200 with a `jobs` array means add it. A 404 means the company moved to a different ATS (Lever, Ashby, Workday) and the slug should be dropped. Companies that 404'd as of Phase 9: hasura, atlassian, github, huggingface, plaid, notion, razorpay, openai. Those would need separate Lever/Ashby workflows.
+
+## Reddit aggregator notes
+
+Reddit's `.rss` endpoint returns Atom XML. The Code node fetches each subreddit, regex-parses `<entry>` blocks, and emits flat items. Reddit gates by User-Agent, so the helper sets a descriptive UA. If Reddit starts 429-ing the workflow, change to a unique UA like `opportunity-os/1.0 by /u/<your_reddit_username>`.
+
+This is the only post-Phase-9 workflow that still uses AI Extract — community posts are messy free-text and the AI's job is to decide whether each one is a real opportunity (extraction_confidence < 0.5 lets us hide noise on the dashboard).
 
 ## Workflow 04/05 — Direct upsert pattern (no AI extract)
 
