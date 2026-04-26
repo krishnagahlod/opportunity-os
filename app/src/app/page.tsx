@@ -96,7 +96,7 @@ export default async function HomePage() {
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
 
       {/* No hero strip — straight into filter + list. The page IS the feed. */}
-      <main id="main" className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
         {opps.length === 0 ? (
           <EmptyState
             icon={Sparkles}

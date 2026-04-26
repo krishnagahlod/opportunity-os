@@ -2,8 +2,11 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
-import { OpportunityRow } from "@/components/OpportunityRow";
+import { OpportunityCard } from "@/components/OpportunityCard";
+import { CategoryStacks } from "@/components/CategoryStacks";
+import { CATEGORY_META } from "@/lib/categories";
 import {
   DEFAULT_FILTERS,
   FilterBar,
@@ -137,8 +140,31 @@ export function FilteredFeed({
 
   const savedSetMemo = useMemo(() => new Set(savedSet), [savedSet]);
 
+  // Show category stacks as the entry view when no filter / search is active.
+  // The moment any filter narrows the pool, switch to expandable cards.
+  const hasActiveFilter =
+    state.q.trim().length > 0 ||
+    state.categories.length > 0 ||
+    state.sources.length > 0 ||
+    state.deadline !== "any" ||
+    state.remote;
+
+  // Stack click → set the chosen category as the only category filter.
+  const onPickCategory = useCallback(
+    (cat: OpportunityCategory) => {
+      setState({ ...state, categories: [cat] });
+    },
+    [setState, state],
+  );
+
+  // When viewing a single category, name it for the section header
+  const singleCategoryLabel =
+    state.categories.length === 1
+      ? CATEGORY_META[state.categories[0]]?.label
+      : null;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <FilterBar
         state={state}
         setState={setState}
@@ -148,28 +174,50 @@ export function FilteredFeed({
         filteredCount={sorted.length}
       />
 
-      {sorted.length === 0 ? (
+      {!hasActiveFilter ? (
+        <CategoryStacks
+          opportunities={opportunities}
+          onPick={onPickCategory}
+        />
+      ) : sorted.length === 0 ? (
         <NoResults onClear={() => setState(DEFAULT_FILTERS)} />
       ) : (
-        <ul className="divide-y divide-border/40">
-          {sorted.map((opp, i) => {
-            const s = scoreMap[opp.id];
-            return (
-              <li
-                key={opp.id}
-                className="animate-fade-up"
-                style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
-              >
-                <OpportunityRow
-                  opportunity={opp}
-                  isSaved={savedSetMemo.has(opp.id)}
-                  applicationStatus={appliedMap[opp.id]}
-                  why={s?.why ?? null}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <section>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setState(DEFAULT_FILTERS)}
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="size-3.5" />
+              All categories
+            </button>
+            <h2 className="text-sm font-semibold tracking-tight">
+              {singleCategoryLabel
+                ? `${singleCategoryLabel} (${sorted.length})`
+                : `${sorted.length} matching`}
+            </h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sorted.map((opp, i) => {
+              const s = scoreMap[opp.id];
+              return (
+                <div
+                  key={opp.id}
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
+                >
+                  <OpportunityCard
+                    opportunity={opp}
+                    isSaved={savedSetMemo.has(opp.id)}
+                    applicationStatus={appliedMap[opp.id]}
+                    why={s?.why ?? null}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

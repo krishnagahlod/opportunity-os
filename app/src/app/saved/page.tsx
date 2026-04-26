@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
-import { OpportunityRow } from "@/components/OpportunityRow";
+import { OpportunityCard } from "@/components/OpportunityCard";
 import { EmptyState } from "@/components/EmptyState";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
@@ -46,11 +46,12 @@ export default async function SavedPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main id="main" className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
-        <header className="mb-5 flex items-baseline justify-between">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+        <header className="mb-6 flex items-baseline justify-between">
           <h1 className="text-lg font-semibold tracking-tight">Saved</h1>
           <span className="text-[11px] tabular-nums text-muted-foreground">
-            {opps.length}
+            {opps.length}{" "}
+            {opps.length === 1 ? "opportunity" : "opportunities"}
           </span>
         </header>
         {opps.length === 0 ? (
@@ -60,23 +61,22 @@ export default async function SavedPage() {
             description={
               <>
                 Hit <span className="font-medium text-foreground">Save</span> on
-                any row in your feed to bookmark it here.
+                any opportunity to bookmark it here.
               </>
             }
             action={{ label: "Browse the feed", href: "/" }}
           />
         ) : (
-          <ul className="divide-y divide-border/40">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {opps.map((opp) => (
-              <li key={opp.id}>
-                <OpportunityRow
-                  opportunity={opp}
-                  isSaved={true}
-                  applicationStatus={appliedMap.get(opp.id)}
-                />
-              </li>
+              <OpportunityCard
+                key={opp.id}
+                opportunity={opp}
+                isSaved={true}
+                applicationStatus={appliedMap.get(opp.id)}
+              />
             ))}
-          </ul>
+          </div>
         )}
       </main>
     </div>
