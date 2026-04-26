@@ -291,8 +291,8 @@ export function SettingsForm({ profile }: { profile: Profile }) {
               inputMode="numeric"
             />
             <p className="text-[11px] text-muted-foreground">
-              Leave blank to fall back to the server&apos;s
-              TELEGRAM_DEFAULT_CHAT_ID env var.
+              Leave blank to skip Telegram delivery — you&apos;ll still get the
+              email digest.
             </p>
           </div>
         </div>

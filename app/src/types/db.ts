@@ -42,6 +42,8 @@ export type Profile = {
   time_commitment: TimeCommitment | null;
   resume_url: string | null;
   telegram_chat_id: string | null;
+  /** UUID used to authenticate /api/calendar.ics subscribers. Null until first opt-in. */
+  calendar_token: string | null;
   role: UserRole;
   onboarded: boolean;
   created_at: string;

@@ -1,10 +1,14 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { invalidateUserScores } from "@/lib/scoring/refresh";
 
 export type SaveSettingsResult = { ok: true } | { error: string };
+export type CalendarTokenResult =
+  | { ok: true; token: string }
+  | { error: string };
 
 export async function saveSettings(
   formData: FormData,
@@ -95,4 +99,58 @@ function arraysEqual(a: string[], b: string[]): boolean {
     if (sa[i] !== sb[i]) return false;
   }
   return true;
+}
+
+/**
+ * Returns the user's existing calendar token, generating one on first call.
+ * Idempotent: subsequent calls return the same token unless rotated.
+ */
+export async function ensureCalendarToken(): Promise<CalendarTokenResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("calendar_token")
+    .eq("id", user.id)
+    .single();
+
+  if (existing?.calendar_token) {
+    return { ok: true, token: existing.calendar_token as string };
+  }
+
+  const token = randomUUID();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ calendar_token: token })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true, token };
+}
+
+/**
+ * Rotates the user's calendar token. Old subscription URLs immediately stop
+ * working. Use when the URL has been shared by accident.
+ */
+export async function rotateCalendarToken(): Promise<CalendarTokenResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const token = randomUUID();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ calendar_token: token })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true, token };
 }
