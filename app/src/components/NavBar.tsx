@@ -19,8 +19,8 @@ export function NavBar({
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-5 sm:gap-7">
           <Link href="/" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
-              <Sparkles className="size-4" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-background">
+              <Sparkles className="size-3.5" />
             </span>
             <span className="text-sm font-semibold tracking-tight">
               Opportunity <span className="text-muted-foreground">OS</span>

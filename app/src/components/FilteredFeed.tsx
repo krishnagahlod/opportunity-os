@@ -3,7 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { differenceInDays, parseISO } from "date-fns";
-import { OpportunityCard } from "@/components/OpportunityCard";
+import { OpportunityRow } from "@/components/OpportunityRow";
 import {
   DEFAULT_FILTERS,
   FilterBar,
@@ -16,8 +16,6 @@ import type {
   Opportunity,
   OpportunityCategory,
 } from "@/types/db";
-
-type ScoreLite = { score: number; why: string | null } | undefined;
 
 export function FilteredFeed({
   opportunities,
@@ -153,26 +151,25 @@ export function FilteredFeed({
       {sorted.length === 0 ? (
         <NoResults onClear={() => setState(DEFAULT_FILTERS)} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <ul className="divide-y divide-border/40">
           {sorted.map((opp, i) => {
             const s = scoreMap[opp.id];
             return (
-              <div
+              <li
                 key={opp.id}
                 className="animate-fade-up"
-                style={{ animationDelay: `${Math.min(i, 11) * 35}ms` }}
+                style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
               >
-                <OpportunityCard
+                <OpportunityRow
                   opportunity={opp}
                   isSaved={savedSetMemo.has(opp.id)}
                   applicationStatus={appliedMap[opp.id]}
-                  score={s?.score ?? null}
                   why={s?.why ?? null}
                 />
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </div>
   );

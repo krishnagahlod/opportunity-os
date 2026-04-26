@@ -292,25 +292,14 @@ export function FilterBar({
           >
             Clear all
           </button>
+          <span
+            className="ml-auto text-[11px] tabular-nums text-muted-foreground/70"
+            aria-live="polite"
+          >
+            {filteredCount} / {totalCount}
+          </span>
         </div>
       )}
-
-      {/* Results summary line */}
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
-        {hasActive ? (
-          <>
-            Showing <span className="text-foreground/80">{filteredCount}</span> of{" "}
-            {totalCount} ·{" "}
-            <span className="normal-case tracking-normal">
-              {SORT_LABELS[state.sort]}
-            </span>
-          </>
-        ) : (
-          <>
-            {totalCount} live · sorted by {SORT_LABELS[state.sort].toLowerCase()}
-          </>
-        )}
-      </p>
     </div>
   );
 }

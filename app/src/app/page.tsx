@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
-import { differenceInDays, parseISO } from "date-fns";
 import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { FilteredFeed } from "@/components/FilteredFeed";
-import { StatsStrip } from "@/components/StatsStrip";
 import { EmptyState } from "@/components/EmptyState";
 import { refreshScores } from "@/lib/scoring/refresh";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
@@ -42,7 +40,6 @@ export default async function HomePage() {
   const scoreMapInternal = await refreshScores(profile as Profile, opps);
 
   // Sources lookup so the filter UI can show "Greenhouse: Anthropic", etc.
-  // Build opp_id -> source_name in one query, no JOIN needed.
   const sourceIds = Array.from(
     new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
   );
@@ -64,13 +61,6 @@ export default async function HomePage() {
     }
   }
 
-  // Hero stats use the unfiltered pool — they describe what we have, not what's shown.
-  const closingSoon = opps.filter((o) => {
-    if (!o.deadline) return false;
-    const d = differenceInDays(parseISO(o.deadline), new Date());
-    return d >= 0 && d <= 7;
-  }).length;
-
   const { data: savedRows } = await supabase
     .from("saved_opportunities")
     .select("opportunity_id")
@@ -90,11 +80,6 @@ export default async function HomePage() {
     ]),
   );
 
-  const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
-  const appliedCount = [...appliedMap.values()].filter((s) =>
-    ["applied", "interviewing", "won"].includes(s),
-  ).length;
-
   // Convert server-side Map/Set into plain JSON-serializable shapes
   // so the client component receives them through the boundary.
   const scoreMapPlain: Record<string, { score: number; why: string | null }> = {};
@@ -110,40 +95,8 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
 
-      {/* Slim header strip — greeting + compact stats inline */}
-      <section className="border-b border-border/60 bg-card/30">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div>
-            <p className="text-sm font-semibold tracking-tight">
-              Welcome back, {firstName}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {opps.length > 0
-                ? `${opps.length} live · ranked by personal fit`
-                : "Your feed will fill in once ingestion runs"}
-            </p>
-          </div>
-          {opps.length > 0 && (
-            <StatsStrip
-              variant="compact"
-              stats={[
-                { label: "live", value: opps.length, icon: "feed" },
-                {
-                  label: "closing ≤7d",
-                  value: closingSoon,
-                  icon: "urgent",
-                  tone: closingSoon > 0 ? "warn" : "default",
-                },
-                { label: "saved", value: savedSet.size, icon: "saved" },
-                { label: "applied", value: appliedCount, icon: "applied" },
-              ]}
-            />
-          )}
-        </div>
-      </section>
-
-      {/* Feed */}
-      <main id="main" className="mx-auto max-w-6xl px-4 py-8">
+      {/* No hero strip — straight into filter + list. The page IS the feed. */}
+      <main id="main" className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
         {opps.length === 0 ? (
           <EmptyState
             icon={Sparkles}

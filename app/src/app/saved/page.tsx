@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
-import { OpportunityCard } from "@/components/OpportunityCard";
+import { OpportunityRow } from "@/components/OpportunityRow";
 import { EmptyState } from "@/components/EmptyState";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
@@ -46,17 +46,13 @@ export default async function SavedPage() {
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
-      <main id="main" className="mx-auto max-w-6xl px-4 py-10">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Saved
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {opps.length} bookmarked {opps.length === 1 ? "opportunity" : "opportunities"}.
-            </p>
-          </div>
-        </div>
+      <main id="main" className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
+        <header className="mb-5 flex items-baseline justify-between">
+          <h1 className="text-lg font-semibold tracking-tight">Saved</h1>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {opps.length}
+          </span>
+        </header>
         {opps.length === 0 ? (
           <EmptyState
             icon={Bookmark}
@@ -64,22 +60,23 @@ export default async function SavedPage() {
             description={
               <>
                 Hit <span className="font-medium text-foreground">Save</span> on
-                any card in your feed to bookmark it here.
+                any row in your feed to bookmark it here.
               </>
             }
             action={{ label: "Browse the feed", href: "/" }}
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="divide-y divide-border/40">
             {opps.map((opp) => (
-              <OpportunityCard
-                key={opp.id}
-                opportunity={opp}
-                isSaved={true}
-                applicationStatus={appliedMap.get(opp.id)}
-              />
+              <li key={opp.id}>
+                <OpportunityRow
+                  opportunity={opp}
+                  isSaved={true}
+                  applicationStatus={appliedMap.get(opp.id)}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </main>
     </div>

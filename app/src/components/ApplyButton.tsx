@@ -9,15 +9,45 @@ import type { ApplicationStatus } from "@/types/db";
 export function ApplyButton({
   opportunityId,
   currentStatus,
+  compact,
 }: {
   opportunityId: string;
   currentStatus?: ApplicationStatus;
+  /** Icon-only ghost button for dense surfaces (editorial rows). */
+  compact?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const alreadyApplied =
     currentStatus === "applied" ||
     currentStatus === "interviewing" ||
     currentStatus === "won";
+  const Icon = alreadyApplied ? CircleCheck : Check;
+
+  if (compact) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={alreadyApplied ? "Already marked applied" : "Mark applied"}
+        aria-pressed={alreadyApplied}
+        disabled={isPending || alreadyApplied}
+        onClick={() =>
+          startTransition(async () => {
+            await markApplied(opportunityId);
+          })
+        }
+      >
+        <Icon
+          className={
+            alreadyApplied
+              ? "size-3.5 text-emerald-600 dark:text-emerald-400"
+              : "size-3.5 text-muted-foreground"
+          }
+        />
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -32,11 +62,7 @@ export function ApplyButton({
         })
       }
     >
-      {alreadyApplied ? (
-        <CircleCheck className="size-3.5" />
-      ) : (
-        <Check className="size-3.5" />
-      )}
+      <Icon className="size-3.5" />
       {alreadyApplied ? "Applied" : "Mark applied"}
     </Button>
   );
