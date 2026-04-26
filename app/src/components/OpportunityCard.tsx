@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
@@ -34,6 +35,7 @@ export function OpportunityCard({
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
 }) {
+  const router = useRouter();
   const cat = getCategoryStyle(opportunity.category);
   const deadline = formatDeadline(opportunity.deadline);
   const compensation = stripHtml(opportunity.compensation);
@@ -42,30 +44,25 @@ export function OpportunityCard({
     : opportunity.location || null;
   const apply = opportunity.apply_url;
 
-  const openApply = () => {
-    if (apply) window.open(apply, "_blank", "noopener,noreferrer");
-  };
+  const detailHref = `/opportunity/${opportunity.id}`;
+  const openDetail = () => router.push(detailHref);
 
   return (
     <article
-      role={apply ? "link" : undefined}
-      tabIndex={apply ? 0 : undefined}
-      aria-label={
-        apply
-          ? `${opportunity.title} at ${opportunity.organization} — opens in a new tab`
-          : undefined
-      }
-      onClick={openApply}
+      role="link"
+      tabIndex={0}
+      aria-label={`${opportunity.title} at ${opportunity.organization}`}
+      onClick={openDetail}
       onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && apply) {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openApply();
+          openDetail();
         }
       }}
       className={cn(
         "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card outline-none transition-all",
         "focus-visible:ring-2 focus-visible:ring-primary/40",
-        apply && "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
+        "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
       )}
     >
       {/* Header — title + org + deadline */}
