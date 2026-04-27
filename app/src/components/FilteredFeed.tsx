@@ -104,9 +104,21 @@ export function FilteredFeed({
     fetch(`/api/search?q=${encodeURIComponent(q)}`, {
       signal: controller.signal,
     })
-      .then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error(`Search failed (${r.status})`)),
-      )
+      .then(async (r) => {
+        if (!r.ok) {
+          // Try to surface the server's actual error message — much more
+          // useful than "(500)" for diagnosing what went wrong.
+          let detail = "";
+          try {
+            const body = (await r.json()) as { error?: string };
+            if (body?.error) detail = `: ${body.error}`;
+          } catch {
+            // body wasn't JSON; ignore
+          }
+          throw new Error(`Search failed (${r.status})${detail}`);
+        }
+        return r.json() as Promise<SearchPayload>;
+      })
       .then((data: SearchPayload) => {
         setSearchPayload(data);
         setSearchPending(false);

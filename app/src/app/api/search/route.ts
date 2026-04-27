@@ -10,19 +10,19 @@ import type {
 export const runtime = "nodejs";
 
 /*
- * Server-side full-text search across the entire opportunities table.
+ * Server-side search across the entire opportunities table.
  *
- * Today's in-memory filter on the dashboard pool (120 most recent rows)
- * misses everything older. This route uses the `search_tsv` GIN index added
- * in migration 0006 to query the whole table — typically returns in <100ms
- * even on a few thousand rows.
- *
- * Why prefix tsquery (`Ac:*`) and not websearch_to_tsquery:
- *   websearch_to_tsquery only matches whole stemmed tokens. So "Ac" would
- *   produce an empty / non-matching tsquery against tokens like "account",
- *   "acquisition" — and the user gets zero results despite the obvious
- *   intent. Prefix tsquery (`Ac:*`) matches both. We strip non-alphanumerics
- *   before building the query so user input can't break to_tsquery's parser.
+ * Implementation note: this used to use a Postgres tsvector + GIN index
+ * with a prefix to_tsquery for stemming + word-boundary matching. That had
+ * two problems for our scale:
+ *   1) PostgREST URL-encoding of `:*` / `&` in raw to_tsquery values is
+ *      finicky and produced 500s on multi-token input.
+ *   2) Required migration 0006 to be applied; if it wasn't, every search
+ *      500'd silently.
+ * For a few-thousand-row table, plain ILIKE substring matching is plenty
+ * fast (and Postgres can use a btree-gin / pg_trgm index later if it ever
+ * stops being fast). Each user-typed token must appear in at least one of
+ * title / organization / summary; multi-token queries AND across tokens.
  *
  * Auth: cookie session (same as the page itself). Returns 401 if signed out.
  */
@@ -41,118 +41,141 @@ type SearchPayload = {
 };
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  }
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
 
-  const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (q.length < 2) return NextResponse.json(emptyPayload());
+    const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
+    if (q.length < 2) return NextResponse.json(emptyPayload());
 
-  const tsquery = buildPrefixTsQuery(q);
-  if (!tsquery) return NextResponse.json(emptyPayload());
+    const tokens = buildSearchTokens(q);
+    if (tokens.length === 0) return NextResponse.json(emptyPayload());
 
-  const [profileRes, oppsRes] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-    supabase
+    // Build query: each token AND-chains a 3-column OR group via .or().
+    let queryBuilder = supabase
       .from("opportunities")
       .select(FEED_COLUMNS)
-      .eq("status", "active")
-      // `fts(english)` operator → search_tsv @@ to_tsquery('english', ...).
-      // to_tsquery is the only flavour that honours `:*` prefix syntax.
-      .filter("search_tsv", "fts(english)", tsquery)
-      .order("date_added", { ascending: false })
-      .limit(MAX_RESULTS),
-  ]);
+      .eq("status", "active");
 
-  if (oppsRes.error) {
+    for (const token of tokens) {
+      // PostgREST ILIKE in `or` filter strings uses `*` as the wildcard
+      // (rather than SQL's `%`). Tokens are pre-cleaned to a-z0-9 so we
+      // don't need to escape commas/parens that would break the OR string.
+      queryBuilder = queryBuilder.or(
+        [
+          `title.ilike.*${token}*`,
+          `organization.ilike.*${token}*`,
+          `summary.ilike.*${token}*`,
+        ].join(","),
+      );
+    }
+
+    const [profileRes, oppsRes] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      queryBuilder
+        .order("date_added", { ascending: false })
+        .limit(MAX_RESULTS),
+    ]);
+
+    if (oppsRes.error) {
+      console.error("[search] supabase error:", oppsRes.error);
+      return NextResponse.json(
+        { error: `Search failed: ${oppsRes.error.message}` },
+        { status: 500 },
+      );
+    }
+
+    const profile = profileRes.data as Profile | null;
+    const opps = (oppsRes.data ?? []) as Opportunity[];
+
+    if (!profile || opps.length === 0) {
+      return NextResponse.json({
+        ...emptyPayload(),
+        opportunities: opps,
+      });
+    }
+
+    const oppIds = opps.map((o) => o.id);
+    const sourceIds = Array.from(
+      new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
+    );
+
+    const [savedRes, appsRes, sourcesRes] = await Promise.all([
+      supabase
+        .from("saved_opportunities")
+        .select("opportunity_id")
+        .eq("user_id", user.id)
+        .in("opportunity_id", oppIds),
+      supabase
+        .from("applications")
+        .select("opportunity_id,status")
+        .eq("user_id", user.id)
+        .in("opportunity_id", oppIds),
+      sourceIds.length > 0
+        ? supabase.from("sources").select("id,name").in("id", sourceIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    ]);
+
+    const savedSet = (savedRes.data ?? []).map(
+      (r) => r.opportunity_id as string,
+    );
+    const appliedMap: Record<string, ApplicationStatus> = {};
+    for (const r of appsRes.data ?? []) {
+      appliedMap[r.opportunity_id as string] = r.status as ApplicationStatus;
+    }
+
+    const sourceById = new Map<string, string>();
+    for (const s of (sourcesRes.data ?? []) as { id: string; name: string }[]) {
+      sourceById.set(s.id, s.name);
+    }
+    const sourceMap: Record<string, string> = {};
+    for (const o of opps) {
+      if (o.source_id) {
+        const name = sourceById.get(o.source_id);
+        if (name) sourceMap[o.id] = name;
+      }
+    }
+
+    const scoreMap: Record<string, { score: number; why: string | null }> = {};
+    for (const o of opps) {
+      const s = computeScore(profile, o);
+      scoreMap[o.id] = { score: s.score, why: s.why };
+    }
+
+    // Strip `description` before returning — the cards don't render it.
+    const lean: Opportunity[] = opps.map((o) => ({
+      ...o,
+      description: null,
+    }));
+
+    const payload: SearchPayload = {
+      opportunities: lean,
+      scoreMap,
+      sourceMap,
+      savedSet,
+      appliedMap,
+    };
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "private, max-age=5",
+      },
+    });
+  } catch (e) {
+    // Catch-all so we don't return a bare unhandled-error 500 — surface
+    // the message in the JSON body so the client can show it to the user.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[search] uncaught:", e);
     return NextResponse.json(
-      { error: `Search failed: ${oppsRes.error.message}` },
+      { error: `Search crashed: ${msg}` },
       { status: 500 },
     );
   }
-
-  const profile = profileRes.data as Profile | null;
-  const opps = (oppsRes.data ?? []) as Opportunity[];
-
-  if (!profile || opps.length === 0) {
-    return NextResponse.json({
-      ...emptyPayload(),
-      opportunities: opps,
-    });
-  }
-
-  // Fan-out the supporting lookups in parallel.
-  const oppIds = opps.map((o) => o.id);
-  const sourceIds = Array.from(
-    new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
-  );
-
-  const [savedRes, appsRes, sourcesRes] = await Promise.all([
-    supabase
-      .from("saved_opportunities")
-      .select("opportunity_id")
-      .eq("user_id", user.id)
-      .in("opportunity_id", oppIds),
-    supabase
-      .from("applications")
-      .select("opportunity_id,status")
-      .eq("user_id", user.id)
-      .in("opportunity_id", oppIds),
-    sourceIds.length > 0
-      ? supabase.from("sources").select("id,name").in("id", sourceIds)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-  ]);
-
-  const savedSet = (savedRes.data ?? []).map((r) => r.opportunity_id as string);
-  const appliedMap: Record<string, ApplicationStatus> = {};
-  for (const r of appsRes.data ?? []) {
-    appliedMap[r.opportunity_id as string] = r.status as ApplicationStatus;
-  }
-
-  const sourceById = new Map<string, string>();
-  for (const s of (sourcesRes.data ?? []) as { id: string; name: string }[]) {
-    sourceById.set(s.id, s.name);
-  }
-  const sourceMap: Record<string, string> = {};
-  for (const o of opps) {
-    if (o.source_id) {
-      const name = sourceById.get(o.source_id);
-      if (name) sourceMap[o.id] = name;
-    }
-  }
-
-  // Score is pure JS — no DB / AI roundtrip. Compute inline so the search
-  // response has the same shape the dashboard already consumes.
-  const scoreMap: Record<string, { score: number; why: string | null }> = {};
-  for (const o of opps) {
-    const s = computeScore(profile, o);
-    scoreMap[o.id] = { score: s.score, why: s.why };
-  }
-
-  // Strip `description` before returning — the cards don't render it and the
-  // dashboard query already trims it. Keeps payload tight.
-  const lean: Opportunity[] = opps.map((o) => ({
-    ...o,
-    description: null,
-  }));
-
-  const payload: SearchPayload = {
-    opportunities: lean,
-    scoreMap,
-    sourceMap,
-    savedSet,
-    appliedMap,
-  };
-
-  return NextResponse.json(payload, {
-    headers: {
-      "Cache-Control": "private, max-age=5",
-    },
-  });
 }
 
 function emptyPayload(): SearchPayload {
@@ -166,20 +189,16 @@ function emptyPayload(): SearchPayload {
 }
 
 /**
- * Convert raw user input into a prefix-aware tsquery string safe to feed into
- * to_tsquery(). Each whitespace-separated token gets `:*` so partial words
- * match (e.g. "Ac" → "Account", "Acquisition"). Non-alphanumerics are
- * stripped because to_tsquery's parser treats `&|!():` as operators and
- * untrusted input would break it.
- *
- * Returns null when nothing meaningful remains after stripping.
+ * Whitespace-split the user's query and clean each token to a-z0-9 only.
+ * Drops any token shorter than 2 chars (avoids matching every row on
+ * single-letter junk). Keeps it strict so user input can't break PostgREST's
+ * `or` filter string parser via commas, parentheses, or `*`.
  */
-function buildPrefixTsQuery(input: string): string | null {
-  const tokens = input
+function buildSearchTokens(input: string): string[] {
+  return input
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((t) => t.length > 0);
-  if (tokens.length === 0) return null;
-  return tokens.map((t) => `${t}:*`).join(" & ");
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
 }
