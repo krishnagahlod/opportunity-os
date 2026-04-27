@@ -24,7 +24,6 @@ import type {
 type SearchPayload = {
   opportunities: Opportunity[];
   scoreMap: Record<string, { score: number; why: string | null }>;
-  matchMap: Record<string, string[]>;
   sourceMap: Record<string, string>;
   savedSet: string[];
   appliedMap: Record<string, ApplicationStatus>;
@@ -36,7 +35,6 @@ export function FilteredFeed({
   savedSet,
   appliedMap,
   sourceMap,
-  matchMap,
 }: {
   opportunities: Opportunity[];
   // Plain object for client-side serialization friendliness.
@@ -45,9 +43,6 @@ export function FilteredFeed({
   appliedMap: Record<string, ApplicationStatus>;
   // opportunity_id -> source_name
   sourceMap: Record<string, string>;
-  // opportunity_id -> matched user terms (e.g. ["React", "SQL"]). Optional
-  // entries are absent when no terms match.
-  matchMap: Record<string, string[]>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -136,11 +131,6 @@ export function FilteredFeed({
     if (inSearchMode && searchPayload) return searchPayload.scoreMap;
     return scoreMap;
   }, [inSearchMode, searchPayload, scoreMap]);
-
-  const effectiveMatchMap = useMemo(() => {
-    if (inSearchMode && searchPayload) return searchPayload.matchMap;
-    return matchMap;
-  }, [inSearchMode, searchPayload, matchMap]);
 
   const effectiveSourceMap = useMemo(() => {
     if (!inSearchMode || !searchPayload) return sourceMap;
@@ -287,7 +277,6 @@ export function FilteredFeed({
             scoreMap={scoreMap}
             savedSet={effectiveSavedSet}
             appliedMap={appliedMap}
-            matchMap={matchMap}
           />
           <CategoryStacks
             opportunities={opportunities}
@@ -337,7 +326,6 @@ export function FilteredFeed({
                   opportunity={opp}
                   isSaved={effectiveSavedSet.has(opp.id)}
                   applicationStatus={effectiveAppliedMap[opp.id]}
-                  matchedTerms={effectiveMatchMap[opp.id]}
                 />
               </div>
             ))}

@@ -44,9 +44,10 @@ export async function parseResumePdf(
     prompt: buildResumePrompt(text),
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
-    // Resume output is small (~30 skills + 5 roles + 2-sentence summary),
-    // but headroom protects against Groq's tendency to truncate JSON.
-    maxTokens: 1500,
+    // 2500 covers the worst case: 25 skills (≤40 chars each) + 6 roles +
+    // 200-char summary + JSON overhead. Earlier 1500 was hitting Groq's
+    // truncation when it generated a wider skill set on niche resumes.
+    maxTokens: 2500,
   });
 
   return normalize(result.data);

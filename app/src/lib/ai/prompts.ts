@@ -71,16 +71,16 @@ export type ExtractedOpportunity = z.infer<typeof ExtractedOpportunitySchema>;
  */
 export const ResumeExtractionSchema = z.object({
   /** Lowercase, deduped, normalized skill keywords (e.g. "react", "sql", "figma"). */
-  skills: z.array(z.string().min(1).max(40)).max(40).default([]),
+  skills: z.array(z.string().min(1).max(40)).max(25).default([]),
   /** Loose interest/role buckets the resume implies (e.g. "Software Engineering", "Data Science"). */
-  roles_of_interest: z.array(z.string().min(1).max(60)).max(10).default([]),
-  /** 1-2 sentence factual summary, no embellishment. Useful for the "why for you" line later. */
-  summary: z.string().max(400).nullable().optional().default(null),
+  roles_of_interest: z.array(z.string().min(1).max(60)).max(6).default([]),
+  /** 1-sentence factual summary, no embellishment. Optional. */
+  summary: z.string().max(200).nullable().optional().default(null),
 });
 
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
 
-export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output JSON only — no prose, no fences. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Summary is 1-2 short factual sentences.`;
+export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output JSON only — no prose, no fences. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Summary is one short factual sentence. Hard caps: max 25 skills, max 6 roles, max 200 chars summary — cut aggressively to fit.`;
 
 /**
  * Build the resume-extraction prompt with the candidate's PDF text inlined.
@@ -96,9 +96,9 @@ export function buildResumePrompt(resumeText: string): string {
     "",
     "Expected JSON:",
     "{",
-    '  "skills": string[],              // lowercase keywords; max 40; deduped',
-    '  "roles_of_interest": string[],   // max 10 broad role buckets',
-    '  "summary": string | null         // 1-2 factual sentences',
+    '  "skills": string[],              // lowercase keywords; MAX 25; deduped',
+    '  "roles_of_interest": string[],   // MAX 6 broad role buckets',
+    '  "summary": string | null         // ONE short factual sentence (max 200 chars)',
     "}",
     "",
     "Output JSON only — no prose, no fences.",

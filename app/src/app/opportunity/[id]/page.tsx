@@ -22,7 +22,7 @@ import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
-import { computeScore } from "@/lib/scoring/score";
+import { computeScore, findMatchedTerms } from "@/lib/scoring/score";
 import { cn, stripHtml } from "@/lib/utils";
 import type {
   ApplicationStatus,
@@ -93,6 +93,7 @@ export default async function OpportunityDetailPage({
 
   // Deterministic on-the-fly score (no AI, no DB lookup needed).
   const { score, why } = computeScore(profile as Profile, opp);
+  const matchedTerms = findMatchedTerms(profile as Profile, opp);
 
   const cat = getCategoryStyle(opp.category);
   const Icon = cat.Icon;
@@ -237,14 +238,33 @@ export default async function OpportunityDetailPage({
         </section>
 
         {/* Why for you */}
-        {why && (
+        {(why || matchedTerms.length > 0) && (
           <section className="mt-8">
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Why this is for you
             </h2>
-            <p className="rounded-xl border-l-2 border-primary/50 bg-primary/[0.04] px-4 py-3 text-[14px] italic leading-relaxed text-primary/90 dark:bg-primary/[0.06]">
-              {why}
-            </p>
+            <div className="rounded-xl border-l-2 border-primary/50 bg-primary/[0.04] px-4 py-3 dark:bg-primary/[0.06]">
+              {why && (
+                <p className="text-[14px] italic leading-relaxed text-primary/90">
+                  {why}
+                </p>
+              )}
+              {matchedTerms.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    Matches your profile
+                  </span>
+                  {matchedTerms.map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11.5px] font-medium text-primary"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         )}
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Clock, MapPin, Sparkles, Wallet } from "lucide-react";
+import { ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
@@ -30,13 +30,10 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
-  matchedTerms,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
-  /** User-profile terms that overlap with this opportunity. Up to 3, case-preserved. */
-  matchedTerms?: string[];
 }) {
   const router = useRouter();
   const cat = getCategoryStyle(opportunity.category);
@@ -97,15 +94,6 @@ export function OpportunityCard({
               </>
             )}
           </div>
-          {matchedTerms && matchedTerms.length > 0 && (
-            <div
-              className="mt-1.5 inline-flex max-w-full items-center gap-1 text-[11px] text-muted-foreground"
-              title={`Matches your profile: ${matchedTerms.join(", ")}`}
-            >
-              <Sparkles className="size-3 shrink-0 text-primary/70" />
-              <span className="truncate">{matchedTerms.join(" · ")}</span>
-            </div>
-          )}
         </div>
       </div>
 

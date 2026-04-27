@@ -5,7 +5,6 @@ import { NavBar } from "@/components/NavBar";
 import { FilteredFeed } from "@/components/FilteredFeed";
 import { EmptyState } from "@/components/EmptyState";
 import { refreshScores } from "@/lib/scoring/refresh";
-import { findMatchedTerms } from "@/lib/scoring/score";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
 import { Landing } from "./Landing";
 
@@ -103,15 +102,6 @@ export default async function HomePage() {
     appliedMapPlain[id] = status;
   }
 
-  // Per-card matched terms — same haystack the relevance scorer uses, so
-  // displayed terms are exactly the ones that contributed to the score.
-  // Empty-array entries are dropped to keep the payload tight.
-  const matchMap: Record<string, string[]> = {};
-  for (const o of opps) {
-    const matches = findMatchedTerms(profile as Profile, o);
-    if (matches.length > 0) matchMap[o.id] = matches;
-  }
-
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
@@ -133,7 +123,6 @@ export default async function HomePage() {
             savedSet={Array.from(savedSet)}
             appliedMap={appliedMapPlain}
             sourceMap={sourceMap}
-            matchMap={matchMap}
           />
         )}
       </main>

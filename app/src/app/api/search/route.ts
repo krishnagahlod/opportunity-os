@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { computeScore, findMatchedTerms } from "@/lib/scoring/score";
+import { computeScore } from "@/lib/scoring/score";
 import type {
   ApplicationStatus,
   Opportunity,
@@ -17,10 +17,12 @@ export const runtime = "nodejs";
  * in migration 0006 to query the whole table — typically returns in <100ms
  * even on a few thousand rows.
  *
- * Returns results plus the per-card supporting maps the client renders
- * (scoreMap, matchMap, sourceMap) so search results visually look identical
- * to the browse view. Computing scores on the request path is cheap because
- * computeScore() is pure JS — no AI call.
+ * Why prefix tsquery (`Ac:*`) and not websearch_to_tsquery:
+ *   websearch_to_tsquery only matches whole stemmed tokens. So "Ac" would
+ *   produce an empty / non-matching tsquery against tokens like "account",
+ *   "acquisition" — and the user gets zero results despite the obvious
+ *   intent. Prefix tsquery (`Ac:*`) matches both. We strip non-alphanumerics
+ *   before building the query so user input can't break to_tsquery's parser.
  *
  * Auth: cookie session (same as the page itself). Returns 401 if signed out.
  */
@@ -33,7 +35,6 @@ const MAX_RESULTS = 50;
 type SearchPayload = {
   opportunities: Opportunity[];
   scoreMap: Record<string, { score: number; why: string | null }>;
-  matchMap: Record<string, string[]>;
   sourceMap: Record<string, string>;
   savedSet: string[];
   appliedMap: Record<string, ApplicationStatus>;
@@ -49,11 +50,10 @@ export async function GET(req: NextRequest) {
   }
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-  if (q.length < 2) {
-    // Don't run a search for trivial input; client should not have called us
-    // with this anyway, but fail soft instead of hammering the index.
-    return NextResponse.json(emptyPayload());
-  }
+  if (q.length < 2) return NextResponse.json(emptyPayload());
+
+  const tsquery = buildPrefixTsQuery(q);
+  if (!tsquery) return NextResponse.json(emptyPayload());
 
   const [profileRes, oppsRes] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
@@ -61,10 +61,19 @@ export async function GET(req: NextRequest) {
       .from("opportunities")
       .select(FEED_COLUMNS)
       .eq("status", "active")
-      .textSearch("search_tsv", q, { config: "english", type: "websearch" })
+      // `fts(english)` operator → search_tsv @@ to_tsquery('english', ...).
+      // to_tsquery is the only flavour that honours `:*` prefix syntax.
+      .filter("search_tsv", "fts(english)", tsquery)
       .order("date_added", { ascending: false })
       .limit(MAX_RESULTS),
   ]);
+
+  if (oppsRes.error) {
+    return NextResponse.json(
+      { error: `Search failed: ${oppsRes.error.message}` },
+      { status: 500 },
+    );
+  }
 
   const profile = profileRes.data as Profile | null;
   const opps = (oppsRes.data ?? []) as Opportunity[];
@@ -76,8 +85,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Fan-out the supporting lookups in parallel: the saved/applied state for
-  // these specific results, and the source-name lookup.
+  // Fan-out the supporting lookups in parallel.
   const oppIds = opps.map((o) => o.id);
   const sourceIds = Array.from(
     new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
@@ -117,19 +125,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Score + match are pure JS — no DB / AI roundtrip. Compute inline so the
-  // search response has the same shape the dashboard already consumes.
+  // Score is pure JS — no DB / AI roundtrip. Compute inline so the search
+  // response has the same shape the dashboard already consumes.
   const scoreMap: Record<string, { score: number; why: string | null }> = {};
-  const matchMap: Record<string, string[]> = {};
   for (const o of opps) {
     const s = computeScore(profile, o);
     scoreMap[o.id] = { score: s.score, why: s.why };
-    const matches = findMatchedTerms(profile, o);
-    if (matches.length > 0) matchMap[o.id] = matches;
   }
 
   // Strip `description` before returning — the cards don't render it and the
-  // dashboard query already trims it. Keep payload tight.
+  // dashboard query already trims it. Keeps payload tight.
   const lean: Opportunity[] = opps.map((o) => ({
     ...o,
     description: null,
@@ -138,7 +143,6 @@ export async function GET(req: NextRequest) {
   const payload: SearchPayload = {
     opportunities: lean,
     scoreMap,
-    matchMap,
     sourceMap,
     savedSet,
     appliedMap,
@@ -146,8 +150,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(payload, {
     headers: {
-      // Per-user, very short — search is interactive but a 5s window absorbs
-      // double-renders on Strict Mode + back/forward nav.
       "Cache-Control": "private, max-age=5",
     },
   });
@@ -157,9 +159,27 @@ function emptyPayload(): SearchPayload {
   return {
     opportunities: [],
     scoreMap: {},
-    matchMap: {},
     sourceMap: {},
     savedSet: [],
     appliedMap: {},
   };
+}
+
+/**
+ * Convert raw user input into a prefix-aware tsquery string safe to feed into
+ * to_tsquery(). Each whitespace-separated token gets `:*` so partial words
+ * match (e.g. "Ac" → "Account", "Acquisition"). Non-alphanumerics are
+ * stripped because to_tsquery's parser treats `&|!():` as operators and
+ * untrusted input would break it.
+ *
+ * Returns null when nothing meaningful remains after stripping.
+ */
+function buildPrefixTsQuery(input: string): string | null {
+  const tokens = input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return null;
+  return tokens.map((t) => `${t}:*`).join(" & ");
 }
