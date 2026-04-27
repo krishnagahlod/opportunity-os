@@ -78,24 +78,40 @@ export const ResumeExtractionSchema = z.object({
 
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
 
-export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output ONE complete JSON object — no prose, no fences, no truncation. Close every array and object. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Hard caps: max 25 skills, max 6 roles. Cut aggressively if the candidate has more.`;
+export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output ONE complete JSON object — no prose, no fences, no truncation. Close every array and object. Be conservative: only extract what's explicitly demonstrated. Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest must be picked from the predefined bucket list provided in the user prompt — do NOT invent new role names. Skills should prefer the predefined chip list when applicable; otherwise return lowercase keywords. Hard caps: max 25 skills, max 6 roles. Cut aggressively if the candidate has more.`;
 
 /**
  * Build the resume-extraction prompt with the candidate's PDF text inlined.
  * Caps text at ~12k chars (~3k tokens) so single-page resumes pass through
  * untouched while multi-page CVs don't blow past Groq's 8k-token output
  * window or Gemini's free-tier per-minute input cap.
+ *
+ * Passing `roleOptions` and `skillOptions` constrains the AI to emit values
+ * that match our onboarding chips exactly — so a finance resume returns
+ * `["Finance"]` (matches the chip) instead of `["Investment Banking",
+ * "Equity Research"]` which would silently fail to tick anything.
  */
-export function buildResumePrompt(resumeText: string): string {
+export function buildResumePrompt(
+  resumeText: string,
+  roleOptions: readonly string[],
+  skillOptions: readonly string[],
+): string {
   const trimmed = resumeText.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   const capped = trimmed.length > 12000 ? `${trimmed.slice(0, 12000)}\n[...truncated]` : trimmed;
   return [
     "Extract structured data from this resume.",
     "",
+    "ROLES_OF_INTEREST — pick all that apply from this exact list (case-insensitive, max 6). DO NOT invent new role names.",
+    ...roleOptions.map((r) => `  - ${r}`),
+    "",
+    "SKILLS — when a skill matches one of these chip names, use the exact spelling:",
+    `  ${skillOptions.join(", ")}`,
+    "Otherwise return a lowercase keyword (e.g. 'react', 'sql', 'figma'). Max 25, deduped.",
+    "",
     "Expected JSON shape (output ONE complete object — close every bracket):",
     "{",
-    '  "skills": string[],              // lowercase keywords; MAX 25; deduped',
-    '  "roles_of_interest": string[]    // MAX 6 broad role buckets',
+    '  "skills": string[],              // mix of chip names + lowercase keywords; MAX 25',
+    '  "roles_of_interest": string[]    // ONLY values from the role list above; MAX 6',
     "}",
     "",
     "Output JSON only — no prose, no fences. Make sure both arrays are closed.",

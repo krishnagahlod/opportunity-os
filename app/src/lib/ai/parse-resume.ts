@@ -7,6 +7,10 @@ import {
   buildResumePrompt,
   type ResumeExtraction,
 } from "./prompts";
+import {
+  INTEREST_OPTIONS,
+  SKILL_OPTIONS,
+} from "@/lib/onboarding-options";
 
 /**
  * Parse a resume PDF into structured skills + role buckets.
@@ -41,7 +45,7 @@ export async function parseResumePdf(
   }
 
   const result = await callLLM({
-    prompt: buildResumePrompt(text),
+    prompt: buildResumePrompt(text, INTEREST_OPTIONS, SKILL_OPTIONS),
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
     maxTokens: 2500,

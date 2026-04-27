@@ -13,50 +13,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { INTEREST_OPTIONS, SKILL_OPTIONS } from "@/lib/onboarding-options";
 import type { Profile } from "@/types/db";
 import { saveSettings } from "./actions";
-
-const INTEREST_OPTIONS = [
-  "Consulting",
-  "Finance",
-  "Product Management",
-  "Software Engineering",
-  "Data Science",
-  "Design",
-  "Marketing",
-  "Research",
-  "Startups",
-  "Venture Capital",
-  "Sales",
-  "Operations",
-  "Content / Writing",
-];
-
-const SKILL_OPTIONS = [
-  "Python",
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "SQL",
-  "Excel",
-  "Figma",
-  "PowerPoint",
-  "Java",
-  "Go",
-  "Node.js",
-  "Data Analysis",
-  "Public Speaking",
-  "Writing",
-  "ML / AI",
-  "No-code tools",
-];
 
 function Chips({
   options,
   selected,
   onToggle,
 }: {
-  options: string[];
+  options: readonly string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
 }) {
