@@ -82,16 +82,32 @@ export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
 
 export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output JSON only — no prose, no fences. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Summary is 1-2 short factual sentences.`;
 
-export const RESUME_USER_PROMPT = `Extract structured data from this resume.
-
-Expected JSON:
-{
-  "skills": string[]              // lowercase keywords; max 40; deduped
-  "roles_of_interest": string[]   // max 10 broad role buckets
-  "summary": string | null        // 1-2 factual sentences
+/**
+ * Build the resume-extraction prompt with the candidate's PDF text inlined.
+ * Caps text at ~12k chars (~3k tokens) so single-page resumes pass through
+ * untouched while multi-page CVs don't blow past Groq's 8k-token output
+ * window or Gemini's free-tier per-minute input cap.
+ */
+export function buildResumePrompt(resumeText: string): string {
+  const trimmed = resumeText.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  const capped = trimmed.length > 12000 ? `${trimmed.slice(0, 12000)}\n[...truncated]` : trimmed;
+  return [
+    "Extract structured data from this resume.",
+    "",
+    "Expected JSON:",
+    "{",
+    '  "skills": string[],              // lowercase keywords; max 40; deduped',
+    '  "roles_of_interest": string[],   // max 10 broad role buckets',
+    '  "summary": string | null         // 1-2 factual sentences',
+    "}",
+    "",
+    "Output JSON only — no prose, no fences.",
+    "",
+    "--- Resume text ---",
+    capped,
+    "--- End resume text ---",
+  ].join("\n");
 }
-
-Output JSON only.`;
 
 export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. extraction_confidence = your 0..1 self-rating: 1.0 = explicit, well-formed posting with clear org+role; 0.5 = ambiguous (announcement, vague pitch); 0.2 = doesn't really look like an opportunity at all (Show HN, blog, news). Don't invent facts.`;
 
