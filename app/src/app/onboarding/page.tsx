@@ -44,6 +44,7 @@ export default async function OnboardingPage() {
         </div>
         <div className="mt-10">
           <OnboardingForm
+            userId={user.id}
             initialEmail={profile?.email ?? user.email ?? ""}
             initialName={profile?.full_name ?? ""}
           />

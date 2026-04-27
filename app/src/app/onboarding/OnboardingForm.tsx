@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { saveOnboarding } from "./actions";
+import { ResumeQuickStart } from "./ResumeQuickStart";
+import type { ResumeExtraction } from "@/lib/ai/prompts";
 
 const INTEREST_OPTIONS = [
   "Consulting",
@@ -105,9 +107,11 @@ function Section({
 }
 
 export function OnboardingForm({
+  userId,
   initialEmail,
   initialName,
 }: {
+  userId: string;
   initialEmail: string;
   initialName: string;
 }) {
@@ -130,6 +134,27 @@ export function OnboardingForm({
       return n;
     });
 
+  // Resume parser returns lowercased skills + role-bucket strings. Match them
+  // case-insensitively against our predefined chip lists and pre-tick whatever
+  // overlaps. Skills not in our chip list still live in profile.resume_skills
+  // (saved by parseResume) so the user can confirm them later from Settings.
+  function applyResumeExtraction(extraction: ResumeExtraction) {
+    const skillLower = new Set(extraction.skills.map((s) => s.toLowerCase()));
+    const matchedSkills = SKILL_OPTIONS.filter((opt) =>
+      skillLower.has(opt.toLowerCase()),
+    );
+
+    const roleLower = new Set(
+      extraction.roles_of_interest.map((r) => r.toLowerCase()),
+    );
+    const matchedInterests = INTEREST_OPTIONS.filter((opt) =>
+      roleLower.has(opt.toLowerCase()),
+    );
+
+    setSkills((prev) => new Set([...prev, ...matchedSkills]));
+    setInterests((prev) => new Set([...prev, ...matchedInterests]));
+  }
+
   async function onSubmit(formData: FormData) {
     setError(null);
     formData.set("interests", JSON.stringify([...interests]));
@@ -145,6 +170,12 @@ export function OnboardingForm({
       action={onSubmit}
       className="space-y-8 rounded-2xl border border-border/70 bg-card/80 p-6 shadow-[0_30px_80px_-24px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur sm:p-8"
     >
+      <ResumeQuickStart
+        userId={userId}
+        onParsed={applyResumeExtraction}
+        onSkip={() => {}}
+      />
+
       <Section title="Basics">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
