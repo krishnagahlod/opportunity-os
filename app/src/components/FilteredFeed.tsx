@@ -241,6 +241,12 @@ export function FilteredFeed({
     return arr;
   }, [filtered, state.sort, effectiveScoreMap]);
 
+  // In search mode the server returns up to 150 candidates so the client has
+  // enough to rank by personal-fit score. Render only the top 50 — the rest
+  // are tail-end matches the user almost never wants to scroll to.
+  const SEARCH_DISPLAY_LIMIT = 50;
+  const displayed = inSearchMode ? sorted.slice(0, SEARCH_DISPLAY_LIMIT) : sorted;
+
   // Show category stacks as the entry view when no filter / search is active.
   // The moment any filter narrows the pool, switch to expandable cards.
   const hasActiveFilter =
@@ -321,14 +327,16 @@ export function FilteredFeed({
                 <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
               )}
               {inSearchMode
-                ? `${sorted.length} match${sorted.length === 1 ? "" : "es"} for "${debouncedQ}"`
+                ? sorted.length > SEARCH_DISPLAY_LIMIT
+                  ? `Top ${SEARCH_DISPLAY_LIMIT} of ${sorted.length} matches for "${debouncedQ}" · ranked by best fit`
+                  : `${sorted.length} match${sorted.length === 1 ? "" : "es"} for "${debouncedQ}"`
                 : singleCategoryLabel
                   ? `${singleCategoryLabel} (${sorted.length})`
                   : `${sorted.length} matching`}
             </h2>
           </div>
           <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sorted.map((opp, i) => (
+            {displayed.map((opp, i) => (
               <div
                 key={opp.id}
                 className="animate-fade-up"

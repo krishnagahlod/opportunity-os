@@ -30,7 +30,13 @@ export const runtime = "nodejs";
 const FEED_COLUMNS =
   "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status,extraction_confidence,description";
 
-const MAX_RESULTS = 50;
+// Server fetches a wide candidate pool ordered by date_added; client then
+// sorts by personalized score (default "relevance" sort in FilteredFeed)
+// and the user only sees the grid render the top items. Bumped from 50 to
+// 150 because at 50 the most-relevant matches were getting cut off in
+// favour of merely-recent ones — score-based ranking only works if the
+// pool we hand it is wide enough.
+const MAX_RESULTS = 150;
 
 type SearchPayload = {
   opportunities: Opportunity[];

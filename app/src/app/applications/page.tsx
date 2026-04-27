@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { EmptyState } from "@/components/EmptyState";
 import { KanbanBoard, type KanbanItem } from "./KanbanBoard";
+import { ApplicationStats } from "./ApplicationStats";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,10 @@ export default async function ApplicationsPage() {
             action={{ label: "Browse the feed", href: "/" }}
           />
         ) : (
-          <KanbanBoard initial={items} />
+          <>
+            <ApplicationStats items={items} />
+            <KanbanBoard initial={items} />
+          </>
         )}
       </main>
     </div>
