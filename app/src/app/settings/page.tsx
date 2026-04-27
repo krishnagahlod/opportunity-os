@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { SettingsForm } from "./SettingsForm";
 import { CalendarSection } from "./CalendarSection";
+import { ResumeSection } from "./ResumeSection";
 import type { Profile } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,14 @@ export default async function SettingsPage() {
           </p>
         </header>
         <SettingsForm profile={profile as Profile} />
+        <div className="mt-10">
+          <ResumeSection
+            userId={user.id}
+            initialResumePath={(profile as Profile).resume_url ?? null}
+            initialSuggestions={(profile as Profile).resume_skills ?? []}
+            initialUploadedAt={(profile as Profile).resume_uploaded_at ?? null}
+          />
+        </div>
         <div className="mt-10">
           <CalendarSection
             initialToken={(profile as Profile).calendar_token ?? null}

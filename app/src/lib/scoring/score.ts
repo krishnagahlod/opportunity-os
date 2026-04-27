@@ -83,8 +83,15 @@ export function computeScore(profile: Profile, opp: Opportunity): Score {
  * cap at 5 hits = 1.0.
  */
 function relevanceScore(profile: Profile, opp: Opportunity): number {
+  // Resume-extracted skills feed in alongside user-confirmed interests + skills.
+  // Capped-at-5-hits below means they widen the keyword net but don't dominate
+  // the score even on a resume with many extracted terms.
   const userTerms = new Set(
-    [...(profile.interests ?? []), ...(profile.skills ?? [])].map(normalize),
+    [
+      ...(profile.interests ?? []),
+      ...(profile.skills ?? []),
+      ...(profile.resume_skills ?? []),
+    ].map(normalize),
   );
   if (userTerms.size === 0) return 0.5;
 

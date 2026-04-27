@@ -62,6 +62,37 @@ export const ExtractedOpportunitySchema = z.object({
 
 export type ExtractedOpportunity = z.infer<typeof ExtractedOpportunitySchema>;
 
+/* ============ Extract Resume ============ */
+
+/**
+ * Schema for what we ask Gemini to pull out of a resume PDF. Kept tight on
+ * purpose — we only need signal that improves opportunity matching, not a
+ * complete CV parse.
+ */
+export const ResumeExtractionSchema = z.object({
+  /** Lowercase, deduped, normalized skill keywords (e.g. "react", "sql", "figma"). */
+  skills: z.array(z.string().min(1).max(40)).max(40).default([]),
+  /** Loose interest/role buckets the resume implies (e.g. "Software Engineering", "Data Science"). */
+  roles_of_interest: z.array(z.string().min(1).max(60)).max(10).default([]),
+  /** 1-2 sentence factual summary, no embellishment. Useful for the "why for you" line later. */
+  summary: z.string().max(400).nullable().optional().default(null),
+});
+
+export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
+
+export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output JSON only — no prose, no fences. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Summary is 1-2 short factual sentences.`;
+
+export const RESUME_USER_PROMPT = `Extract structured data from this resume.
+
+Expected JSON:
+{
+  "skills": string[]              // lowercase keywords; max 40; deduped
+  "roles_of_interest": string[]   // max 10 broad role buckets
+  "summary": string | null        // 1-2 factual sentences
+}
+
+Output JSON only.`;
+
 export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. extraction_confidence = your 0..1 self-rating: 1.0 = explicit, well-formed posting with clear org+role; 0.5 = ambiguous (announcement, vague pitch); 0.2 = doesn't really look like an opportunity at all (Show HN, blog, news). Don't invent facts.`;
 
 export function buildExtractPrompt({

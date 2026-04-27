@@ -40,7 +40,11 @@ export type Profile = {
   preferred_location: string | null;
   remote_preference: RemotePreference | null;
   time_commitment: TimeCommitment | null;
+  /** Storage path of the uploaded resume, e.g. "<user_id>/<uuid>.pdf". Used to refetch / delete. */
   resume_url: string | null;
+  /** AI-extracted skill candidates from the resume. User confirms which to merge into `skills`. */
+  resume_skills: string[];
+  resume_uploaded_at: string | null;
   telegram_chat_id: string | null;
   /** UUID used to authenticate /api/calendar.ics subscribers. Null until first opt-in. */
   calendar_token: string | null;
