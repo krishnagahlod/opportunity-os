@@ -9,7 +9,7 @@ import {
 } from "./prompts";
 
 /**
- * Parse a resume PDF into structured skills/roles/summary.
+ * Parse a resume PDF into structured skills + role buckets.
  *
  * Flow:
  *   1. Extract text from the PDF locally (no LLM call) using `unpdf` —
@@ -44,10 +44,12 @@ export async function parseResumePdf(
     prompt: buildResumePrompt(text),
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
-    // 2500 covers the worst case: 25 skills (≤40 chars each) + 6 roles +
-    // 200-char summary + JSON overhead. Earlier 1500 was hitting Groq's
-    // truncation when it generated a wider skill set on niche resumes.
     maxTokens: 2500,
+    // Llama 3.1 8B Instant occasionally stops generating mid-array on
+    // json_object mode for richer schemas like resume parsing — the 70B
+    // model handles structured output more reliably. Slower but it's a
+    // one-time per-user call so the latency hit is fine.
+    groqModel: "llama-3.3-70b-versatile",
   });
 
   return normalize(result.data);
@@ -77,7 +79,6 @@ function normalize(input: ResumeExtraction): ResumeExtraction {
   return {
     skills: cleanSkills,
     roles_of_interest: cleanRoles,
-    summary: input.summary?.trim() || null,
   };
 }
 

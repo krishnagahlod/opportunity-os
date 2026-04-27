@@ -23,9 +23,12 @@ export type LLMCallResult<T> = {
 };
 
 const GEMINI_MODEL = "gemini-2.0-flash";
-// Llama 3.1 8B Instant — 30K TPM (2.5x more than 70B Versatile), faster,
-// doesn't truncate on simple JSON. Plenty smart for structured extraction.
-const GROQ_MODEL = "llama-3.1-8b-instant";
+// Default Groq model — Llama 3.1 8B Instant. 30K TPM (2.5x more than 70B
+// Versatile), faster, plenty smart for short/simple JSON like opportunity
+// extraction. Some larger structured outputs (resume parsing) override
+// this with `groqModel` to use 70B Versatile, which is more reliable on
+// json_object mode for richer schemas.
+const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
 
 export async function callLLM<T>({
   prompt,
@@ -34,11 +37,15 @@ export async function callLLM<T>({
   // 1000 ≈ ~750 words of JSON output. ExtractedOpportunitySchema has ~16 fields;
   // Groq was previously truncating at 600 on items with longer summaries/why text.
   maxTokens = 1000,
+  groqModel = DEFAULT_GROQ_MODEL,
 }: {
   prompt: string;
   schema: ZodSchema<T>;
   systemInstruction?: string;
   maxTokens?: number;
+  /** Override Groq model for this call. Use 'llama-3.3-70b-versatile' for
+   * larger / pickier structured outputs that the 8B model truncates. */
+  groqModel?: string;
 }): Promise<LLMCallResult<T>> {
   let geminiError: unknown = null;
 
@@ -78,13 +85,28 @@ export async function callLLM<T>({
 
   // --- Attempt 2: Groq ---
   try {
-    const raw = await callGroq(prompt, systemInstruction, maxTokens);
+    const raw = await callGroq(prompt, systemInstruction, maxTokens, groqModel);
     const parsed = safeParse<T>(raw, schema);
     if (parsed) {
       return { data: parsed, provider: "groq", raw };
     }
+    // Parse failed — retry once with a stricter "complete the JSON" reminder.
+    // Mirrors the Gemini path. Llama models occasionally stop early on
+    // json_object mode and a fresh prompt with explicit closure instruction
+    // usually fixes it.
+    const raw2 = await callGroq(
+      prompt +
+        "\n\nIMPORTANT: respond with ONE complete JSON object matching the schema. Close every array and object. No prose, no markdown fences, no truncation.",
+      systemInstruction,
+      maxTokens,
+      groqModel,
+    );
+    const parsed2 = safeParse<T>(raw2, schema);
+    if (parsed2) {
+      return { data: parsed2, provider: "groq", raw: raw2 };
+    }
     throw new Error(
-      `Groq returned invalid JSON. Output: ${raw.slice(0, 200)}`,
+      `Groq returned invalid JSON twice. Last output (${raw2.length} chars): ${raw2.slice(0, 600)}`,
     );
   } catch (groqError) {
     throw new Error(
@@ -122,6 +144,7 @@ async function callGroq(
   prompt: string,
   systemInstruction: string | undefined,
   maxTokens: number,
+  model: string,
 ): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY not set");
@@ -138,14 +161,22 @@ async function callGroq(
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const chat = await client.chat.completions.create({
-        model: GROQ_MODEL,
+        model,
         messages,
         response_format: { type: "json_object" },
         max_tokens: maxTokens,
         temperature: 0.2,
       });
-      const content = chat.choices[0]?.message?.content ?? "";
+      const choice = chat.choices[0];
+      const content = choice?.message?.content ?? "";
       if (!content) throw new Error("Groq returned empty content");
+      // Surface length truncation as a recognisable error so the caller knows
+      // bumping max_tokens (rather than re-prompting) is the actual fix.
+      if (choice?.finish_reason === "length") {
+        throw new Error(
+          `Groq truncated output at max_tokens=${maxTokens} (finish_reason=length). Last chars: "${content.slice(-80)}"`,
+        );
+      }
       return content;
     } catch (e) {
       if (attempt === 0 && isRateLimited(e)) {

@@ -74,13 +74,11 @@ export const ResumeExtractionSchema = z.object({
   skills: z.array(z.string().min(1).max(40)).max(25).default([]),
   /** Loose interest/role buckets the resume implies (e.g. "Software Engineering", "Data Science"). */
   roles_of_interest: z.array(z.string().min(1).max(60)).max(6).default([]),
-  /** 1-sentence factual summary, no embellishment. Optional. */
-  summary: z.string().max(200).nullable().optional().default(null),
 });
 
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
 
-export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output JSON only — no prose, no fences. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Summary is one short factual sentence. Hard caps: max 25 skills, max 6 roles, max 200 chars summary — cut aggressively to fit.`;
+export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output ONE complete JSON object — no prose, no fences, no truncation. Close every array and object. Be conservative: only extract what's explicitly demonstrated. Skills are lowercase technical / professional keywords (frameworks, languages, tools, soft skills the candidate clearly uses). Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest are broad role buckets like "Software Engineering" or "Product Management" inferred from the candidate's trajectory. Hard caps: max 25 skills, max 6 roles. Cut aggressively if the candidate has more.`;
 
 /**
  * Build the resume-extraction prompt with the candidate's PDF text inlined.
@@ -94,14 +92,13 @@ export function buildResumePrompt(resumeText: string): string {
   return [
     "Extract structured data from this resume.",
     "",
-    "Expected JSON:",
+    "Expected JSON shape (output ONE complete object — close every bracket):",
     "{",
     '  "skills": string[],              // lowercase keywords; MAX 25; deduped',
-    '  "roles_of_interest": string[],   // MAX 6 broad role buckets',
-    '  "summary": string | null         // ONE short factual sentence (max 200 chars)',
+    '  "roles_of_interest": string[]    // MAX 6 broad role buckets',
     "}",
     "",
-    "Output JSON only — no prose, no fences.",
+    "Output JSON only — no prose, no fences. Make sure both arrays are closed.",
     "",
     "--- Resume text ---",
     capped,
