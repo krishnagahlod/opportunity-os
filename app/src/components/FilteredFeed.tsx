@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { CategoryStacks } from "@/components/CategoryStacks";
@@ -20,6 +20,15 @@ import type {
   Opportunity,
   OpportunityCategory,
 } from "@/types/db";
+
+type SearchPayload = {
+  opportunities: Opportunity[];
+  scoreMap: Record<string, { score: number; why: string | null }>;
+  matchMap: Record<string, string[]>;
+  sourceMap: Record<string, string>;
+  savedSet: string[];
+  appliedMap: Record<string, ApplicationStatus>;
+};
 
 export function FilteredFeed({
   opportunities,
@@ -65,11 +74,94 @@ export function FilteredFeed({
     [router],
   );
 
-  // Defer the search query for snappier typing.
-  const deferredQ = useDeferredValue(state.q);
+  /* ===== Server-side full-text search =================================
+   * When state.q has at least 2 chars we hit /api/search (debounced) which
+   * runs a Postgres tsvector query against the WHOLE opportunities table.
+   * The result replaces the in-memory pool below; other filters (category,
+   * source, etc.) still apply on top. The dashboard's pre-rendered 120-row
+   * pool stays as the "browse" view for empty-search.
+   * ==================================================================== */
+  const [debouncedQ, setDebouncedQ] = useState(state.q);
+  const [searchPayload, setSearchPayload] = useState<SearchPayload | null>(null);
+  const [searchPending, setSearchPending] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
-  // Available facet values are derived from the current opp pool, not hardcoded.
-  // This way the source dropdown only shows sources we actually have data from.
+  // Debounce typed input so we don't fire a request on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(state.q), 250);
+    return () => clearTimeout(timer);
+  }, [state.q]);
+
+  // Fetch search results when the debounced query crosses the 2-char threshold.
+  // AbortController cancels in-flight requests on rapid retyping.
+  useEffect(() => {
+    const q = debouncedQ.trim();
+    if (q.length < 2) {
+      setSearchPayload(null);
+      setSearchPending(false);
+      setSearchError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSearchPending(true);
+    setSearchError(null);
+    fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+      signal: controller.signal,
+    })
+      .then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error(`Search failed (${r.status})`)),
+      )
+      .then((data: SearchPayload) => {
+        setSearchPayload(data);
+        setSearchPending(false);
+      })
+      .catch((e: Error) => {
+        if (e.name === "AbortError") return;
+        setSearchError(e.message);
+        setSearchPending(false);
+      });
+
+    return () => controller.abort();
+  }, [debouncedQ]);
+
+  const inSearchMode = debouncedQ.trim().length >= 2;
+
+  // When in search mode we use the API payload as the source of truth.
+  // Outside search mode the server-rendered props are authoritative.
+  const sourcePool: Opportunity[] =
+    inSearchMode && searchPayload ? searchPayload.opportunities : opportunities;
+
+  const effectiveScoreMap = useMemo(() => {
+    if (inSearchMode && searchPayload) return searchPayload.scoreMap;
+    return scoreMap;
+  }, [inSearchMode, searchPayload, scoreMap]);
+
+  const effectiveMatchMap = useMemo(() => {
+    if (inSearchMode && searchPayload) return searchPayload.matchMap;
+    return matchMap;
+  }, [inSearchMode, searchPayload, matchMap]);
+
+  const effectiveSourceMap = useMemo(() => {
+    if (!inSearchMode || !searchPayload) return sourceMap;
+    return { ...sourceMap, ...searchPayload.sourceMap };
+  }, [inSearchMode, searchPayload, sourceMap]);
+
+  const effectiveSavedSet = useMemo(() => {
+    const base = new Set(savedSet);
+    if (inSearchMode && searchPayload) {
+      for (const id of searchPayload.savedSet) base.add(id);
+    }
+    return base;
+  }, [savedSet, inSearchMode, searchPayload]);
+
+  const effectiveAppliedMap = useMemo(() => {
+    if (!inSearchMode || !searchPayload) return appliedMap;
+    return { ...appliedMap, ...searchPayload.appliedMap };
+  }, [appliedMap, inSearchMode, searchPayload]);
+
+  // Available facet values are derived from the unfiltered pool — keep the
+  // dropdowns stable across search input so the UI doesn't flicker.
   const availableCategories = useMemo<OpportunityCategory[]>(() => {
     const seen = new Set<string>();
     for (const o of opportunities) seen.add(o.category);
@@ -85,18 +177,18 @@ export function FilteredFeed({
     return Array.from(seen).sort();
   }, [opportunities, sourceMap]);
 
-  // ===== filter + sort =====
+  // ===== local filter + sort over the active pool =====
   const filtered = useMemo(() => {
-    const q = deferredQ.trim().toLowerCase();
     const catSet = new Set(state.categories);
     const srcSet = new Set(state.sources);
     const now = Date.now();
+    const localQ = inSearchMode ? "" : state.q.trim().toLowerCase();
 
-    return opportunities.filter((o) => {
+    return sourcePool.filter((o) => {
       if (catSet.size > 0 && !catSet.has(o.category)) return false;
 
       if (srcSet.size > 0) {
-        const name = sourceMap[o.id];
+        const name = effectiveSourceMap[o.id];
         if (!name || !srcSet.has(name)) return false;
       }
 
@@ -110,7 +202,11 @@ export function FilteredFeed({
         if (state.deadline === "month" && days > 30) return false;
       }
 
-      if (q) {
+      // Browse-mode: substring match over title/org/summary/tags.
+      // Search-mode: server already filtered with stemming + word-boundary,
+      // so we skip the local q filter (otherwise "interns" wouldn't match
+      // "internship" results from the server).
+      if (localQ) {
         const hay = [
           o.title,
           o.organization,
@@ -119,12 +215,12 @@ export function FilteredFeed({
         ]
           .join(" ")
           .toLowerCase();
-        if (!hay.includes(q)) return false;
+        if (!hay.includes(localQ)) return false;
       }
 
       return true;
     });
-  }, [opportunities, deferredQ, state, sourceMap]);
+  }, [sourcePool, state, effectiveSourceMap, inSearchMode]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -137,13 +233,11 @@ export function FilteredFeed({
         break;
       case "relevance":
       default:
-        arr.sort(byScoreDesc(scoreMap));
+        arr.sort(byScoreDesc(effectiveScoreMap));
         break;
     }
     return arr;
-  }, [filtered, state.sort, scoreMap]);
-
-  const savedSetMemo = useMemo(() => new Set(savedSet), [savedSet]);
+  }, [filtered, state.sort, effectiveScoreMap]);
 
   // Show category stacks as the entry view when no filter / search is active.
   // The moment any filter narrows the pool, switch to expandable cards.
@@ -168,6 +262,13 @@ export function FilteredFeed({
       ? CATEGORY_META[state.categories[0]]?.label
       : null;
 
+  // The total-count badge in FilterBar should reflect what the user is
+  // searching across — the server-fed pool in browse, or the search-result
+  // candidate set in search mode.
+  const totalCount = inSearchMode
+    ? searchPayload?.opportunities.length ?? 0
+    : opportunities.length;
+
   return (
     <div className="space-y-6">
       <FilterBar
@@ -175,7 +276,7 @@ export function FilteredFeed({
         setState={setState}
         availableCategories={availableCategories}
         availableSources={availableSources}
-        totalCount={opportunities.length}
+        totalCount={totalCount}
         filteredCount={sorted.length}
       />
 
@@ -184,7 +285,7 @@ export function FilteredFeed({
           <FeaturedRow
             opportunities={opportunities}
             scoreMap={scoreMap}
-            savedSet={savedSetMemo}
+            savedSet={effectiveSavedSet}
             appliedMap={appliedMap}
             matchMap={matchMap}
           />
@@ -193,8 +294,16 @@ export function FilteredFeed({
             onPick={onPickCategory}
           />
         </div>
+      ) : searchPending && !searchPayload ? (
+        <SearchSpinner query={debouncedQ} />
+      ) : searchError ? (
+        <SearchError message={searchError} />
       ) : sorted.length === 0 ? (
-        <NoResults onClear={() => setState(DEFAULT_FILTERS)} />
+        <NoResults
+          inSearchMode={inSearchMode}
+          query={debouncedQ}
+          onClear={() => setState(DEFAULT_FILTERS)}
+        />
       ) : (
         <section>
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -206,10 +315,15 @@ export function FilteredFeed({
               <ArrowLeft className="size-3.5" />
               All categories
             </button>
-            <h2 className="text-sm font-semibold tracking-tight">
-              {singleCategoryLabel
-                ? `${singleCategoryLabel} (${sorted.length})`
-                : `${sorted.length} matching`}
+            <h2 className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight">
+              {searchPending && (
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              )}
+              {inSearchMode
+                ? `${sorted.length} match${sorted.length === 1 ? "" : "es"} for "${debouncedQ}"`
+                : singleCategoryLabel
+                  ? `${singleCategoryLabel} (${sorted.length})`
+                  : `${sorted.length} matching`}
             </h2>
           </div>
           <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -221,9 +335,9 @@ export function FilteredFeed({
               >
                 <OpportunityCard
                   opportunity={opp}
-                  isSaved={savedSetMemo.has(opp.id)}
-                  applicationStatus={appliedMap[opp.id]}
-                  matchedTerms={matchMap[opp.id]}
+                  isSaved={effectiveSavedSet.has(opp.id)}
+                  applicationStatus={effectiveAppliedMap[opp.id]}
+                  matchedTerms={effectiveMatchMap[opp.id]}
                 />
               </div>
             ))}
@@ -234,12 +348,43 @@ export function FilteredFeed({
   );
 }
 
-function NoResults({ onClear }: { onClear: () => void }) {
+function SearchSpinner({ query }: { query: string }) {
+  return (
+    <div className="flex items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-10 text-sm text-muted-foreground">
+      <Loader2 className="size-4 animate-spin" />
+      Searching for &ldquo;{query}&rdquo;…
+    </div>
+  );
+}
+
+function SearchError({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      Search failed: {message}
+    </div>
+  );
+}
+
+function NoResults({
+  inSearchMode,
+  query,
+  onClear,
+}: {
+  inSearchMode: boolean;
+  query: string;
+  onClear: () => void;
+}) {
   return (
     <div className="rounded-2xl border border-dashed border-border/70 bg-card/40 px-6 py-10 text-center">
-      <p className="text-sm font-medium">No opportunities match these filters.</p>
+      <p className="text-sm font-medium">
+        {inSearchMode
+          ? `No opportunities match "${query}".`
+          : "No opportunities match these filters."}
+      </p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Try widening the deadline window or clearing categories.
+        {inSearchMode
+          ? "Try a broader phrase or clear the filters below."
+          : "Try widening the deadline window or clearing categories."}
       </p>
       <button
         type="button"
