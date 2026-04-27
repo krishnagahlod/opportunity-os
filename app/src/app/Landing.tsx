@@ -10,6 +10,7 @@ import {
   Sparkles,
   Upload,
   Workflow,
+  X,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,16 +18,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Public marketing landing — rendered at "/" when no user is signed in.
- * Authenticated visitors see the dashboard instead (handled in page.tsx).
  *
- * Tone (per product brief): sharp, direct, slightly irreverent, never
- * corporate. Pain-first messaging — students recognise themselves in the
- * "Sound familiar?" section before we sell them anything.
+ * Tone (from product brief): sharp, direct, slightly irreverent, never
+ * corporate. Pain-first messaging — students see themselves before they
+ * see the product. Visuals are in-browser mocks that mirror real product
+ * surfaces, layered for depth (browser-window dashboard + Telegram bubble
+ * + email card stacked behind each other).
  *
- * Visuals are in-browser mocks intentionally — they mirror what the real
- * product looks like (same Telegram message format the bot actually sends,
- * same opportunity-card shape, real source names) so they're authentic
- * without depending on external screenshot assets.
+ * Layout inspired by 21st.dev patterns:
+ *   - Hero with stacked rotated windows behind main preview (Vaib pattern)
+ *   - Bento grid feature section (PerkAI / BentoGridShowcase)
+ *   - Big pull-quote with thin accent bar (Tailark testimonial)
  */
 export async function Landing() {
   const metrics = await fetchLiveMetrics();
@@ -34,10 +36,10 @@ export async function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <Nav />
       <Hero metrics={metrics} />
-      <ProblemSection />
+      <PainStrip />
       <ShowcaseSection />
-      <FeaturesSection />
-      <SocialProof />
+      <FeaturesBento />
+      <PullQuote />
       <HowItWorks />
       <FinalCta />
       <Footer />
@@ -47,7 +49,6 @@ export async function Landing() {
 
 /* ============================================================================
  * Live metrics — real numbers from the DB. Read-only, public-safe.
- * Falls back to nice defaults if the query fails so the page still renders.
  * ========================================================================== */
 
 type LiveMetrics = {
@@ -114,149 +115,135 @@ function Nav() {
 
 function Hero({ metrics }: { metrics: LiveMetrics }) {
   return (
-    <section className="relative overflow-hidden border-b border-border/40">
-      <div className="bg-grid-dots pointer-events-none absolute inset-0 opacity-30" />
+    <section className="relative overflow-hidden">
+      <div className="bg-grid-dots pointer-events-none absolute inset-0 opacity-25" />
       <div className="bg-hero-radial dark:bg-hero-radial-dark pointer-events-none absolute inset-0" />
 
-      <div className="relative mx-auto max-w-6xl px-4 py-16 sm:py-24 lg:py-28">
-        <div className="grid gap-12 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16">
-          {/* Left: pain-first headline + CTA */}
-          <div>
-            <span className="animate-fade-up inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
-              <Sparkles className="size-3 text-primary" />
-              Built by a student who lived this
-            </span>
+      <div className="relative mx-auto max-w-6xl px-4 pt-14 pb-10 sm:pt-20 sm:pb-16 lg:pt-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="animate-fade-up inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
+            <Sparkles className="size-3 text-primary" />
+            Built by a student who lived this
+          </span>
 
-            <h1
-              className="animate-fade-up mt-5 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-[56px]"
-              style={{ animationDelay: "60ms" }}
-            >
-              You just missed a{" "}
-              <span className="text-gradient-brand">BCG deadline</span>.
-              <br className="hidden sm:block" />{" "}
-              <span className="text-foreground">
-                It closed yesterday.
-              </span>
-            </h1>
-
-            <p
-              className="animate-fade-up mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-[17px]"
-              style={{ animationDelay: "120ms" }}
-            >
-              Opportunity OS would have told you{" "}
-              <span className="font-medium text-foreground">3 days ago</span>.
-              We scrape {metrics.sourcesCount > 0 ? `${metrics.sourcesCount}+` : "20+"}{" "}
-              sources every 6 hours, run your resume against every new
-              listing, and ping you on Telegram the moment something high-fit
-              drops.
-            </p>
-
-            <div
-              className="animate-fade-up mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center"
-              style={{ animationDelay: "180ms" }}
-            >
-              <Link
-                href="/login"
-                className={cn(
-                  buttonVariants({
-                    size: "lg",
-                    className:
-                      "h-12 gap-1.5 px-6 text-[15px] shadow-md shadow-primary/15 transition-shadow hover:shadow-lg",
-                  }),
-                )}
-              >
-                Get my personalized feed
-                <ArrowRight className="size-4" />
-              </Link>
-            </div>
-
-            <p
-              className="animate-fade-up mt-5 text-[12.5px] text-muted-foreground"
-              style={{ animationDelay: "220ms" }}
-            >
-              90-second onboarding · No password · Free, forever
-            </p>
-
-            {/* Live metrics ribbon — real numbers from the DB. Earns trust. */}
-            <div
-              className="animate-fade-up mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-border/50 pt-6"
-              style={{ animationDelay: "260ms" }}
-            >
-              <Metric
-                value={
-                  metrics.liveCount > 0
-                    ? metrics.liveCount.toLocaleString()
-                    : "Live"
-                }
-                label="opportunities live right now"
-              />
-              <Metric
-                value={
-                  metrics.newThisWeek > 0
-                    ? `+${metrics.newThisWeek.toLocaleString()}`
-                    : "Daily"
-                }
-                label="added in the last 7 days"
-              />
-              <Metric
-                value={
-                  metrics.sourcesCount > 0 ? `${metrics.sourcesCount}` : "20+"
-                }
-                label="sources scraped every 6h"
-              />
-            </div>
-          </div>
-
-          {/* Right: faithful Telegram message visual — the money shot */}
-          <div
-            className="animate-fade-up relative"
-            style={{ animationDelay: "320ms" }}
+          <h1
+            className="animate-fade-up mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-[68px]"
+            style={{ animationDelay: "60ms" }}
           >
-            <TelegramHeroMessage />
+            The right opportunity,
+            <br className="hidden sm:block" />{" "}
+            <span className="text-gradient-brand">before it closes</span>.
+          </h1>
+
+          <p
+            className="animate-fade-up mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
+            style={{ animationDelay: "120ms" }}
+          >
+            We watch{" "}
+            <span className="font-medium text-foreground">
+              {metrics.sourcesCount > 0 ? `${metrics.sourcesCount}+` : "20+"}{" "}
+              sources
+            </span>{" "}
+            every 6 hours, score every new listing against your resume, and ping
+            you on Telegram the moment a high-fit one drops.
+          </p>
+
+          <div
+            className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+            style={{ animationDelay: "180ms" }}
+          >
+            <Link
+              href="/login"
+              className={cn(
+                buttonVariants({
+                  size: "lg",
+                  className:
+                    "h-12 gap-1.5 px-7 text-[15px] shadow-md shadow-primary/15 transition-shadow hover:shadow-lg",
+                }),
+              )}
+            >
+              Get my personalized feed
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
+
+          <p
+            className="animate-fade-up mt-4 text-[12.5px] text-muted-foreground"
+            style={{ animationDelay: "220ms" }}
+          >
+            90-second onboarding · No password · Free, forever
+          </p>
+        </div>
+
+        {/* Layered product preview — money shot. Three rotated windows give depth
+            without committing to any single channel as "the" product. */}
+        <div
+          className="animate-fade-up relative mx-auto mt-14 max-w-4xl px-4 sm:mt-20"
+          style={{ animationDelay: "320ms" }}
+        >
+          <ProductPreviewStack />
+        </div>
+
+        {/* Live metrics ribbon — real DB numbers */}
+        <div
+          className="animate-fade-up mt-14 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 border-t border-border/40 pt-8"
+          style={{ animationDelay: "380ms" }}
+        >
+          <Metric
+            value={
+              metrics.liveCount > 0
+                ? metrics.liveCount.toLocaleString()
+                : "Live"
+            }
+            label="opportunities live right now"
+          />
+          <Metric
+            value={
+              metrics.newThisWeek > 0
+                ? `+${metrics.newThisWeek.toLocaleString()}`
+                : "Daily"
+            }
+            label="added in the last 7 days"
+          />
+          <Metric
+            value={
+              metrics.sourcesCount > 0 ? `${metrics.sourcesCount}` : "20+"
+            }
+            label="sources scraped every 6h"
+          />
         </div>
       </div>
     </section>
   );
 }
 
-function ProblemSection() {
+/* "Sound familiar?" reduced to a single tight strip. Recognition without
+   ceremony — three (X-icon) crossed-out moments inline beneath the hero. */
+function PainStrip() {
   const moments = [
-    "Missed an off-campus Goldman Sachs window because you only found out from a batchmate the week after.",
-    "Spent 40 minutes on Unstop filtering through irrelevant listings to find two worth applying to.",
-    "Got a Telegram forward about a fellowship — two days after it closed.",
-    "Applied to something that 'seemed fine' because you didn't have time to find better options.",
-    "Saw the deadline pop up on someone else's LinkedIn humblebrag, three days too late.",
+    "40 minutes scrolling Unstop",
+    "two-days-late Telegram forwards",
+    "missing the off-campus role your batchmate got",
   ];
-
   return (
-    <section className="border-b border-border/40">
-      <div className="mx-auto max-w-3xl px-4 py-20 sm:py-24">
-        <h2 className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">
-          Sound familiar?
-        </h2>
-        <ul className="mt-10 space-y-4">
-          {moments.map((m, i) => (
-            <li
-              key={i}
-              className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3.5 text-[14.5px] leading-relaxed text-foreground/85"
-            >
-              <span className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive/70">
-                <span className="text-[11px] font-bold leading-none">
-                  ×
-                </span>
-              </span>
-              <span>{m}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-10 text-balance text-center text-[15px] font-medium text-foreground/85">
-          That&apos;s what a broken system looks like.
-          <br className="hidden sm:block" />{" "}
-          <span className="text-gradient-brand">
-            Here&apos;s what a fixed one looks like.
-          </span>
-        </p>
+    <section className="border-y border-border/40 bg-muted/20">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:py-7">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            No more
+          </p>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-foreground/85">
+            {moments.map((m) => (
+              <li key={m} className="inline-flex items-center gap-1.5">
+                <X
+                  aria-hidden
+                  className="size-3.5 shrink-0 text-destructive/70"
+                />
+                <span>{m}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
@@ -264,29 +251,44 @@ function ProblemSection() {
 
 function ShowcaseSection() {
   return (
-    <section className="border-b border-border/40 bg-muted/20">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24">
-        <div className="grid gap-8 lg:grid-cols-3">
+    <section className="border-b border-border/40">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+            How the loop works
+          </p>
+          <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            Three things happen in the background.
+            <br className="hidden sm:block" />{" "}
+            <span className="text-muted-foreground">
+              You don&apos;t have to do any of them.
+            </span>
+          </h2>
+        </div>
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
           <ShowcasePanel
             n="01"
-            icon={<Upload className="size-4" />}
+            icon={<Upload className="size-3.5" />}
             title="You upload your resume"
-            body="Once. We read your skills, your experience, your goals. That becomes your scoring engine — no generic 'pick 3 interests' chips required."
-            visual={<UploadPanelVisual />}
+            body="Once. We read your skills, your projects, your trajectory. That becomes your scoring engine — no generic 'pick 3 interests' chips required."
+            visual={<UploadVisual />}
+            tone="primary"
           />
           <ShowcasePanel
             n="02"
-            icon={<Workflow className="size-4" />}
+            icon={<Workflow className="size-3.5" />}
             title="We work while you sleep"
-            body="Every 6 hours, 20+ sources get scraped. Every new listing gets read by AI, scored against your resume, deduplicated, and dropped into your feed."
-            visual={<AutomationPanelVisual />}
+            body="Every 6 hours, 20+ sources scraped. Each new listing read by AI, scored against your resume, deduplicated, pushed to your feed."
+            visual={<AutomationVisual />}
+            tone="emerald"
           />
           <ShowcasePanel
             n="03"
-            icon={<Bell className="size-4" />}
+            icon={<Bell className="size-3.5" />}
             title="You get pinged"
-            body="High-fit drops the moment they arrive. Email digest at 8am for the rest. You click, you apply, you move on. The opportunity finds you."
-            visual={<TelegramPanelVisual />}
+            body="High-fit drops the moment they arrive. 8am email digest catches the rest. You click, you apply, you move on. The opportunity finds you."
+            visual={<TelegramVisual />}
+            tone="fuchsia"
           />
         </div>
       </div>
@@ -294,95 +296,96 @@ function ShowcaseSection() {
   );
 }
 
-function FeaturesSection() {
-  return (
-    <section className="border-b border-border/40">
-      <div className="mx-auto max-w-5xl px-4 py-20 sm:py-24">
-        <div className="space-y-24">
-          <FeatureRow
-            eyebrow="AI scoring"
-            title="Every opportunity scored against your actual resume."
-            body="Not against generic 'I'm interested in consulting' chips. We read your projects, your roles, your trajectory — and tell you why each opportunity matters with one line you can act on."
-            visual={<ScoredCardVisual />}
-            reverse={false}
-          />
-          <FeatureRow
-            eyebrow="Telegram + Email"
-            title="3-day deadline warnings on the channel you already check."
-            body="A daily 8am digest in your inbox. Instant Telegram pings for items closing in 48h. The thing that makes a student feel like the system is actually looking out for them."
-            visual={<NotificationsVisual />}
-            reverse={true}
-          />
-          <FeatureRow
-            eyebrow="Application tracker"
-            title="The kanban that turns this into a daily habit."
-            body="Saved → Applied → Interviewing → Won. Drag to update. See your active pipeline, your response rate, your wins this month. Without it, opportunities slip through cracks."
-            visual={<KanbanVisual />}
-            reverse={false}
-          />
-          <FeatureRow
-            eyebrow="20+ sources"
-            title="Things LinkedIn won't show you."
-            body="Hacker News Jobs, We Work Remotely, Greenhouse boards, Devpost, Unstop, Internshala, Reddit dev communities, niche fellowship newsletters. The places interesting opportunities actually live."
-            visual={<SourcesVisual />}
-            reverse={true}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SocialProof() {
-  // Placeholder testimonials with random names — swap for real quotes once
-  // you have testers willing to be quoted on the public landing.
-  const quotes = [
-    {
-      body: "Got a Telegram ping for a Kearney off-campus role. Applied the same day. I had no idea they were even hiring.",
-      name: "Rishabh Mehta",
-      meta: "BITS Pilani · 3rd year",
-    },
-    {
-      body: "I stopped checking LinkedIn. Now I open Opportunity OS in the morning, apply to 1–2 things before class, and that's it.",
-      name: "Ananya Sharma",
-      meta: "IIT Bombay · 4th year",
-    },
-  ];
-
+function FeaturesBento() {
   return (
     <section className="border-b border-border/40 bg-muted/20">
-      <div className="mx-auto max-w-5xl px-4 py-20 sm:py-24">
-        <div className="grid gap-6 lg:grid-cols-2">
-          {quotes.map((q) => (
-            <figure
-              key={q.name}
-              className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8"
-            >
-              <blockquote className="text-[18px] font-medium leading-snug tracking-tight text-foreground sm:text-[20px]">
-                <span className="mr-1 text-primary">&ldquo;</span>
-                {q.body}
-                <span className="ml-1 text-primary">&rdquo;</span>
-              </blockquote>
-              <figcaption className="mt-5 flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[12px] font-bold text-white">
-                  {q.name
-                    .split(" ")
-                    .map((p) => p[0])
-                    .join("")
-                    .slice(0, 2)}
-                </span>
-                <div>
-                  <p className="text-[13.5px] font-semibold tracking-tight">
-                    {q.name}
-                  </p>
-                  <p className="text-[11.5px] text-muted-foreground">
-                    {q.meta}
-                  </p>
-                </div>
-              </figcaption>
-            </figure>
-          ))}
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+            What you actually get
+          </p>
+          <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            Built for the way ambitious students actually job-hunt.
+          </h2>
         </div>
+
+        {/* Bento grid: tall AI scoring (2 rows) + 2 stacked medium cards on the
+            right + wide kanban below + wide sources strip at the bottom. */}
+        <div className="mt-14 grid gap-4 sm:grid-cols-3 sm:auto-rows-[minmax(220px,auto)]">
+          <BentoCard
+            className="sm:col-span-2 sm:row-span-2"
+            eyebrow="AI scoring"
+            title="Every opportunity scored against your actual resume."
+            body="Not against generic interest chips. We read your projects and roles, then tell you why each match matters — in one line you can act on."
+            visual={<ScoredCardVisual />}
+            tone="primary"
+          />
+          <BentoCard
+            eyebrow="Telegram"
+            title="Pings 48 hours before the deadline."
+            body="The thing that makes a student feel like the system is actually looking out for them."
+            visual={<MiniTelegramVisual />}
+            tone="sky"
+          />
+          <BentoCard
+            eyebrow="Daily digest"
+            title="Top picks in your inbox at 8am."
+            body="Email summary so you don't have to open the app to know if it's worth opening today."
+            visual={<MiniEmailVisual />}
+            tone="amber"
+          />
+          <BentoCard
+            className="sm:col-span-2"
+            eyebrow="Application tracker"
+            title="Saved → Applied → Interviewing → Won."
+            body="Drag to update. See your active pipeline, response rate, wins this month. Without it, opportunities slip through cracks."
+            visual={<KanbanVisual />}
+            tone="emerald"
+          />
+          <BentoCard
+            className="sm:col-span-3"
+            eyebrow="20+ sources"
+            title="Things LinkedIn won't show you."
+            body="Hacker News Jobs, Greenhouse boards, Devpost, Unstop, Internshala, We Work Remotely, Reddit dev communities, niche fellowship newsletters — wherever interesting opportunities actually live."
+            visual={<SourcesStripVisual />}
+            tone="fuchsia"
+            wide
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PullQuote() {
+  // Single big pull quote — Tailark pattern. One real-feeling student
+  // testimonial beats five small ones. Names are placeholders until real
+  // testers are willing to be quoted.
+  return (
+    <section className="border-b border-border/40">
+      <div className="mx-auto max-w-4xl px-4 py-20 sm:py-28">
+        <blockquote className="relative pl-6 sm:pl-10 before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-indigo-500 before:via-violet-500 before:to-fuchsia-500">
+          <p className="text-balance text-[22px] font-medium leading-snug tracking-tight sm:text-[28px] lg:text-[32px]">
+            &ldquo;Got a Telegram ping for a Kearney off-campus role.{" "}
+            <span className="text-gradient-brand">
+              Applied the same day
+            </span>
+            . I had no idea they were even hiring.&rdquo;
+          </p>
+          <footer className="mt-8 flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[12px] font-bold text-white shadow-sm">
+              RM
+            </span>
+            <div className="border-l border-border/60 pl-4">
+              <cite className="text-[13.5px] font-semibold not-italic">
+                Rishabh Mehta
+              </cite>
+              <span className="block text-[11.5px] text-muted-foreground">
+                BITS Pilani · 3rd year
+              </span>
+            </div>
+          </footer>
+        </blockquote>
       </div>
     </section>
   );
@@ -393,49 +396,58 @@ function HowItWorks() {
     {
       n: "01",
       title: "You spend 90 seconds",
-      body: "Upload your resume, pick what you're looking for — internship, full-time, fellowship, case comp. Set your preferences once.",
+      body: "Drop your resume. Skip the chip-clicking — we read it for you.",
     },
     {
       n: "02",
       title: "We do the rest",
-      body: "Every 6 hours, 20+ sources get scraped. Every new listing gets scored against your resume. Top picks rise to the top.",
+      body: "Every 6 hours, 20+ sources get scored against your profile. Top picks rise.",
     },
     {
       n: "03",
       title: "You open Telegram",
-      body: "Daily digest is ready. High-urgency items get an instant ping. You click, you apply, you move on. That's the loop.",
+      body: "Daily digest is ready. High-urgency drops ping you instantly. Apply, move on.",
     },
   ];
 
   return (
-    <section className="border-b border-border/40">
-      <div className="mx-auto max-w-5xl px-4 py-20 sm:py-24">
+    <section className="border-b border-border/40 bg-muted/20">
+      <div className="mx-auto max-w-5xl px-4 py-20 sm:py-28">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
             How it works
           </p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
             From your point of view, not ours.
           </h2>
         </div>
-        <ol className="mt-14 grid gap-6 lg:grid-cols-3">
-          {steps.map((s) => (
-            <li
-              key={s.n}
-              className="relative rounded-2xl border border-border/70 bg-card p-6"
-            >
-              <span className="text-gradient-brand font-mono text-[13px] font-semibold tabular-nums">
-                {s.n}
-              </span>
-              <h3 className="mt-3 text-[16.5px] font-semibold tracking-tight">
-                {s.title}
-              </h3>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-                {s.body}
-              </p>
-            </li>
-          ))}
-        </ol>
+
+        {/* Connected timeline — gradient line behind step cards ties them
+            visually so they feel like one flow rather than three boxes. */}
+        <div className="relative mt-14">
+          <div
+            aria-hidden
+            className="absolute left-4 right-4 top-7 hidden h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent lg:block"
+          />
+          <ol className="relative grid gap-5 lg:grid-cols-3 lg:gap-6">
+            {steps.map((s) => (
+              <li
+                key={s.n}
+                className="group relative rounded-2xl border border-border/70 bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated"
+              >
+                <span className="relative z-10 flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-mono text-[12px] font-bold tabular-nums text-white shadow-md">
+                  {s.n}
+                </span>
+                <h3 className="mt-5 text-[17px] font-semibold leading-snug tracking-tight">
+                  {s.title}
+                </h3>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+                  {s.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
   );
@@ -443,16 +455,28 @@ function HowItWorks() {
 
 function FinalCta() {
   return (
-    <section className="bg-hero-radial dark:bg-hero-radial-dark border-b border-border/40">
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
-        <h2 className="text-balance text-3xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-          Your next big opportunity is{" "}
+    <section className="bg-hero-radial dark:bg-hero-radial-dark relative overflow-hidden border-b border-border/40">
+      {/* Decorative orbs for depth */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-32 top-10 size-80 rounded-full bg-primary/15 blur-[140px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-24 bottom-0 size-72 rounded-full bg-fuchsia-500/15 blur-[140px]"
+      />
+
+      <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
+        <h2 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+          Your next big opportunity
+          <br className="hidden sm:block" />{" "}
+          is{" "}
           <span className="text-gradient-brand">
             being posted right now
           </span>
           .
         </h2>
-        <p className="mx-auto mt-5 max-w-xl text-[15.5px] text-muted-foreground">
+        <p className="mx-auto mt-6 max-w-xl text-[15.5px] text-muted-foreground">
           Sign up in 90 seconds. We&apos;ll surface your first high-fit
           opportunities tonight.
         </p>
@@ -463,7 +487,7 @@ function FinalCta() {
               buttonVariants({
                 size: "lg",
                 className:
-                  "h-12 gap-1.5 px-7 text-[15px] shadow-md shadow-primary/15 transition-shadow hover:shadow-lg",
+                  "h-12 gap-1.5 px-8 text-[15px] shadow-md shadow-primary/15 transition-shadow hover:shadow-xl",
               }),
             )}
           >
@@ -494,7 +518,7 @@ function Footer() {
 }
 
 /* ============================================================================
- * Visual primitives
+ * Visual primitives & visuals
  * ========================================================================== */
 
 function Brand() {
@@ -512,76 +536,171 @@ function Brand() {
 
 function Metric({ value, label }: { value: string; label: string }) {
   return (
-    <div>
+    <div className="text-center">
       <p className="text-2xl font-semibold tabular-nums tracking-tight">
         {value}
       </p>
-      <p className="mt-0.5 max-w-[180px] text-[11.5px] leading-snug text-muted-foreground">
+      <p className="mt-0.5 max-w-[200px] text-[11.5px] leading-snug text-muted-foreground">
         {label}
       </p>
     </div>
   );
 }
 
-/* ====================== Hero Telegram bubble — money shot ================== */
+/* ====================== HERO: layered product preview ====================== */
 
-function TelegramHeroMessage() {
+function ProductPreviewStack() {
   return (
     <div className="relative">
-      {/* Soft glow underneath */}
-      <div className="pointer-events-none absolute -inset-6 rounded-[36px] bg-primary/15 blur-3xl" />
+      {/* Soft glow behind */}
+      <div className="pointer-events-none absolute inset-x-12 -bottom-6 h-24 rounded-full bg-primary/15 blur-3xl" />
 
-      <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl border border-border/70 bg-card/90 shadow-2xl shadow-primary/15 backdrop-blur">
-        {/* Telegram-style chat header */}
-        <div className="flex items-center gap-3 border-b border-border/50 bg-muted/40 px-4 py-3">
-          <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
-            <Sparkles className="size-4" />
+      {/* Layer 3: email card peeking out from the back-left */}
+      <div
+        aria-hidden
+        className="absolute -left-2 top-6 hidden w-[360px] -rotate-6 overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-xl sm:block lg:-left-12"
+      >
+        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-2.5">
+          <span className="flex size-6 items-center justify-center rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
+            <Mail className="size-3" />
           </span>
-          <div className="flex-1">
-            <p className="text-[13.5px] font-semibold tracking-tight">
-              Opportunity OS
-            </p>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-              ● online
-            </p>
-          </div>
-          <span className="text-[10.5px] tabular-nums text-muted-foreground">
-            just now
+          <span className="text-[11px] font-semibold tracking-tight">
+            Daily digest · 8:00 AM
           </span>
         </div>
+        <div className="space-y-1.5 px-4 py-3 text-[10.5px]">
+          <p className="font-semibold">5 top picks for you today</p>
+          <p className="text-muted-foreground">
+            BCG ACE 2026 · 92/100 · 12d left
+          </p>
+          <p className="text-muted-foreground">Razorpay APM · 89/100</p>
+          <p className="text-muted-foreground">YIF Fellowship · 84/100</p>
+        </div>
+      </div>
 
-        {/* Message body */}
-        <div className="space-y-3 px-4 py-5">
-          <div className="rounded-2xl rounded-tl-sm border border-border/60 bg-background px-4 py-3 text-[13px] leading-relaxed text-foreground/90 shadow-sm">
-            <p className="font-semibold">
-              🚨 New high-fit opportunity for you
-            </p>
-            <p className="mt-2">
-              <span className="font-semibold underline decoration-primary/40 underline-offset-2">
-                BCG ACE 2026 — Boston Consulting Group
-              </span>
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
-                <Sparkles className="size-3" />
-                92/100
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3" />
-                Closes in 12 days
-              </span>
-            </div>
-            <p className="mt-3 rounded-md border-l-2 border-primary/50 bg-primary/[0.05] py-1.5 pl-3 pr-2 text-[12px] italic text-primary/90">
-              Matches your interest in consulting · top-tier brand · solid
-              compensation.
-            </p>
-          </div>
+      {/* Layer 2: Telegram bubble peeking out from back-right */}
+      <div
+        aria-hidden
+        className="absolute -right-2 top-2 hidden w-[300px] rotate-6 overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-xl sm:block lg:-right-10"
+      >
+        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-3 py-2">
+          <span className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white">
+            <Sparkles className="size-3" />
+          </span>
+          <span className="text-[11px] font-semibold">Opportunity OS</span>
+          <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400">
+            ●
+          </span>
+        </div>
+        <div className="px-3 py-3 text-[10.5px]">
+          <p className="font-semibold">🚨 Closing in 48h</p>
+          <p className="mt-1 truncate underline decoration-primary/40 underline-offset-2">
+            Kearney off-campus 2026
+          </p>
+          <p className="mt-1 text-muted-foreground">88/100 · Apply by May 1</p>
+        </div>
+      </div>
 
-          {/* Faux secondary message */}
-          <div className="rounded-2xl rounded-tl-sm border border-border/40 bg-background/70 px-4 py-2.5 text-[12.5px] text-muted-foreground">
-            ⏰ 2 more closing this week — see them in your feed.
+      {/* Layer 1: hero browser-window dashboard preview (the centerpiece) */}
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-3xl border border-border/70 bg-card/95 shadow-2xl shadow-primary/15 backdrop-blur">
+        {/* Browser chrome */}
+        <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-3">
+          <span className="size-2.5 rounded-full bg-rose-400/70" />
+          <span className="size-2.5 rounded-full bg-amber-400/70" />
+          <span className="size-2.5 rounded-full bg-emerald-400/70" />
+          <div className="ml-3 flex h-6 w-full max-w-[280px] items-center gap-2 rounded-md border border-border/40 bg-background/60 px-2.5 text-[11px] text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-emerald-500" />
+            opportunity-os.app/
+            <span className="text-foreground">your feed</span>
           </div>
         </div>
+
+        {/* Feed grid mock — three opportunity cards mirroring real product */}
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+          <FeedCard
+            cat="Internship"
+            catTone="text-indigo-600 dark:text-indigo-400"
+            dotTone="bg-indigo-500"
+            title="APM Internship"
+            org="Razorpay"
+            score={92}
+            urgency="3 days left"
+            urgencyTone="text-amber-600 dark:text-amber-300"
+          />
+          <FeedCard
+            cat="Case Comp"
+            catTone="text-amber-600 dark:text-amber-400"
+            dotTone="bg-amber-500"
+            title="BCG ACE 2026"
+            org="Boston Consulting Group"
+            score={88}
+            urgency="12 days left"
+          />
+          <FeedCard
+            cat="Fellowship"
+            catTone="text-rose-600 dark:text-rose-400"
+            dotTone="bg-rose-500"
+            title="Young India Fellowship"
+            org="Ashoka University"
+            score={76}
+            urgency="Rolling"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedCard({
+  cat,
+  catTone,
+  dotTone,
+  title,
+  org,
+  score,
+  urgency,
+  urgencyTone,
+}: {
+  cat: string;
+  catTone: string;
+  dotTone: string;
+  title: string;
+  org: string;
+  score: number;
+  urgency: string;
+  urgencyTone?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background p-3 shadow-sm">
+      <div className="flex items-start gap-2">
+        <span
+          aria-hidden
+          className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", dotTone)}
+        />
+        <div className="min-w-0 flex-1">
+          <h4 className="line-clamp-2 text-[12.5px] font-semibold leading-snug tracking-tight">
+            {title}
+          </h4>
+          <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+            <span className="truncate font-medium uppercase tracking-[0.06em] text-foreground/75">
+              {org}
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className={cn("inline-flex items-center gap-0.5", urgencyTone)}>
+              <Clock className="size-2.5" />
+              {urgency}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2.5">
+        <span className={cn("text-[9.5px] font-bold uppercase tracking-[0.08em]", catTone)}>
+          {cat}
+        </span>
+        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+          <Sparkles className="size-2.5" />
+          {score}
+        </span>
       </div>
     </div>
   );
@@ -595,258 +714,315 @@ function ShowcasePanel({
   title,
   body,
   visual,
+  tone,
 }: {
   n: string;
   icon: React.ReactNode;
   title: string;
   body: string;
   visual: React.ReactNode;
+  tone: "primary" | "emerald" | "fuchsia";
 }) {
+  const toneClasses = {
+    primary:
+      "before:from-primary/30 [--accent:var(--primary)] [--accent-soft:color-mix(in_oklch,var(--primary)_15%,transparent)]",
+    emerald:
+      "before:from-emerald-500/30 [--accent:theme(colors.emerald.500)] [--accent-soft:color-mix(in_oklch,theme(colors.emerald.500)_15%,transparent)]",
+    fuchsia:
+      "before:from-fuchsia-500/30 [--accent:theme(colors.fuchsia.500)] [--accent-soft:color-mix(in_oklch,theme(colors.fuchsia.500)_15%,transparent)]",
+  };
+
   return (
-    <article className="flex flex-col gap-5 rounded-2xl border border-border/60 bg-card/80 p-6 shadow-card">
-      <div className="flex items-center gap-3">
-        <span className="text-gradient-brand font-mono text-[12px] font-semibold tabular-nums">
+    <article
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/80 p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
+        "before:absolute before:-right-12 before:-top-16 before:size-48 before:rounded-full before:bg-gradient-to-br before:to-transparent before:blur-3xl",
+        toneClasses[tone],
+      )}
+    >
+      <div className="relative flex items-center gap-3">
+        <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground/70">
           {n}
         </span>
-        <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <span
+          className={cn(
+            "flex size-7 items-center justify-center rounded-lg",
+            tone === "primary" && "bg-primary/15 text-primary",
+            tone === "emerald" &&
+              "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+            tone === "fuchsia" &&
+              "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400",
+          )}
+        >
           {icon}
         </span>
       </div>
-      <h3 className="text-[18px] font-semibold leading-snug tracking-tight">
+      <h3 className="relative mt-5 text-[19px] font-semibold leading-snug tracking-tight">
         {title}
       </h3>
-      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+      <p className="relative mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
         {body}
       </p>
-      <div className="mt-auto pt-4">{visual}</div>
+      <div className="relative mt-6">{visual}</div>
     </article>
   );
 }
 
-/* === Showcase panel 1: resume upload ================================ */
-
-function UploadPanelVisual() {
+function UploadVisual() {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-background/60 p-5 text-center">
-      <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-fuchsia-500/20 text-primary">
-        <Upload className="size-4" />
-      </div>
-      <p className="mt-3 text-[13px] font-medium">Drop resume.pdf</p>
-      <div className="mt-4 space-y-1.5 rounded-xl bg-muted/40 px-3 py-2.5 text-left text-[11.5px] text-muted-foreground">
-        <p className="flex items-center gap-1.5">
-          <Check className="size-3 text-emerald-500" />
-          Read 8 skills, 3 role buckets
-        </p>
-        <p className="flex items-center gap-1.5">
-          <Check className="size-3 text-emerald-500" />
-          Built scoring engine
-        </p>
+    <div className="relative">
+      <div
+        aria-hidden
+        className="absolute inset-0 translate-x-2 translate-y-2 rounded-2xl border border-border/40 bg-muted/40"
+      />
+      <div className="relative rounded-2xl border-2 border-dashed border-primary/30 bg-background/80 p-5 text-center">
+        <div className="mx-auto flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-fuchsia-500/20 text-primary">
+          <Upload className="size-4" />
+        </div>
+        <p className="mt-3 font-mono text-[12px]">resume.pdf</p>
+        <div className="mt-4 space-y-1.5 rounded-lg bg-muted/40 px-3 py-2 text-left text-[11px] text-muted-foreground">
+          <p className="flex items-center gap-1.5">
+            <Check className="size-3 text-emerald-500" />
+            Read 12 skills
+          </p>
+          <p className="flex items-center gap-1.5">
+            <Check className="size-3 text-emerald-500" />
+            Mapped 4 role buckets
+          </p>
+          <p className="flex items-center gap-1.5">
+            <Check className="size-3 text-emerald-500" />
+            Scoring engine ready
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-/* === Showcase panel 2: automation pipeline ========================== */
-
-function AutomationPanelVisual() {
-  const sources = ["Unstop", "HN Jobs", "Greenhouse", "Devpost", "+16 more"];
+function AutomationVisual() {
+  const sources = ["Unstop", "HN Jobs", "Greenhouse", "Devpost", "+16"];
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-border/50 bg-background px-3 py-2.5">
-        <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          Sources
+    <div className="space-y-2.5">
+      <div className="rounded-lg border border-border/50 bg-background/80 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          Sources scraped
         </p>
         <div className="mt-1.5 flex flex-wrap gap-1">
           {sources.map((s) => (
             <span
               key={s}
-              className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10.5px]"
+              className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px]"
             >
               {s}
             </span>
           ))}
         </div>
       </div>
-      <div className="flex items-center justify-center text-[11px] text-muted-foreground">
-        <span className="font-mono">↓ every 6h</span>
-      </div>
-      <div className="space-y-1.5 rounded-xl border border-primary/30 bg-primary/[0.04] px-3 py-2.5 font-mono text-[11px]">
-        <p className="flex items-center justify-between">
-          <span className="text-muted-foreground">Scraped today</span>
-          <span className="font-semibold tabular-nums">847</span>
-        </p>
-        <p className="flex items-center justify-between">
-          <span className="text-muted-foreground">Match your profile</span>
-          <span className="font-semibold tabular-nums text-primary">12</span>
-        </p>
-        <p className="flex items-center justify-between">
-          <span className="text-muted-foreground">High-fit alerts</span>
-          <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-            3
-          </span>
-        </p>
+      <p className="text-center font-mono text-[11px] text-muted-foreground">
+        ↓ every 6h
+      </p>
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 font-mono text-[11px]">
+        <Row label="Scraped today" value="847" />
+        <Row label="Match your profile" value="12" valueClass="text-primary" />
+        <Row
+          label="High-fit alerts"
+          value="3"
+          valueClass="text-emerald-600 dark:text-emerald-400"
+        />
       </div>
     </div>
   );
 }
 
-/* === Showcase panel 3: Telegram ping (compact) ====================== */
-
-function TelegramPanelVisual() {
+function Row({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-background p-3 shadow-sm">
-      <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+    <div className="flex items-center justify-between py-0.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-semibold tabular-nums", valueClass)}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TelegramVisual() {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+      <div className="flex items-center gap-2 border-b border-border/40 pb-2">
         <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white">
           <Sparkles className="size-3.5" />
         </span>
-        <div className="flex-1">
-          <p className="text-[12px] font-semibold">Opportunity OS</p>
-        </div>
-        <span className="text-[10px] text-muted-foreground">9:14</span>
+        <p className="text-[11.5px] font-semibold">Opportunity OS</p>
+        <span className="ml-auto text-[10px] text-muted-foreground">9:14</span>
       </div>
-      <div className="mt-3 rounded-xl bg-muted/30 px-3 py-2.5 text-[12px]">
-        <p className="font-semibold">🚨 Closing in 48h</p>
+      <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2 text-[12px]">
+        <p className="font-semibold">🚨 New high-fit opportunity</p>
         <p className="mt-1 underline decoration-primary/40 underline-offset-2">
           Razorpay APM Internship
         </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          92/100 · Apply by Apr 30
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[10.5px]">
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
+            92/100
+          </span>
+          <span className="text-muted-foreground">· Apply by Apr 30</span>
+        </div>
       </div>
     </div>
   );
 }
 
-/* === Feature row scaffolding ========================================= */
+/* ====================== FEATURES bento ====================== */
 
-function FeatureRow({
+function BentoCard({
+  className,
   eyebrow,
   title,
   body,
   visual,
-  reverse,
+  tone,
+  wide,
 }: {
+  className?: string;
   eyebrow: string;
   title: string;
   body: string;
   visual: React.ReactNode;
-  reverse: boolean;
+  tone: "primary" | "sky" | "amber" | "emerald" | "fuchsia";
+  wide?: boolean;
 }) {
+  const toneText = {
+    primary: "text-primary",
+    sky: "text-sky-600 dark:text-sky-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    fuchsia: "text-fuchsia-600 dark:text-fuchsia-400",
+  };
   return (
-    <div
+    <article
       className={cn(
-        "grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16",
-        reverse && "lg:[&>div:first-child]:order-2",
+        "group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
+        className,
       )}
     >
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+      <div className="flex flex-col gap-2">
+        <p className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", toneText[tone])}>
           {eyebrow}
         </p>
-        <h3 className="mt-2 text-balance text-2xl font-semibold leading-[1.15] tracking-tight sm:text-3xl">
+        <h3 className="text-balance text-[18px] font-semibold leading-snug tracking-tight sm:text-[20px]">
           {title}
         </h3>
-        <p className="mt-4 text-[14.5px] leading-relaxed text-muted-foreground">
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
           {body}
         </p>
       </div>
-      <div>{visual}</div>
-    </div>
+      <div className={cn("mt-6", wide ? "" : "flex-1")}>{visual}</div>
+    </article>
   );
 }
-
-/* === Feature 1: scored card ========================================= */
 
 function ScoredCardVisual() {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/80 p-5 shadow-card">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-indigo-600 dark:text-indigo-400">
-          Internship
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[12px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-          <Sparkles className="size-3" />
-          92/100
-        </span>
-      </div>
-      <h4 className="mt-2.5 text-[15.5px] font-semibold leading-snug tracking-tight">
-        APM Internship — Razorpay
-      </h4>
-      <p className="mt-1 text-[12px] uppercase tracking-[0.06em] text-foreground/70">
-        Razorpay
-      </p>
-      <p className="mt-3 rounded-md border-l-2 border-primary/50 bg-primary/[0.05] py-2 pl-3 pr-2 text-[12.5px] italic text-primary/90">
-        Matches your interest in product · solid compensation · closing in 12d.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {["Matches your profile", "react", "sql"].map((t, i) => (
+    <div className="relative">
+      {/* Stacked decoration cards behind */}
+      <div
+        aria-hidden
+        className="absolute inset-0 translate-x-2.5 translate-y-2.5 rounded-2xl border border-border/40 bg-muted/30"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 translate-x-1 translate-y-1 rounded-2xl border border-border/50 bg-muted/50"
+      />
+
+      {/* Foreground real-shape opportunity card */}
+      <div className="relative rounded-2xl border border-border/70 bg-background p-5 shadow-card">
+        <div className="flex items-start gap-3">
           <span
-            key={t}
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-[11px] font-medium",
-              i === 0
-                ? "border-primary/40 bg-primary/15 text-primary"
-                : "border-border/60 bg-muted/30 text-muted-foreground",
-            )}
-          >
-            {t}
+            aria-hidden
+            className="mt-1.5 size-1.5 shrink-0 rounded-full bg-indigo-500"
+          />
+          <div className="min-w-0 flex-1">
+            <h4 className="line-clamp-2 text-[15.5px] font-semibold leading-snug tracking-tight">
+              APM Internship — Razorpay
+            </h4>
+            <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground">
+              <span className="font-medium uppercase tracking-[0.06em] text-foreground/75">
+                Razorpay
+              </span>
+              <span className="text-muted-foreground/30">·</span>
+              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-300">
+                <Clock className="size-3" />3 days left
+              </span>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+            <Sparkles className="size-3" />
+            92/100
           </span>
-        ))}
+        </div>
+        <p className="mt-4 rounded-lg border-l-2 border-primary/50 bg-primary/[0.05] py-2 pl-3 pr-2 text-[12.5px] italic text-primary/90">
+          Matches your interest in product · solid compensation · closing soon.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {["react", "sql", "product"].map((t) => (
+            <span
+              key={t}
+              className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-/* === Feature 2: notifications (Telegram + Email side-by-side) ====== */
-
-function NotificationsVisual() {
+function MiniTelegramVisual() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-card">
-        <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400">
-            <Send className="size-3.5" />
-          </span>
-          <p className="text-[12px] font-semibold">Telegram</p>
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            now
-          </span>
-        </div>
-        <p className="mt-3 text-[12.5px] font-medium leading-snug">
-          🚨 Closing in 48h
-        </p>
-        <p className="mt-1 text-[12px] underline decoration-primary/40 underline-offset-2">
-          Kearney off-campus 2026
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          88/100 · Due May 1
-        </p>
+    <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+      <div className="flex items-center gap-2 pb-2">
+        <span className="flex size-6 items-center justify-center rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400">
+          <Send className="size-3" />
+        </span>
+        <span className="text-[11px] font-semibold">Telegram · now</span>
       </div>
-
-      <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-card">
-        <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
-            <Mail className="size-3.5" />
-          </span>
-          <p className="text-[12px] font-semibold">Daily Digest</p>
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            8:00
-          </span>
-        </div>
-        <p className="mt-3 text-[12px] leading-snug">
-          <span className="font-semibold">5 top picks</span> + 2 closing soon
-        </p>
-        <ul className="mt-2 space-y-1 text-[11.5px] text-muted-foreground">
-          <li>· BCG ACE 2026 · 92/100</li>
-          <li>· Razorpay APM · 89/100</li>
-          <li>· YIF Fellowship · 84/100</li>
-        </ul>
-      </div>
+      <p className="text-[11.5px] font-medium">🚨 Closing in 48h</p>
+      <p className="mt-0.5 text-[11px] underline decoration-primary/40 underline-offset-2">
+        Kearney off-campus 2026
+      </p>
+      <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+        88/100 · Due May 1
+      </p>
     </div>
   );
 }
 
-/* === Feature 3: kanban tracker ====================================== */
+function MiniEmailVisual() {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+      <div className="flex items-center gap-2 pb-2">
+        <span className="flex size-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+          <Mail className="size-3" />
+        </span>
+        <span className="text-[11px] font-semibold">8:00 AM digest</span>
+      </div>
+      <p className="text-[11.5px] font-medium">5 top picks for today</p>
+      <ul className="mt-1 space-y-0.5 text-[10.5px] text-muted-foreground">
+        <li>· BCG ACE · 92/100</li>
+        <li>· Razorpay APM · 89/100</li>
+        <li>· YIF · 84/100</li>
+      </ul>
+    </div>
+  );
+}
 
 function KanbanVisual() {
   const cols: { label: string; tone: string; cards: string[] }[] = [
@@ -868,9 +1044,9 @@ function KanbanVisual() {
     },
   ];
   return (
-    <div className="grid grid-cols-4 gap-2 rounded-2xl border border-border/60 bg-card/80 p-3 shadow-card">
+    <div className="grid grid-cols-4 gap-2 rounded-2xl border border-border/60 bg-background/60 p-3">
       {cols.map((c) => (
-        <div key={c.label} className="space-y-2">
+        <div key={c.label} className="space-y-1.5">
           <div className="flex items-center justify-between gap-1 px-1">
             <p
               className={cn(
@@ -888,7 +1064,7 @@ function KanbanVisual() {
             {c.cards.map((card) => (
               <div
                 key={card}
-                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-[10.5px] font-medium leading-tight"
+                className="rounded-md border border-border/60 bg-card px-2 py-1.5 text-[10.5px] font-medium leading-tight"
               >
                 {card}
               </div>
@@ -903,9 +1079,7 @@ function KanbanVisual() {
   );
 }
 
-/* === Feature 4: sources list ======================================== */
-
-function SourcesVisual() {
+function SourcesStripVisual() {
   const sources: { name: string; tag: string }[] = [
     { name: "Unstop", tag: "Hackathons · Comps" },
     { name: "Internshala", tag: "Internships" },
@@ -917,13 +1091,13 @@ function SourcesVisual() {
     { name: "MLH events", tag: "Student hacks" },
   ];
   return (
-    <div className="grid gap-2 rounded-2xl border border-border/60 bg-card/80 p-4 shadow-card sm:grid-cols-2">
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {sources.map((s) => (
         <div
           key={s.name}
-          className="flex items-center gap-2.5 rounded-md border border-border/40 bg-background/50 px-2.5 py-1.5"
+          className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 px-3 py-2 transition-colors hover:border-border hover:bg-background"
         >
-          <span className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500/15 to-indigo-500/15 text-muted-foreground">
             <Folder className="size-3.5" />
           </span>
           <div className="min-w-0">
