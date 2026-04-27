@@ -217,25 +217,57 @@ function generateWhy(
 }
 
 function matchedInterest(profile: Profile, opp: Opportunity): string | null {
+  return findMatchedTerms(profile, opp)[0] ?? null;
+}
+
+/**
+ * Return up to 3 user terms that appear in the opportunity's text, in
+ * priority order: confirmed skills first (strongest signal), then interests,
+ * then AI-extracted resume_skills last. Preserves original casing for display
+ * so the UI can show "React" not "react".
+ *
+ * Used by:
+ *   - matchedInterest() above (one-term version, drives generateWhy())
+ *   - the dashboard match-pill UI (which shows the full set)
+ *
+ * Same haystack the relevance score uses, so the displayed terms are
+ * exactly the ones contributing to the score.
+ */
+export function findMatchedTerms(
+  profile: Profile,
+  opp: Opportunity,
+): string[] {
   const oppText = [
     opp.title,
     opp.summary ?? "",
+    opp.description ?? "",
     ...(opp.tags ?? []),
+    opp.category,
   ]
+    .filter(Boolean)
     .join(" ")
     .toLowerCase();
 
-  for (const interest of profile.interests ?? []) {
-    if (oppText.includes(normalize(interest))) {
-      return interest;
+  const matches: string[] = [];
+  const seen = new Set<string>();
+
+  const consider = (terms: readonly string[]) => {
+    for (const term of terms) {
+      if (matches.length >= 3) return;
+      const norm = normalize(term);
+      if (!norm || seen.has(norm)) continue;
+      if (oppText.includes(norm)) {
+        matches.push(term);
+        seen.add(norm);
+      }
     }
-  }
-  for (const skill of profile.skills ?? []) {
-    if (oppText.includes(normalize(skill))) {
-      return skill;
-    }
-  }
-  return null;
+  };
+
+  consider(profile.skills ?? []);
+  consider(profile.interests ?? []);
+  consider(profile.resume_skills ?? []);
+
+  return matches;
 }
 
 /* ============ Helpers ============ */

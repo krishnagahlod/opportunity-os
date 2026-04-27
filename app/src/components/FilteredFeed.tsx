@@ -27,6 +27,7 @@ export function FilteredFeed({
   savedSet,
   appliedMap,
   sourceMap,
+  matchMap,
 }: {
   opportunities: Opportunity[];
   // Plain object for client-side serialization friendliness.
@@ -35,6 +36,9 @@ export function FilteredFeed({
   appliedMap: Record<string, ApplicationStatus>;
   // opportunity_id -> source_name
   sourceMap: Record<string, string>;
+  // opportunity_id -> matched user terms (e.g. ["React", "SQL"]). Optional
+  // entries are absent when no terms match.
+  matchMap: Record<string, string[]>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -182,6 +186,7 @@ export function FilteredFeed({
             scoreMap={scoreMap}
             savedSet={savedSetMemo}
             appliedMap={appliedMap}
+            matchMap={matchMap}
           />
           <CategoryStacks
             opportunities={opportunities}
@@ -218,6 +223,7 @@ export function FilteredFeed({
                   opportunity={opp}
                   isSaved={savedSetMemo.has(opp.id)}
                   applicationStatus={appliedMap[opp.id]}
+                  matchedTerms={matchMap[opp.id]}
                 />
               </div>
             ))}

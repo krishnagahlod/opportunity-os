@@ -17,12 +17,14 @@ export function FeaturedRow({
   scoreMap,
   savedSet,
   appliedMap,
+  matchMap,
   count = 3,
 }: {
   opportunities: Opportunity[];
   scoreMap: Record<string, { score: number; why: string | null }>;
   savedSet: Set<string>;
   appliedMap: Record<string, ApplicationStatus>;
+  matchMap: Record<string, string[]>;
   count?: number;
 }) {
   const ranked = [...opportunities]
@@ -51,6 +53,7 @@ export function FeaturedRow({
             opportunity={opp}
             isSaved={savedSet.has(opp.id)}
             applicationStatus={appliedMap[opp.id]}
+            matchedTerms={matchMap[opp.id]}
           />
         ))}
       </div>
