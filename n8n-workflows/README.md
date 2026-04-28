@@ -309,8 +309,9 @@ When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
 - [x] **`07-unstop-internships`** — Unstop India internships with structured stipend extraction (direct upsert), every 6h
 - [x] **`08-internshala-internships`** — Internshala via their internal `/hiring/search` JSON endpoint, programming category (direct upsert), every 6h
 - [x] **`10-rss-reddit-india`** — Aggregates Atom feeds from `r/developersIndia`, `r/cscareerquestionsIndia`, `r/csMajors` with keyword filter and AI extract, every 12h
+- [x] **`11-lever-ats`** — Lever JSON Public Postings API, 2 confirmed companies (CRED, Meesho). AI Extract path. Designed to grow — add slugs to the COMPANIES array as you find live ones, every 12h
 - [ ] **`09-mlh-events`** — Reserved. MLH does not expose JSON or iCal; an HTML scrape + AI extract path needs a separate session
-- [ ] **`11-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows
+- [ ] **`12-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows (currently folded into the daily-digest cron in app code)
 
 ## How to verify a Greenhouse company before adding
 
@@ -321,6 +322,18 @@ https://boards-api.greenhouse.io/v1/boards/<slug>/jobs
 ```
 
 A 200 with a `jobs` array means add it. A 404 means the company moved to a different ATS (Lever, Ashby, Workday) and the slug should be dropped. Companies that 404'd as of Phase 9: hasura, atlassian, github, huggingface, plaid, notion, razorpay, openai. Those would need separate Lever/Ashby workflows.
+
+## How to verify a Lever company before adding
+
+Lever exposes a public JSON postings endpoint. Verify a slug by hitting:
+
+```
+https://api.lever.co/v0/postings/<slug>?mode=json
+```
+
+A 200 returning a non-empty array of job objects means the slug is live; add it to the `COMPANIES` array in `11-lever-ats.json`. A 404 means the company isn't on Lever (or uses a different slug). An empty array `[]` means the slug exists but has no open postings — skip until they reopen, no point ingesting an empty list.
+
+Most US tech companies have moved off Lever to Greenhouse / Ashby / Workday. As of Phase 10.3a these stayed valid: `cred`, `meesho`. These 404'd: razorpay, atomberg, smallcase, urbancompany, urban-company, groww, zomato, swiggy, netflix, ramp, shopify, mercury, cohere, doordash, lattice, spinny, dunzo, box, juspay, glean, replit, scaleai, leadsquared. Several returned 200 but with empty arrays (attentive, lever) — same effect, skip until populated.
 
 ## Reddit aggregator notes
 

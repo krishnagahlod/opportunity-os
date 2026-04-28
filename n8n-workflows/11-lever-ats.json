@@ -1,0 +1,205 @@
+{
+  "name": "Lever — Multi-company ATS",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "lever-ats-001",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Companies to scrape via Lever Public Postings API ===\n// Edit this list to add/remove coverage. Each slug must match the\n// company's Lever board (found in the careers URL after /lever.co/).\n// Verify a slug by hitting https://api.lever.co/v0/postings/<slug>?mode=json\n// in a browser — should return a JSON array of job objects.\n//\n// Most companies have moved off Lever to Greenhouse / Workday / Ashby.\n// Confirmed live as of Phase 10.3a:\nconst COMPANIES = [\n  { slug: 'cred',    displayName: 'CRED' },\n  { slug: 'meesho',  displayName: 'Meesho' }\n];\n\n// Cap per company — Lever often returns 50+ for big orgs; we slice early\n// so the AI Extract chain doesn't hammer Gemini on a single fire.\nconst PER_COMPANY_LIMIT = 5;\n\nconst out = [];\nconst errors = [];\n\nfor (const c of COMPANIES) {\n  try {\n    const data = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://api.lever.co/v0/postings/${c.slug}?mode=json`,\n      json: true,\n    });\n    const jobs = Array.isArray(data) ? data.slice(0, PER_COMPANY_LIMIT) : [];\n    for (const j of jobs) {\n      // Lever shape we care about:\n      //   text             → job title\n      //   hostedUrl        → public apply URL (one we link to & dedup on)\n      //   descriptionPlain → readable plaintext (preferred for AI)\n      //   description      → HTML (fallback)\n      //   additionalPlain  → company blurb at the end of postings\n      //   categories       → { commitment, department, location, team, allLocations[] }\n      //   workplaceType    → 'remote' | 'on-site' | 'hybrid' | 'unspecified'\n      const cat = j.categories || {};\n      const locations = Array.isArray(cat.allLocations) && cat.allLocations.length > 0\n        ? cat.allLocations.join(', ')\n        : (cat.location || '');\n      const body = (j.descriptionPlain || j.description || '') + '\\n\\n' + (j.additionalPlain || '');\n\n      out.push({\n        json: {\n          title: j.text,\n          link: j.hostedUrl,\n          content: body,\n          location: locations,\n          workplaceType: j.workplaceType || '',\n          commitment: cat.commitment || '',\n          department: cat.department || '',\n          team: cat.team || '',\n          company: c.displayName,\n          companySlug: c.slug,\n          createdAt: j.createdAt || ''\n        }\n      });\n    }\n  } catch (e) {\n    errors.push(`${c.slug}: ${(e && e.message) || e}`);\n  }\n}\n\n// Fail loud rather than silently producing 0 items — that almost always\n// means every slug 404'd and the COMPANIES list needs maintenance.\nif (out.length === 0) {\n  throw new Error('Lever fetch returned 0 jobs. Errors: ' + (errors.join(' | ') || 'none'));\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [208, 0],
+      "id": "lever-ats-002",
+      "name": "Fetch Lever Jobs"
+    },
+    {
+      "parameters": { "maxItems": 30 },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [416, 0],
+      "id": "lever-ats-003",
+      "name": "Limit"
+    },
+    {
+      "parameters": { "options": { "reset": false } },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [624, 0],
+      "id": "lever-ats-004",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/check-exists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "source_url", "value": "={{ $json.link }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [832, 0],
+      "id": "lever-ats-005",
+      "name": "Check Exists"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "n1",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1040, 0],
+      "id": "lever-ats-006",
+      "name": "If New"
+    },
+    {
+      "parameters": { "amount": 7 },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1344, -64],
+      "id": "lever-ats-007",
+      "name": "Wait",
+      "webhookId": "lever-ats-007-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ai/extract",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" },
+            { "name": "Content-Type",    "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "text",        "value": "={{ ($('Loop Over Items').item.json.company + ' is hiring: ' + $('Loop Over Items').item.json.title + '\\nLocation: ' + ($('Loop Over Items').item.json.location || 'unspecified') + ($('Loop Over Items').item.json.workplaceType ? ' · ' + $('Loop Over Items').item.json.workplaceType : '') + ($('Loop Over Items').item.json.commitment ? '\\nCommitment: ' + $('Loop Over Items').item.json.commitment : '') + '\\n\\n' + ($('Loop Over Items').item.json.content || '')).slice(0, 4000) }}" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "={{ 'Lever: ' + $('Loop Over Items').item.json.company }}" },
+            { "name": "hint",        "value": "={{ 'Lever ATS listing — full-time/intern role at ' + $('Loop Over Items').item.json.company }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } },
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1536, -64],
+      "id": "lever-ats-008",
+      "name": "AI Extract",
+      "retryOnFail": true,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest/upsert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "opportunity", "value": "={{ $json.opportunity }}" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "={{ 'Lever: ' + $('Loop Over Items').item.json.company }}" }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1776, -64],
+      "id": "lever-ats-009",
+      "name": "Upsert Opportunity"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Ingest-Secret", "value": "REPLACE_WITH_YOUR_INGEST_SHARED_SECRET" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status",      "value": "skipped_duplicate" },
+            { "name": "source_url",  "value": "={{ $('Loop Over Items').item.json.link }}" },
+            { "name": "source_name", "value": "={{ 'Lever: ' + $('Loop Over Items').item.json.company }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1312, 272],
+      "id": "lever-ats-010",
+      "name": "Log Duplicate"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger":      { "main": [[{ "node": "Fetch Lever Jobs",     "type": "main", "index": 0 }]] },
+    "Fetch Lever Jobs":      { "main": [[{ "node": "Limit",                "type": "main", "index": 0 }]] },
+    "Limit":                 { "main": [[{ "node": "Loop Over Items",      "type": "main", "index": 0 }]] },
+    "Loop Over Items":       { "main": [[], [{ "node": "Check Exists",     "type": "main", "index": 0 }]] },
+    "Check Exists":          { "main": [[{ "node": "If New",               "type": "main", "index": 0 }]] },
+    "If New":                { "main": [
+      [{ "node": "Wait",          "type": "main", "index": 0 }],
+      [{ "node": "Log Duplicate", "type": "main", "index": 0 }]
+    ] },
+    "Wait":                  { "main": [[{ "node": "AI Extract",        "type": "main", "index": 0 }]] },
+    "AI Extract":            { "main": [[{ "node": "Upsert Opportunity","type": "main", "index": 0 }]] },
+    "Upsert Opportunity":    { "main": [[{ "node": "Loop Over Items",   "type": "main", "index": 0 }]] },
+    "Log Duplicate":         { "main": [[{ "node": "Loop Over Items",   "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "tags": []
+}
