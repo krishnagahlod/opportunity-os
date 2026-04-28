@@ -2,7 +2,12 @@ import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Opportunity, Profile, Score as DbScore } from "@/types/db";
-import { computeScore, type Score } from "./score";
+import {
+  computeScore,
+  deriveBehavioralSignal,
+  type BehavioralSignal,
+  type Score,
+} from "./score";
 
 const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -57,6 +62,11 @@ export async function refreshScores(
   const toCompute = opportunities.filter((o) => !fresh.has(o.id));
   if (toCompute.length === 0) return result;
 
+  // Pull the user's behavioral signal once per refresh (not per opp). Reads
+  // the last 50 saved opps' category/tags/organization — small payload, used
+  // by `behavioralFitScore` to boost opps similar to past saves.
+  const signal = await fetchBehavioralSignal(profile.id);
+
   const newRows: Array<{
     user_id: string;
     opportunity_id: string;
@@ -67,7 +77,7 @@ export async function refreshScores(
   }> = [];
 
   for (const opp of toCompute) {
-    const s = computeScore(profile, opp);
+    const s = computeScore(profile, opp, signal);
     result.set(opp.id, s);
     newRows.push({
       user_id: profile.id,
@@ -102,4 +112,50 @@ export async function invalidateUserScores(userId: string): Promise<void> {
   if (error) {
     console.error("[scoring] invalidate failed:", error.message);
   }
+}
+
+/**
+ * Fetch the user's last 50 saved opportunities' category/tags/organization
+ * and derive a BehavioralSignal. Cold-start (< 3 saves) returns an empty
+ * signal — `behavioralFitScore` treats that as neutral 0.5, so new users
+ * aren't penalised.
+ *
+ * Returns the empty signal on any DB error so scoring never fails on this
+ * single secondary read.
+ *
+ * Exported for direct use by `/opportunity/[id]` and any other server
+ * component that calls `computeScore` outside of `refreshScores`.
+ */
+export async function fetchBehavioralSignal(userId: string): Promise<BehavioralSignal> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("saved_opportunities")
+    .select("opportunities(category, tags, organization)")
+    .eq("user_id", userId)
+    .order("saved_at", { ascending: false })
+    .limit(50);
+
+  if (error || !data) {
+    if (error) console.error("[scoring] behavioral fetch failed:", error.message);
+    return deriveBehavioralSignal([]);
+  }
+
+  type Row = {
+    opportunities: {
+      category: string | null;
+      tags: string[] | null;
+      organization: string | null;
+    } | null;
+  };
+
+  const samples = (data as unknown as Row[])
+    .map((r) => r.opportunities)
+    .filter((o): o is NonNullable<Row["opportunities"]> => o !== null)
+    .map((o) => ({
+      category: (o.category ?? "other") as Opportunity["category"],
+      tags: o.tags ?? [],
+      organization: o.organization ?? "",
+    }));
+
+  return deriveBehavioralSignal(samples);
 }

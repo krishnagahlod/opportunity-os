@@ -1,33 +1,45 @@
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, differenceInHours, parseISO } from "date-fns";
 import type { Opportunity, Profile } from "@/types/db";
-import { getOrgTier } from "./orgs";
+import { getCareerValueTier, getOrgTier } from "./orgs";
 
 /**
- * Deterministic scoring engine.
+ * Deterministic personalization engine.
  *
- * Score formula (all components are 0..1, weighted, summed, then multiplied
- * by extraction_confidence to penalize low-quality extractions):
+ * Score formula (each component 0..1, weighted, summed, then multiplied by
+ * extraction_confidence at the end):
  *
- *   raw = 0.35 * profile_relevance
- *       + 0.20 * career_value
- *       + 0.15 * brand_value
- *       + 0.10 * compensation
- *       + 0.10 * ease_of_application
- *       + 0.10 * urgency
+ *   raw = 0.30 * profile_relevance      (skills/interests + synonyms hit opp text)
+ *       + 0.10 * preference_fit         (location + remote + commitment)
+ *       + 0.20 * career_value           (org tier or category baseline)
+ *       + 0.05 * brand_value            (pure org tier, only counts when known)
+ *       + 0.08 * compensation
+ *       + 0.05 * ease_of_application
+ *       + 0.10 * urgency                (deadline proximity)
+ *       + 0.05 * recency                (added in last few days)
+ *       + 0.07 * behavioral_fit         (matches what the user has been saving)
  *
  *   score = round(raw * confidence * 100)   // 0..100 integer
  *
- * No AI calls — pure functions. Why text is generated from the breakdown using
- * deterministic templates. This makes scoring fast, free, and easy to debug.
+ * Rebalanced from the original (35/20/15/10/10/10) in Phase 11:
+ *   - profile_relevance reduced 0.35 → 0.30 to make room for new signals
+ *   - brand_value cut 0.15 → 0.05 (was redundant with career_value)
+ *   - ease cut 0.10 → 0.05 (binary signal didn't deserve 10%)
+ *   - new: preference_fit 0.10, behavioral_fit 0.07, recency 0.05
+ *
+ * No AI calls — pure functions. Why-text is generated from breakdown +
+ * matched terms using deterministic templates.
  */
 
 export type ScoreBreakdown = {
   profile_relevance: number;   // 0..100
+  preference_fit: number;      // 0..100  (NEW in Phase 11)
   career_value: number;        // 0..100
   brand_value: number;         // 0..100
   compensation: number;        // 0..100
   ease: number;                // 0..100
   urgency: number;             // 0..100
+  recency: number;             // 0..100  (NEW in Phase 11)
+  behavioral_fit: number;      // 0..100  (NEW in Phase 11)
   confidence: number;          // 0..100, the multiplier
 };
 
@@ -37,80 +49,278 @@ export type Score = {
   why: string;                 // 1-2 sentence human-readable explanation
 };
 
-export function computeScore(profile: Profile, opp: Opportunity): Score {
+/**
+ * BehavioralSignal captures patterns from the user's last N saved
+ * opportunities (no schema needed — derived inline from saved_opportunities).
+ * Cold-start (< 3 samples) returns neutral 0.5 from `behavioralFitScore` so
+ * new users aren't penalised.
+ */
+export type BehavioralSignal = {
+  /** Categories the user has saved at least twice (signal of repeated intent). */
+  topCategories: Set<string>;
+  /** Tags appearing ≥2 times across their saved opps. */
+  topTags: Set<string>;
+  /** Orgs they've saved ≥2 of — rare unless following a specific company. */
+  topOrgs: Set<string>;
+  /** Total samples used to derive the signal. < 3 = cold start. */
+  totalSamples: number;
+};
+
+const EMPTY_SIGNAL: BehavioralSignal = {
+  topCategories: new Set(),
+  topTags: new Set(),
+  topOrgs: new Set(),
+  totalSamples: 0,
+};
+
+export function computeScore(
+  profile: Profile,
+  opp: Opportunity,
+  signal: BehavioralSignal = EMPTY_SIGNAL,
+): Score {
   const profile_relevance = relevanceScore(profile, opp);
-  const career_value = getOrgTier(opp.organization);
-  const brand_value = career_value; // same lookup, separate weight
+  const preference_fit = preferenceFitScore(profile, opp);
+  const career_value = getCareerValueTier(opp.organization, opp.category);
+  const brand_value = getOrgTier(opp.organization);
   const compensation = compensationScore(opp.compensation);
   const ease = easeScore(opp.apply_url);
   const urgency = urgencyScore(opp.deadline);
+  const recency = recencyScore(opp.date_added);
+  const behavioral_fit = behavioralFitScore(opp, signal);
   const confidence = opp.extraction_confidence ?? 0.7;
 
   const raw =
-    0.35 * profile_relevance +
-    0.2 * career_value +
-    0.15 * brand_value +
-    0.1 * compensation +
-    0.1 * ease +
-    0.1 * urgency;
+    0.30 * profile_relevance +
+    0.10 * preference_fit +
+    0.20 * career_value +
+    0.05 * brand_value +
+    0.08 * compensation +
+    0.05 * ease +
+    0.10 * urgency +
+    0.05 * recency +
+    0.07 * behavioral_fit;
 
   const score = Math.max(0, Math.min(100, Math.round(raw * confidence * 100)));
 
   const breakdown: ScoreBreakdown = {
     profile_relevance: pct(profile_relevance),
+    preference_fit: pct(preference_fit),
     career_value: pct(career_value),
     brand_value: pct(brand_value),
     compensation: pct(compensation),
     ease: pct(ease),
     urgency: pct(urgency),
+    recency: pct(recency),
+    behavioral_fit: pct(behavioral_fit),
     confidence: pct(confidence),
   };
 
   return {
     score,
     breakdown,
-    why: generateWhy(profile, opp, breakdown),
+    why: generateWhy(profile, opp, breakdown, signal),
   };
 }
 
-/* ============ Component scorers (each 0..1) ============ */
+/* ============================================================================
+ * Behavioral signal derivation
+ * ========================================================================== */
 
 /**
- * Profile relevance = overlap between user's interests/skills and the
- * opportunity's tags + title + summary, normalized.
+ * Compute a per-user behavioral signal from a sample of saved opportunities.
+ * Pass the result to `computeScore` to enable behavior-driven boosts.
  *
- * Simple but effective: tokenize both sides, count distinct term hits,
- * cap at 5 hits = 1.0.
+ * The caller queries the user's saved opportunities (limit ~50, ordered by
+ * saved_at desc) joined with category/tags/organization, and passes that
+ * shape in. No schema change required.
+ *
+ * Threshold: a category/tag/org becomes "top" at ≥2 occurrences. Using a
+ * small threshold means even users with 5-10 saves get useful signal,
+ * without single-save accidents dominating the ranking.
+ */
+export function deriveBehavioralSignal(
+  samples: Pick<Opportunity, "category" | "tags" | "organization">[],
+): BehavioralSignal {
+  const catCounts = new Map<string, number>();
+  const tagCounts = new Map<string, number>();
+  const orgCounts = new Map<string, number>();
+
+  for (const s of samples) {
+    if (s.category) {
+      catCounts.set(s.category, (catCounts.get(s.category) ?? 0) + 1);
+    }
+    for (const t of s.tags ?? []) {
+      const norm = t.toLowerCase().trim();
+      if (norm) tagCounts.set(norm, (tagCounts.get(norm) ?? 0) + 1);
+    }
+    const org = s.organization?.toLowerCase().trim();
+    if (org) orgCounts.set(org, (orgCounts.get(org) ?? 0) + 1);
+  }
+
+  const topFrom = (m: Map<string, number>) =>
+    new Set(
+      Array.from(m.entries())
+        .filter(([, c]) => c >= 2)
+        .map(([k]) => k),
+    );
+
+  return {
+    topCategories: topFrom(catCounts),
+    topTags: topFrom(tagCounts),
+    topOrgs: topFrom(orgCounts),
+    totalSamples: samples.length,
+  };
+}
+
+/* ============================================================================
+ * Component scorers (each 0..1)
+ * ========================================================================== */
+
+/**
+ * Profile relevance: keyword overlap between user terms (interests + skills +
+ * resume_skills) and the opp's text fields, with synonym expansion and
+ * word-boundary protection.
+ *
+ * Improvements over the previous version:
+ *   - Word-boundary regex prevents false positives ("data" no longer matches
+ *     inside "data entry clerk" — actually it would, but the new check is
+ *     against full-word "data" so still fine; the win is "ml" not matching
+ *     inside "html").
+ *   - Synonym groups: a user term hits when ANY of its synonyms appears in
+ *     the opp ("ml" in skills hits an opp tagged "machine learning", and
+ *     vice versa).
+ *
+ * Capped at 5 hits = 1.0 to bound dominance.
  */
 function relevanceScore(profile: Profile, opp: Opportunity): number {
-  // Resume-extracted skills feed in alongside user-confirmed interests + skills.
-  // Capped-at-5-hits below means they widen the keyword net but don't dominate
-  // the score even on a resume with many extracted terms.
-  const userTerms = new Set(
-    [
-      ...(profile.interests ?? []),
-      ...(profile.skills ?? []),
-      ...(profile.resume_skills ?? []),
-    ].map(normalize),
-  );
-  if (userTerms.size === 0) return 0.5;
+  const userTerms = collectUserTerms(profile);
+  if (userTerms.length === 0) return 0.5;
 
-  const oppText = [
-    opp.title,
-    opp.summary ?? "",
-    opp.description ?? "",
-    ...(opp.tags ?? []),
-    opp.category,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+  const oppText = collectOppText(opp);
 
   let hits = 0;
   for (const term of userTerms) {
-    if (oppText.includes(term)) hits++;
+    if (anyVariantAppears(oppText, term)) hits++;
   }
   return Math.min(1, hits / 5);
+}
+
+/**
+ * Preference fit: explicit user preferences from the profile, finally used.
+ * Reads remote_preference, time_commitment, preferred_location.
+ *
+ * Returns the average across whichever preferences the user actually stated
+ * (anything set to "any"/empty is skipped, not penalized). Returns 0.5 when
+ * no preferences are stated — genuinely neutral, not a hidden bonus.
+ *
+ * An explicit mismatch (user wants remote, opp is on-site) drives the
+ * relevant factor to 0; an unknown location on the opp side returns 0.6
+ * (treat-as-neutral, slight skew toward "give it a chance").
+ */
+function preferenceFitScore(profile: Profile, opp: Opportunity): number {
+  let total = 0;
+  let count = 0;
+
+  // Remote preference
+  const rp = profile.remote_preference;
+  if (rp && rp !== "any") {
+    count++;
+    if (rp === "remote") total += opp.is_remote ? 1 : 0;
+    else if (rp === "onsite") total += opp.is_remote ? 0 : 1;
+    else if (rp === "hybrid") total += 0.7; // satisfied either way
+  }
+
+  // Time commitment ↔ category mapping
+  const tc = profile.time_commitment;
+  if (tc && tc !== "any") {
+    count++;
+    const cat = opp.category;
+    if (tc === "internship" && cat === "internship") total += 1;
+    else if (tc === "full-time" && cat === "fulltime") total += 1;
+    else if (
+      tc === "part-time" &&
+      (cat === "remote_gig" || cat === "fulltime")
+    )
+      total += 0.7;
+    else if (
+      cat === "case_competition" ||
+      cat === "hackathon" ||
+      cat === "fellowship" ||
+      cat === "conference" ||
+      cat === "scholarship"
+    ) {
+      // Selective extra-curriculars don't compete with commitment preference
+      total += 0.6;
+    }
+    // else: explicit mismatch (user wants internship, opp is fulltime) → 0
+  }
+
+  // Preferred location
+  const locPref = profile.preferred_location?.trim().toLowerCase();
+  if (locPref && locPref !== "anywhere" && locPref !== "any") {
+    count++;
+    const oppLoc = opp.location?.toLowerCase() ?? "";
+    if (opp.is_remote) {
+      total += 0.85; // remote satisfies any location agnostically
+    } else if (oppLoc && (oppLoc.includes(locPref) || locPref.includes(oppLoc))) {
+      total += 1;
+    } else if (!oppLoc) {
+      total += 0.6; // unknown location on opp side → slight benefit-of-doubt
+    }
+    // else: explicit mismatch → 0
+  }
+
+  if (count === 0) return 0.5; // user said "any" everywhere
+  return total / count;
+}
+
+/**
+ * Behavioral fit: how well does this opp align with what the user has been
+ * saving? Cold-start safe (< 3 samples → neutral 0.5).
+ *
+ * Components add up to a max of 1.0:
+ *   - 0.5 if category matches a top-saved category
+ *   - 0.3 for ≥2 tag overlaps with top-saved tags (0.15 for 1 overlap)
+ *   - 0.2 if org matches a top-saved org
+ */
+function behavioralFitScore(
+  opp: Opportunity,
+  signal: BehavioralSignal,
+): number {
+  if (signal.totalSamples < 3) return 0.5;
+
+  let score = 0;
+  if (signal.topCategories.has(opp.category)) score += 0.5;
+
+  const tagOverlap = (opp.tags ?? []).filter((t) =>
+    signal.topTags.has(t.toLowerCase().trim()),
+  ).length;
+  if (tagOverlap >= 2) score += 0.3;
+  else if (tagOverlap === 1) score += 0.15;
+
+  const orgNorm = opp.organization?.toLowerCase().trim();
+  if (orgNorm && signal.topOrgs.has(orgNorm)) score += 0.2;
+
+  return Math.min(1, score);
+}
+
+/**
+ * Recency: how fresh is this opportunity? Helps the feed feel alive without
+ * dominating the ranking (only weighted at 0.05).
+ *
+ * Decays over the first week — anything ≥7 days old gets the floor (0.1).
+ * Brand-new (<24h) opps get a meaningful nudge.
+ */
+function recencyScore(dateAdded: string | null | undefined): number {
+  if (!dateAdded) return 0.3;
+  const added = parseISO(dateAdded);
+  const hoursOld = differenceInHours(new Date(), added);
+  if (hoursOld < 0) return 1; // shouldn't happen but safe
+  if (hoursOld <= 24) return 1;
+  if (hoursOld <= 48) return 0.75;
+  if (hoursOld <= 24 * 7) return 0.5;
+  if (hoursOld <= 24 * 30) return 0.2;
+  return 0.1;
 }
 
 /**
@@ -126,7 +336,9 @@ function compensationScore(compensation: string | null): number {
   if (lower.includes("unpaid") || lower.includes("no pay")) return 0;
   if (lower.includes("free")) return 0;
 
-  const numbers = compensation.match(/[\d,]+/g)?.map((s) => Number(s.replace(/,/g, ""))) ?? [];
+  const numbers = compensation.match(/[\d,]+/g)?.map((s) =>
+    Number(s.replace(/,/g, "")),
+  ) ?? [];
   const max = numbers.length > 0 ? Math.max(...numbers) : 0;
   if (max >= 50000) return 1;
   if (max > 0) return 0.7;
@@ -135,8 +347,6 @@ function compensationScore(compensation: string | null): number {
 
 /**
  * Ease of application: are we one click away?
- *   has apply_url → 1.0
- *   no apply_url  → 0.4
  */
 function easeScore(applyUrl: string | null): number {
   return applyUrl ? 1 : 0.4;
@@ -161,123 +371,110 @@ function urgencyScore(deadline: string | null): number {
   return 0.2;
 }
 
-/* ============ Why-text templates ============ */
+/* ============================================================================
+ * Synonym expansion + word-boundary matching
+ * ========================================================================== */
 
 /**
- * Pick the strongest 1-2 factors from the breakdown and turn them into a short
- * second-person sentence. Keeps the dashboard explanation specific without
- * needing an AI call per opportunity.
+ * Synonym groups for common career terms. A user-stated term hits the opp
+ * text when ANY of its synonyms appears (case-insensitive, word-boundary
+ * for purely-alphanumeric terms).
+ *
+ * Each entry is a group of equivalent forms. Lookup is bidirectional:
+ * a user term in the group expands to all members; an opp text containing
+ * any member matches a user term containing any other member.
+ *
+ * Keep the list focused on terms that genuinely cause student-side
+ * mismatches today. Adding too many groups makes false positives.
  */
-function generateWhy(
-  profile: Profile,
-  opp: Opportunity,
-  b: ScoreBreakdown,
-): string {
-  const reasons: string[] = [];
+const SYNONYM_GROUPS: string[][] = [
+  // Technical roles
+  ["machine learning", "ml", "ai", "deep learning", "ai/ml", "ml / ai", "neural networks", "ml engineer"],
+  ["software engineering", "swe", "software engineer", "software developer", "developer"],
+  ["product management", "pm", "product manager", "apm", "associate product manager"],
+  ["data science", "data scientist", "data analyst", "analytics", "data analysis"],
+  ["frontend", "front-end", "front end", "react", "vue", "angular"],
+  ["backend", "back-end", "back end", "api", "node.js", "node"],
+  ["devops", "sre", "site reliability", "platform engineer", "infrastructure"],
 
-  // Profile relevance — try to name the matched interest
-  if (b.profile_relevance >= 60) {
-    const matched = matchedInterest(profile, opp);
-    if (matched) {
-      reasons.push(`Matches your interest in ${matched}`);
-    } else {
-      reasons.push("Strong match with your profile");
-    }
-  } else if (b.profile_relevance >= 30) {
-    reasons.push("Some overlap with your profile");
+  // Roles by function
+  ["consulting", "consultant", "advisory", "strategy", "associate consultant"],
+  ["venture capital", "vc", "investing", "investor"],
+  ["finance", "financial analyst", "investment banking", "ib", "equity research"],
+  ["marketing", "growth", "marketer", "content marketing", "performance marketing", "brand marketing"],
+  ["design", "designer", "ui designer", "ux", "ui/ux", "product design", "graphic design"],
+  ["research", "researcher", "r&d", "research engineer", "research scientist"],
+  ["sales", "business development", "bd", "sales associate", "account executive", "ae"],
+  ["operations", "ops", "business operations"],
+  ["content / writing", "writing", "content", "copywriter", "editor"],
+
+  // Tools / languages
+  ["python", "py"],
+  ["javascript", "js"],
+  ["typescript", "ts"],
+  ["sql", "mysql", "postgres", "postgresql"],
+  ["powerpoint", "ppt", "ms powerpoint", "presentation"],
+  ["excel", "spreadsheet", "ms excel"],
+  ["no-code tools", "no-code", "nocode", "low-code"],
+];
+
+/**
+ * Build a flat lookup: term → all synonyms (including itself). Computed once
+ * at module load. A term not in any group simply maps to [term].
+ */
+const SYNONYM_LOOKUP = (() => {
+  const map = new Map<string, readonly string[]>();
+  for (const group of SYNONYM_GROUPS) {
+    const lowered = group.map((t) => t.toLowerCase());
+    for (const t of lowered) map.set(t, lowered);
   }
+  return map;
+})();
 
-  // Career value (org tier)
-  if (b.career_value >= 85) {
-    reasons.push(`top-tier brand (${opp.organization})`);
-  } else if (b.career_value >= 70) {
-    reasons.push(`well-known org (${opp.organization})`);
-  }
-
-  // Urgency
-  if (b.urgency >= 100) {
-    reasons.push("closing this week");
-  } else if (b.urgency >= 70) {
-    reasons.push("closing in <30 days");
-  }
-
-  // Compensation
-  if (b.compensation >= 100) {
-    reasons.push("solid compensation");
-  }
-
-  if (reasons.length === 0) {
-    return "Surfaced because it's active and recently added.";
-  }
-
-  // Capitalize first letter of first reason; lowercase the rest
-  const first = reasons[0][0].toUpperCase() + reasons[0].slice(1);
-  const rest = reasons.slice(1, 3).map((r) => r[0].toLowerCase() + r.slice(1));
-  return [first, ...rest].join(" · ") + ".";
-}
-
-function matchedInterest(profile: Profile, opp: Opportunity): string | null {
-  return findMatchedTerms(profile, opp)[0] ?? null;
+function variantsOf(term: string): readonly string[] {
+  const norm = term.toLowerCase().trim();
+  return SYNONYM_LOOKUP.get(norm) ?? [norm];
 }
 
 /**
- * Return the opportunity's required_skills that the user *doesn't* have in
- * their profile (skills + resume_skills + interests). Drives the detail
- * page's "What you're missing" gap-analysis section.
- *
- * Comparison is case-insensitive. Returned values are the lowercase
- * stored form (which is how AI extracts them at ingest), so they can be
- * displayed verbatim or capitalised by the caller.
- *
- * Empty when:
- *   - The opportunity has no extracted required_skills (older rows or AI
- *     decided nothing was explicitly required)
- *   - The user already has all of them (perfect fit on stated requirements)
+ * Word-boundary aware substring match for purely-alphanumeric terms; falls
+ * back to substring for terms containing punctuation (e.g. "ai/ml") since
+ * \b doesn't behave well there.
  */
-export function findMissingRequirements(
-  profile: Profile,
-  opp: Opportunity,
-): string[] {
-  const required = opp.required_skills ?? [];
-  if (required.length === 0) return [];
+function termAppears(text: string, term: string): boolean {
+  if (!term) return false;
+  if (/^[a-z0-9]+$/i.test(term)) {
+    return new RegExp(`\\b${term}\\b`, "i").test(text);
+  }
+  return text.toLowerCase().includes(term.toLowerCase());
+}
 
-  const have = new Set(
-    [
-      ...(profile.skills ?? []),
-      ...(profile.resume_skills ?? []),
-      ...(profile.interests ?? []),
-    ].map(normalize),
-  );
+function anyVariantAppears(text: string, term: string): boolean {
+  for (const v of variantsOf(term)) {
+    if (termAppears(text, v)) return true;
+  }
+  return false;
+}
 
-  const missing: string[] = [];
+function collectUserTerms(profile: Profile): string[] {
   const seen = new Set<string>();
-  for (const r of required) {
-    const norm = normalize(r);
-    if (!norm || have.has(norm) || seen.has(norm)) continue;
-    missing.push(norm);
-    seen.add(norm);
-  }
-  return missing;
+  const out: string[] = [];
+  const add = (terms: readonly string[] | null | undefined) => {
+    for (const t of terms ?? []) {
+      const norm = t.toLowerCase().trim();
+      if (!norm || seen.has(norm)) continue;
+      out.push(t);
+      seen.add(norm);
+    }
+  };
+  add(profile.skills);
+  add(profile.interests);
+  add(profile.resume_skills);
+  return out;
 }
 
-/**
- * Return up to 3 user terms that appear in the opportunity's text, in
- * priority order: confirmed skills first (strongest signal), then interests,
- * then AI-extracted resume_skills last. Preserves original casing for display
- * so the UI can show "React" not "react".
- *
- * Used by:
- *   - matchedInterest() above (one-term version, drives generateWhy())
- *   - the dashboard match-pill UI (which shows the full set)
- *
- * Same haystack the relevance score uses, so the displayed terms are
- * exactly the ones contributing to the score.
- */
-export function findMatchedTerms(
-  profile: Profile,
-  opp: Opportunity,
-): string[] {
-  const oppText = [
+function collectOppText(opp: Opportunity): string {
+  return [
     opp.title,
     opp.summary ?? "",
     opp.description ?? "",
@@ -285,18 +482,143 @@ export function findMatchedTerms(
     opp.category,
   ]
     .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+    .join(" ");
+}
 
+/* ============================================================================
+ * Why-text — leads with the strongest specific signal
+ * ========================================================================== */
+
+function generateWhy(
+  profile: Profile,
+  opp: Opportunity,
+  b: ScoreBreakdown,
+  signal: BehavioralSignal,
+): string {
+  const reasons: string[] = [];
+
+  // 1. Profile relevance — name the actual matched term when possible
+  if (b.profile_relevance >= 60) {
+    const matched = findMatchedTerms(profile, opp).slice(0, 2);
+    if (matched.length >= 2) {
+      reasons.push(`Matches your ${matched[0]} + ${matched[1]} background`);
+    } else if (matched.length === 1) {
+      reasons.push(`Matches your interest in ${matched[0]}`);
+    } else {
+      reasons.push("Strong match with your profile");
+    }
+  } else if (b.profile_relevance >= 30) {
+    reasons.push("Some overlap with your profile");
+  }
+
+  // 2. Preference fit — only when explicitly strong
+  if (b.preference_fit >= 85 && hasAnyExplicitPreference(profile)) {
+    if (
+      profile.remote_preference === "remote" &&
+      opp.is_remote
+    ) {
+      reasons.push("matches your remote preference");
+    } else if (profile.time_commitment === "internship" && opp.category === "internship") {
+      reasons.push("internship as you wanted");
+    } else {
+      reasons.push("aligned with your preferences");
+    }
+  }
+
+  // 3. Behavioral resonance — only when the user has enough history
+  if (signal.totalSamples >= 3 && b.behavioral_fit >= 60) {
+    if (signal.topCategories.has(opp.category)) {
+      reasons.push(`you've been saving ${labelForCategory(opp.category)}s`);
+    } else {
+      reasons.push("similar to opportunities you've saved");
+    }
+  }
+
+  // 4. Career / brand value
+  if (b.career_value >= 90) {
+    reasons.push(`top-tier brand (${opp.organization})`);
+  } else if (b.career_value >= 75) {
+    reasons.push(`well-known org (${opp.organization})`);
+  }
+
+  // 5. Urgency context
+  if (b.urgency >= 100) {
+    if (opp.deadline) {
+      const days = Math.max(0, differenceInDays(parseISO(opp.deadline), new Date()));
+      reasons.push(days <= 1 ? "closing within 24h" : `closing in ${days} day${days === 1 ? "" : "s"}`);
+    } else {
+      reasons.push("closing this week");
+    }
+  } else if (b.urgency >= 70) {
+    reasons.push("closing in <30 days");
+  }
+
+  // 6. Compensation
+  if (b.compensation >= 100) {
+    reasons.push("solid compensation");
+  }
+
+  // 7. Recency — only if there's nothing stronger
+  if (reasons.length === 0 && b.recency >= 75) {
+    reasons.push("Just added — fresh in the feed");
+  }
+
+  if (reasons.length === 0) {
+    return "Surfaced because it's active and recently added.";
+  }
+
+  // Capitalize first reason; keep the rest lowercase. Join with · for visual rhythm.
+  const first = reasons[0][0].toUpperCase() + reasons[0].slice(1);
+  const rest = reasons.slice(1, 3).map((r) => r[0].toLowerCase() + r.slice(1));
+  return [first, ...rest].join(" · ") + ".";
+}
+
+function hasAnyExplicitPreference(profile: Profile): boolean {
+  return (
+    (!!profile.remote_preference && profile.remote_preference !== "any") ||
+    (!!profile.time_commitment && profile.time_commitment !== "any") ||
+    !!profile.preferred_location?.trim()
+  );
+}
+
+function labelForCategory(cat: string): string {
+  const map: Record<string, string> = {
+    internship: "internship",
+    fulltime: "full-time role",
+    case_competition: "case comp",
+    hackathon: "hackathon",
+    fellowship: "fellowship",
+    scholarship: "scholarship",
+  };
+  return map[cat] ?? "opportunity";
+}
+
+/* ============================================================================
+ * Public helpers used by UI surfaces
+ * ========================================================================== */
+
+/**
+ * Return up to 3 user terms whose synonym group hits the opportunity text.
+ * Preserves the user's original term casing for display ("React" not "react",
+ * "ML / AI" not "ml") so chips read naturally.
+ *
+ * Uses the same word-boundary + synonym logic the relevance score uses, so
+ * the displayed terms are exactly the ones that contributed to the score.
+ */
+export function findMatchedTerms(
+  profile: Profile,
+  opp: Opportunity,
+): string[] {
+  const oppText = collectOppText(opp);
   const matches: string[] = [];
   const seen = new Set<string>();
 
   const consider = (terms: readonly string[]) => {
     for (const term of terms) {
       if (matches.length >= 3) return;
-      const norm = normalize(term);
+      const norm = term.toLowerCase().trim();
       if (!norm || seen.has(norm)) continue;
-      if (oppText.includes(norm)) {
+      if (anyVariantAppears(oppText, term)) {
         matches.push(term);
         seen.add(norm);
       }
@@ -310,11 +632,53 @@ export function findMatchedTerms(
   return matches;
 }
 
-/* ============ Helpers ============ */
+/**
+ * Return the opportunity's required_skills that the user *doesn't* have in
+ * their profile (skills + resume_skills + interests). Drives the detail
+ * page's "What you're missing" gap-analysis section.
+ *
+ * Comparison is case-insensitive AND synonym-aware — if the user has
+ * "machine learning" in skills, we don't flag a required "ml" as missing.
+ */
+export function findMissingRequirements(
+  profile: Profile,
+  opp: Opportunity,
+): string[] {
+  const required = opp.required_skills ?? [];
+  if (required.length === 0) return [];
 
-function normalize(s: string): string {
-  return s.toLowerCase().trim();
+  // Build a set that includes every user term AND every synonym variant of
+  // each user term, so "ml" in profile covers required "machine learning".
+  const have = new Set<string>();
+  for (const t of [
+    ...(profile.skills ?? []),
+    ...(profile.resume_skills ?? []),
+    ...(profile.interests ?? []),
+  ]) {
+    const norm = t.toLowerCase().trim();
+    if (!norm) continue;
+    for (const v of variantsOf(norm)) have.add(v);
+  }
+
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  for (const r of required) {
+    const norm = r.toLowerCase().trim();
+    if (!norm || seen.has(norm)) continue;
+    // r is missing only when none of its synonym variants are already had
+    const variants = variantsOf(norm);
+    const covered = variants.some((v) => have.has(v));
+    if (!covered) {
+      missing.push(norm);
+      seen.add(norm);
+    }
+  }
+  return missing;
 }
+
+/* ============================================================================
+ * Helpers
+ * ========================================================================== */
 
 function pct(v: number): number {
   return Math.round(v * 100);

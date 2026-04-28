@@ -122,3 +122,40 @@ export function getOrgTier(organization: string | null | undefined): Tier {
 
   return 0.5;
 }
+
+/**
+ * Per-category baseline used when the org tier is unknown. Combats the flat
+ * 0.5 noise floor that ~80% of opportunities fell to before. Selective
+ * categories (fellowship, case_competition) carry inherent career value
+ * even from an unknown sponsor.
+ */
+const CATEGORY_BASELINE: Record<string, number> = {
+  fellowship: 0.7,
+  scholarship: 0.65,
+  case_competition: 0.65,
+  internship: 0.55,
+  fulltime: 0.55,
+  hackathon: 0.55,
+  conference: 0.45,
+  workshop: 0.4,
+  bootcamp: 0.4,
+  networking: 0.45,
+  campus_ambassador: 0.45,
+  remote_gig: 0.5,
+  other: 0.45,
+};
+
+/**
+ * Career-value tier for an opportunity — combines the org tier (high signal
+ * when known) with a category-based baseline (catches unknown orgs in
+ * inherently selective tracks like fellowships). Returns the higher of the
+ * two so a known top-tier org always wins.
+ */
+export function getCareerValueTier(
+  organization: string | null | undefined,
+  category: string | null | undefined,
+): Tier {
+  const orgTier = getOrgTier(organization);
+  const catBaseline = category ? (CATEGORY_BASELINE[category] ?? 0.5) : 0.5;
+  return Math.max(orgTier, catBaseline);
+}

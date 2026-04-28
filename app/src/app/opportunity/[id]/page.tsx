@@ -28,6 +28,7 @@ import {
   findMatchedTerms,
   findMissingRequirements,
 } from "@/lib/scoring/score";
+import { fetchBehavioralSignal } from "@/lib/scoring/refresh";
 import { MissingSkillChip } from "@/components/MissingSkillChip";
 import { cn, stripHtml } from "@/lib/utils";
 import type {
@@ -97,8 +98,14 @@ export default async function OpportunityDetailPage({
     | ApplicationStatus
     | undefined;
 
-  // Deterministic on-the-fly score (no AI, no DB lookup needed).
-  const { score, why } = computeScore(profile as Profile, opp);
+  // Deterministic on-the-fly score, with the user's behavioral signal so
+  // why-text can mention "similar to opportunities you've saved" when true.
+  const behavioralSignal = await fetchBehavioralSignal(user.id);
+  const { score, why } = computeScore(
+    profile as Profile,
+    opp,
+    behavioralSignal,
+  );
   const matchedTerms = findMatchedTerms(profile as Profile, opp);
   const missingSkills = findMissingRequirements(profile as Profile, opp);
 
