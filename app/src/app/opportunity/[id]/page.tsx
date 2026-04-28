@@ -175,7 +175,8 @@ export default async function OpportunityDetailPage({
           </div>
         </header>
 
-        {/* Action bar */}
+        {/* Action bar — Save/MarkApplied wrap in a flex row, Apply takes full
+            width on mobile (clear primary CTA), content-width on desktop. */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <SaveButton opportunityId={opp.id} isSaved={isSaved} />
           <ApplyButton
@@ -190,7 +191,7 @@ export default async function OpportunityDetailPage({
                 title: opp.title,
                 organization: opp.organization,
               }}
-              className="ml-auto"
+              className="w-full justify-center sm:ml-auto sm:w-auto"
             >
               Apply
               <ArrowUpRight className="size-4" />

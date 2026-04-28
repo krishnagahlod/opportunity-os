@@ -98,14 +98,16 @@ export function OpportunityCard({
         </div>
       </div>
 
-      {/* Body — relative container; metadata + action layers occupy same space */}
+      {/* Body — actions visible on mobile (no hover possible on touch),
+          hover-swap pattern preserved on sm+ for the desktop experience. */}
       <div className="relative mt-auto border-t border-border/50">
-        {/* Metadata layer (default visible) */}
+        {/* Metadata layer — hidden entirely on mobile (actions take its space).
+            Desktop: shown by default, hover-faded so actions can take over. */}
         <div
           className={cn(
-            "flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-[11.5px] text-muted-foreground transition-opacity duration-200",
-            "group-hover:opacity-0 group-hover:pointer-events-none",
-            "group-focus-within:opacity-0 group-focus-within:pointer-events-none",
+            "hidden min-h-[44px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-[11.5px] text-muted-foreground transition-opacity duration-200 sm:flex",
+            "sm:group-hover:opacity-0 sm:group-hover:pointer-events-none",
+            "sm:group-focus-within:opacity-0 sm:group-focus-within:pointer-events-none",
           )}
           aria-hidden="true"
         >
@@ -131,13 +133,16 @@ export function OpportunityCard({
           </span>
         </div>
 
-        {/* Action layer (revealed on hover / keyboard focus) */}
+        {/* Action layer — always visible on mobile (in-flow), absolute hover-
+            revealed on sm+ (sits over the metadata strip). */}
         <div
           className={cn(
-            "absolute inset-0 flex items-center gap-1.5 px-3 opacity-0 transition-opacity duration-150",
-            "pointer-events-none",
-            "group-hover:opacity-100 group-hover:pointer-events-auto",
-            "group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+            // Mobile: in-flow, full padding, always visible
+            "flex items-center gap-1.5 px-3 py-3",
+            // Desktop: layered over metadata, hover-revealed
+            "sm:absolute sm:inset-0 sm:py-0 sm:opacity-0 sm:pointer-events-none sm:transition-opacity sm:duration-150",
+            "sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto",
+            "sm:group-focus-within:opacity-100 sm:group-focus-within:pointer-events-auto",
           )}
           // Don't let action-area clicks navigate the parent card.
           onClick={(e) => e.stopPropagation()}

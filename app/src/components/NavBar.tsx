@@ -48,7 +48,7 @@ export function NavBar({
           <Link
             href="/settings"
             aria-label="Settings"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground sm:hidden"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground sm:hidden"
           >
             <SettingsIcon className="size-4" />
           </Link>
