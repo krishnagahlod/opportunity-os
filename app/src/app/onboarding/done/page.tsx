@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { buttonVariants } from "@/components/ui/button";
 import { refreshScores } from "@/lib/scoring/refresh";
+import { pickDiversifiedTop } from "@/lib/scoring/diversify";
 import { cn } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
 
@@ -73,12 +74,20 @@ export default async function OnboardingDonePage() {
   const opps = (poolRes.data ?? []) as Opportunity[];
   const weekCount = weekCountRes.count ?? 0;
 
-  // Score everything, then take top 3 by score (regardless of date_added).
+  // Score everything, then take top 3 — diversified so a brand-new user
+  // doesn't see "three internships" as their first impression of the feed.
+  // Even on cold-start, surfacing two categories signals breadth.
   const scoreMap = await refreshScores(profile as Profile, opps);
-  const ranked = [...opps]
-    .map((o) => ({ opp: o, score: scoreMap.get(o.id)?.score ?? 0 }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+  const candidates = opps.map((o) => ({
+    opp: o,
+    score: scoreMap.get(o.id)?.score ?? 0,
+  }));
+  const ranked = pickDiversifiedTop(
+    candidates,
+    3,
+    (x) => x.score,
+    (x) => x.opp.category,
+  );
 
   const savedSet = new Set(
     (savedRes.data ?? []).map((r) => r.opportunity_id as string),

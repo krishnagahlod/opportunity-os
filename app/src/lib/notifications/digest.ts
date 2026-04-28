@@ -1,6 +1,7 @@
 import "server-only";
 import { differenceInDays, parseISO } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pickDiversifiedTop } from "@/lib/scoring/diversify";
 import type { Opportunity, Profile, Score } from "@/types/db";
 
 export type DigestItem = {
@@ -120,11 +121,16 @@ export async function buildDigestForUser(
     });
   const myDeadlineIds = new Set(myDeadlines.map((m) => m.opportunity.id));
 
-  // Always show top N — score is the rank, no quality floor. Filtering would
-  // hide all picks on cold-start days when the score cache is sparse.
-  const topPicks = [...items]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, TOP_PICKS_LIMIT);
+  // Top N picks, with category diversification so the digest doesn't
+  // collapse to "five internships in a row" when one category dominates the
+  // user's matches. minCategories=2 — surfaces at least two distinct
+  // categories in the top before allowing same-category picks.
+  const topPicks = pickDiversifiedTop(
+    items,
+    TOP_PICKS_LIMIT,
+    (i) => i.score,
+    (i) => i.opportunity.category,
+  );
 
   // Feed-wide closing-soon, but skip anything already surfaced in
   // myDeadlines so the same opportunity doesn't appear twice.

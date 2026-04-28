@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 import { OpportunityCard } from "@/components/OpportunityCard";
+import { pickDiversifiedTop } from "@/lib/scoring/diversify";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 /**
@@ -25,11 +26,19 @@ export function FeaturedRow({
   appliedMap: Record<string, ApplicationStatus>;
   count?: number;
 }) {
-  const ranked = [...opportunities]
+  // Build candidates with valid scores, then diversify so the top row
+  // doesn't collapse to all-internship or all-fulltime when one category
+  // dominates this user's matches.
+  const candidates = opportunities
     .map((opp) => ({ opp, s: scoreMap[opp.id] }))
-    .filter((x) => (x.s?.score ?? 0) > 0)
-    .sort((a, b) => (b.s?.score ?? 0) - (a.s?.score ?? 0))
-    .slice(0, count);
+    .filter((x) => (x.s?.score ?? 0) > 0);
+
+  const ranked = pickDiversifiedTop(
+    candidates,
+    count,
+    (x) => x.s?.score ?? 0,
+    (x) => x.opp.category,
+  );
 
   if (ranked.length < count) return null;
 
