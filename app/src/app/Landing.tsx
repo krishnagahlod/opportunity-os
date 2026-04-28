@@ -4,7 +4,6 @@ import {
   Bell,
   Check,
   Clock,
-  Folder,
   Mail,
   Send,
   Sparkles,
@@ -14,7 +13,6 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Public marketing landing — rendered at "/" when no user is signed in.
@@ -25,69 +23,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * surfaces, layered for depth (browser-window dashboard + Telegram bubble
  * + email card stacked behind each other).
  *
- * Layout inspired by 21st.dev patterns:
- *   - Hero with stacked rotated windows behind main preview (Vaib pattern)
- *   - Bento grid feature section (PerkAI / BentoGridShowcase)
- *   - Big pull-quote with thin accent bar (Tailark testimonial)
+ * Layout patterns synthesized from 21st.dev:
+ *   - Hero with stacked rotated windows behind main preview
+ *   - Tailark-style sources strip with thin top/bottom dividers
+ *   - Bento grid features (no empty cells — see Bento layout below)
+ *   - Vertical timeline for "How it works"
+ *   - Multi-card testimonial grid
  */
-export async function Landing() {
-  const metrics = await fetchLiveMetrics();
+export function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav />
-      <Hero metrics={metrics} />
+      <Hero />
+      <SourcesStrip />
       <PainStrip />
       <ShowcaseSection />
       <FeaturesBento />
-      <PullQuote />
+      <Testimonials />
       <HowItWorks />
       <FinalCta />
       <Footer />
     </div>
   );
-}
-
-/* ============================================================================
- * Live metrics — real numbers from the DB. Read-only, public-safe.
- * ========================================================================== */
-
-type LiveMetrics = {
-  liveCount: number;
-  newThisWeek: number;
-  sourcesCount: number;
-};
-
-async function fetchLiveMetrics(): Promise<LiveMetrics> {
-  try {
-    const supabase = createAdminClient();
-    const weekAgo = new Date(
-      Date.now() - 7 * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    const [activeRes, recentRes, sourcesRes] = await Promise.all([
-      supabase
-        .from("opportunities")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active"),
-      supabase
-        .from("opportunities")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active")
-        .gte("date_added", weekAgo),
-      supabase
-        .from("sources")
-        .select("*", { count: "exact", head: true })
-        .eq("enabled", true),
-    ]);
-
-    return {
-      liveCount: activeRes.count ?? 0,
-      newThisWeek: recentRes.count ?? 0,
-      sourcesCount: sourcesRes.count ?? 0,
-    };
-  } catch {
-    return { liveCount: 0, newThisWeek: 0, sourcesCount: 0 };
-  }
 }
 
 /* ============================================================================
@@ -113,13 +70,13 @@ function Nav() {
   );
 }
 
-function Hero({ metrics }: { metrics: LiveMetrics }) {
+function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="bg-grid-dots pointer-events-none absolute inset-0 opacity-25" />
       <div className="bg-hero-radial dark:bg-hero-radial-dark pointer-events-none absolute inset-0" />
 
-      <div className="relative mx-auto max-w-6xl px-4 pt-14 pb-10 sm:pt-20 sm:pb-16 lg:pt-24">
+      <div className="relative mx-auto max-w-6xl px-4 pt-14 pb-12 sm:pt-20 sm:pb-16 lg:pt-24">
         <div className="mx-auto max-w-3xl text-center">
           <span className="animate-fade-up inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
             <Sparkles className="size-3 text-primary" />
@@ -139,13 +96,9 @@ function Hero({ metrics }: { metrics: LiveMetrics }) {
             className="animate-fade-up mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
             style={{ animationDelay: "120ms" }}
           >
-            We watch{" "}
-            <span className="font-medium text-foreground">
-              {metrics.sourcesCount > 0 ? `${metrics.sourcesCount}+` : "20+"}{" "}
-              sources
-            </span>{" "}
-            every 6 hours, score every new listing against your resume, and ping
-            you on Telegram the moment a high-fit one drops.
+            We watch the places that matter, score every new listing against
+            your resume, and ping you on Telegram the moment a high-fit one
+            drops.
           </p>
 
           <div
@@ -166,59 +119,55 @@ function Hero({ metrics }: { metrics: LiveMetrics }) {
               <ArrowRight className="size-4" />
             </Link>
           </div>
-
-          <p
-            className="animate-fade-up mt-4 text-[12.5px] text-muted-foreground"
-            style={{ animationDelay: "220ms" }}
-          >
-            90-second onboarding · No password · Free, forever
-          </p>
         </div>
 
-        {/* Layered product preview — money shot. Three rotated windows give depth
-            without committing to any single channel as "the" product. */}
+        {/* Layered product preview — money shot. Three rotated surfaces give
+            depth without committing to any single channel as "the" product. */}
         <div
           className="animate-fade-up relative mx-auto mt-14 max-w-4xl px-4 sm:mt-20"
           style={{ animationDelay: "320ms" }}
         >
           <ProductPreviewStack />
         </div>
-
-        {/* Live metrics ribbon — real DB numbers */}
-        <div
-          className="animate-fade-up mt-14 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 border-t border-border/40 pt-8"
-          style={{ animationDelay: "380ms" }}
-        >
-          <Metric
-            value={
-              metrics.liveCount > 0
-                ? metrics.liveCount.toLocaleString()
-                : "Live"
-            }
-            label="opportunities live right now"
-          />
-          <Metric
-            value={
-              metrics.newThisWeek > 0
-                ? `+${metrics.newThisWeek.toLocaleString()}`
-                : "Daily"
-            }
-            label="added in the last 7 days"
-          />
-          <Metric
-            value={
-              metrics.sourcesCount > 0 ? `${metrics.sourcesCount}` : "20+"
-            }
-            label="sources scraped every 6h"
-          />
-        </div>
       </div>
     </section>
   );
 }
 
-/* "Sound familiar?" reduced to a single tight strip. Recognition without
-   ceremony — three (X-icon) crossed-out moments inline beneath the hero. */
+/* Wordmark-style sources strip — names, not numbers. Replaces the live metrics
+   ribbon. Tailark-pattern with thin masked-edge dividers above and below. */
+function SourcesStrip() {
+  const sources = [
+    "Unstop",
+    "Internshala",
+    "Hacker News Jobs",
+    "Greenhouse",
+    "Devpost",
+    "We Work Remotely",
+    "MLH",
+    "Reddit communities",
+  ];
+  return (
+    <section className="border-b border-border/40 bg-background">
+      <div className="mx-auto max-w-5xl px-4 py-10">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Watching the places that matter
+        </p>
+        <div className="mx-auto my-6 h-px max-w-md bg-border/60 [mask-image:linear-gradient(to_right,transparent,black,transparent)]" />
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[13.5px] font-medium tracking-tight text-foreground/70 sm:gap-x-10">
+          {sources.map((s) => (
+            <span key={s} className="font-mono">
+              {s}
+            </span>
+          ))}
+        </div>
+        <div className="mx-auto mt-6 h-px max-w-md bg-border/60 [mask-image:linear-gradient(to_right,transparent,black,transparent)]" />
+      </div>
+    </section>
+  );
+}
+
+/* "Sound familiar?" reduced to a single tight strip. */
 function PainStrip() {
   const moments = [
     "40 minutes scrolling Unstop",
@@ -226,7 +175,7 @@ function PainStrip() {
     "missing the off-campus role your batchmate got",
   ];
   return (
-    <section className="border-y border-border/40 bg-muted/20">
+    <section className="border-b border-border/40 bg-muted/20">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:py-7">
         <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -278,7 +227,7 @@ function ShowcaseSection() {
             n="02"
             icon={<Workflow className="size-3.5" />}
             title="We work while you sleep"
-            body="Every 6 hours, 20+ sources scraped. Each new listing read by AI, scored against your resume, deduplicated, pushed to your feed."
+            body="Sources scraped around the clock. Each new listing read by AI, scored against your resume, deduplicated, pushed to your feed."
             visual={<AutomationVisual />}
             tone="emerald"
           />
@@ -286,7 +235,7 @@ function ShowcaseSection() {
             n="03"
             icon={<Bell className="size-3.5" />}
             title="You get pinged"
-            body="High-fit drops the moment they arrive. 8am email digest catches the rest. You click, you apply, you move on. The opportunity finds you."
+            body="High-fit drops the moment they arrive. Morning email digest catches the rest. You click, you apply, you move on."
             visual={<TelegramVisual />}
             tone="fuchsia"
           />
@@ -309,47 +258,41 @@ function FeaturesBento() {
           </h2>
         </div>
 
-        {/* Bento grid: tall AI scoring (2 rows) + 2 stacked medium cards on the
-            right + wide kanban below + wide sources strip at the bottom. */}
+        {/* Bento layout that fully tiles a 3-col × 3-row grid (no empty cells):
+              Row 1+2 col 1-2: AI scoring (2×2)   Row 1 col 3: Telegram (1×1)
+              Row 2 col 3: Email (1×1)
+              Row 3 col 1-3: Application tracker (3×1)
+            Sources moved to the hero strip so this grid stays compact. */}
         <div className="mt-14 grid gap-4 sm:grid-cols-3 sm:auto-rows-[minmax(220px,auto)]">
           <BentoCard
             className="sm:col-span-2 sm:row-span-2"
             eyebrow="AI scoring"
             title="Every opportunity scored against your actual resume."
-            body="Not against generic interest chips. We read your projects and roles, then tell you why each match matters — in one line you can act on."
+            body="Not against generic interest chips. We read your projects and roles, then tell you why each match matters in one line you can act on."
             visual={<ScoredCardVisual />}
             tone="primary"
           />
           <BentoCard
             eyebrow="Telegram"
-            title="Pings 48 hours before the deadline."
-            body="The thing that makes a student feel like the system is actually looking out for them."
+            title="Pings before the deadline."
+            body="48-hour deadline warnings on the channel you already check."
             visual={<MiniTelegramVisual />}
             tone="sky"
           />
           <BentoCard
             eyebrow="Daily digest"
-            title="Top picks in your inbox at 8am."
-            body="Email summary so you don't have to open the app to know if it's worth opening today."
+            title="Top picks in your inbox."
+            body="Morning email summary so you know if it's worth opening today."
             visual={<MiniEmailVisual />}
             tone="amber"
           />
           <BentoCard
-            className="sm:col-span-2"
+            className="sm:col-span-3"
             eyebrow="Application tracker"
             title="Saved → Applied → Interviewing → Won."
             body="Drag to update. See your active pipeline, response rate, wins this month. Without it, opportunities slip through cracks."
             visual={<KanbanVisual />}
             tone="emerald"
-          />
-          <BentoCard
-            className="sm:col-span-3"
-            eyebrow="20+ sources"
-            title="Things LinkedIn won't show you."
-            body="Hacker News Jobs, Greenhouse boards, Devpost, Unstop, Internshala, We Work Remotely, Reddit dev communities, niche fellowship newsletters — wherever interesting opportunities actually live."
-            visual={<SourcesStripVisual />}
-            tone="fuchsia"
-            wide
           />
         </div>
       </div>
@@ -357,35 +300,71 @@ function FeaturesBento() {
   );
 }
 
-function PullQuote() {
-  // Single big pull quote — Tailark pattern. One real-feeling student
-  // testimonial beats five small ones. Names are placeholders until real
-  // testers are willing to be quoted.
+function Testimonials() {
+  // Random-name placeholders. Real quotes go here once testers are willing.
+  const quotes = [
+    {
+      body: "Got a Telegram ping for a Kearney off-campus role. Applied the same day. I had no idea they were even hiring.",
+      name: "Rishabh Mehta",
+      meta: "BITS Pilani · 3rd year",
+      initials: "RM",
+    },
+    {
+      body: "I stopped checking LinkedIn. Now I open this in the morning, apply to a couple of things before class.",
+      name: "Ananya Sharma",
+      meta: "IIT Bombay · 4th year",
+      initials: "AS",
+    },
+    {
+      body: "The score chips are the killer feature. I can tell at a glance what's worth my time.",
+      name: "Karthik Iyer",
+      meta: "SRCC · 2nd year",
+      initials: "KI",
+    },
+  ];
   return (
     <section className="border-b border-border/40">
-      <div className="mx-auto max-w-4xl px-4 py-20 sm:py-28">
-        <blockquote className="relative pl-6 sm:pl-10 before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-indigo-500 before:via-violet-500 before:to-fuchsia-500">
-          <p className="text-balance text-[22px] font-medium leading-snug tracking-tight sm:text-[28px] lg:text-[32px]">
-            &ldquo;Got a Telegram ping for a Kearney off-campus role.{" "}
-            <span className="text-gradient-brand">
-              Applied the same day
-            </span>
-            . I had no idea they were even hiring.&rdquo;
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+            Quotes
           </p>
-          <footer className="mt-8 flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[12px] font-bold text-white shadow-sm">
-              RM
-            </span>
-            <div className="border-l border-border/60 pl-4">
-              <cite className="text-[13.5px] font-semibold not-italic">
-                Rishabh Mehta
-              </cite>
-              <span className="block text-[11.5px] text-muted-foreground">
-                BITS Pilani · 3rd year
+          <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            Why students keep it open every morning.
+          </h2>
+        </div>
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          {quotes.map((q) => (
+            <figure
+              key={q.name}
+              className="group flex flex-col rounded-2xl border border-border/60 bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated"
+            >
+              {/* gradient quote glyph anchors the card */}
+              <span
+                aria-hidden
+                className="text-gradient-brand inline-block font-serif text-4xl leading-none"
+              >
+                &ldquo;
               </span>
-            </div>
-          </footer>
-        </blockquote>
+              <blockquote className="mt-2 flex-1 text-[14.5px] leading-relaxed text-foreground/90">
+                {q.body}
+              </blockquote>
+              <figcaption className="mt-6 flex items-center gap-3 border-t border-border/50 pt-5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[12px] font-bold text-white shadow-sm">
+                  {q.initials}
+                </span>
+                <div className="min-w-0">
+                  <cite className="block truncate text-[13px] font-semibold not-italic">
+                    {q.name}
+                  </cite>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {q.meta}
+                  </span>
+                </div>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -395,18 +374,24 @@ function HowItWorks() {
   const steps = [
     {
       n: "01",
-      title: "You spend 90 seconds",
-      body: "Drop your resume. Skip the chip-clicking — we read it for you.",
+      title: "You spend a couple of minutes",
+      body: "Drop your resume. We pull out skills, role buckets, and what you'd actually want — no chip-clicking required.",
+      icon: <Upload className="size-4" />,
+      visual: <StepUploadVisual />,
     },
     {
       n: "02",
       title: "We do the rest",
-      body: "Every 6 hours, 20+ sources get scored against your profile. Top picks rise.",
+      body: "Sources get scraped on a schedule. Each new listing is scored against your profile. Top picks rise.",
+      icon: <Workflow className="size-4" />,
+      visual: <StepPipelineVisual />,
     },
     {
       n: "03",
       title: "You open Telegram",
-      body: "Daily digest is ready. High-urgency drops ping you instantly. Apply, move on.",
+      body: "Daily digest is ready. High-urgency drops ping you the moment they arrive. Click, apply, move on.",
+      icon: <Send className="size-4" />,
+      visual: <StepPingVisual />,
     },
   ];
 
@@ -422,32 +407,43 @@ function HowItWorks() {
           </h2>
         </div>
 
-        {/* Connected timeline — gradient line behind step cards ties them
-            visually so they feel like one flow rather than three boxes. */}
-        <div className="relative mt-14">
+        {/* Vertical timeline — connected steps with a left rail. Inspired by
+            ark-ui Vertical Titles Steps. The left column is a numbered pill +
+            vertical line; the right column is title/body/visual. */}
+        <ol className="relative mx-auto mt-14 max-w-3xl space-y-10">
+          {/* Vertical rail line — runs full height of the steps */}
           <div
             aria-hidden
-            className="absolute left-4 right-4 top-7 hidden h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent lg:block"
+            className="pointer-events-none absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-primary/40 via-primary/20 to-transparent"
           />
-          <ol className="relative grid gap-5 lg:grid-cols-3 lg:gap-6">
-            {steps.map((s) => (
-              <li
-                key={s.n}
-                className="group relative rounded-2xl border border-border/70 bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated"
+
+          {steps.map((s) => (
+            <li key={s.n} className="relative pl-14">
+              {/* Numbered indicator on the rail */}
+              <span
+                aria-hidden
+                className="absolute left-0 top-0 flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-[13px] font-bold tabular-nums text-white shadow-md ring-4 ring-muted/20"
               >
-                <span className="relative z-10 flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 font-mono text-[12px] font-bold tabular-nums text-white shadow-md">
-                  {s.n}
-                </span>
-                <h3 className="mt-5 text-[17px] font-semibold leading-snug tracking-tight">
-                  {s.title}
-                </h3>
-                <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-                  {s.body}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </div>
+                {s.n}
+              </span>
+
+              <div className="grid gap-5 rounded-2xl border border-border/60 bg-card p-5 shadow-card sm:grid-cols-[1fr_auto] sm:items-center sm:gap-8 sm:p-6">
+                <div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    {s.icon}
+                    <h3 className="text-[17px] font-semibold leading-snug tracking-tight text-foreground">
+                      {s.title}
+                    </h3>
+                  </div>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+                    {s.body}
+                  </p>
+                </div>
+                <div className="sm:w-[200px] sm:shrink-0">{s.visual}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );
@@ -456,7 +452,6 @@ function HowItWorks() {
 function FinalCta() {
   return (
     <section className="bg-hero-radial dark:bg-hero-radial-dark relative overflow-hidden border-b border-border/40">
-      {/* Decorative orbs for depth */}
       <div
         aria-hidden
         className="pointer-events-none absolute -left-32 top-10 size-80 rounded-full bg-primary/15 blur-[140px]"
@@ -477,8 +472,7 @@ function FinalCta() {
           .
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-[15.5px] text-muted-foreground">
-          Sign up in 90 seconds. We&apos;ll surface your first high-fit
-          opportunities tonight.
+          Sign up and we&apos;ll surface your first high-fit opportunities tonight.
         </p>
         <div className="mt-10">
           <Link
@@ -495,9 +489,6 @@ function FinalCta() {
             <ArrowRight className="size-4" />
           </Link>
         </div>
-        <p className="mt-5 text-[12.5px] text-muted-foreground">
-          No password. Cancel anytime. Takes less time than scrolling LinkedIn.
-        </p>
       </div>
     </section>
   );
@@ -534,19 +525,6 @@ function Brand() {
   );
 }
 
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="text-center">
-      <p className="text-2xl font-semibold tabular-nums tracking-tight">
-        {value}
-      </p>
-      <p className="mt-0.5 max-w-[200px] text-[11.5px] leading-snug text-muted-foreground">
-        {label}
-      </p>
-    </div>
-  );
-}
-
 /* ====================== HERO: layered product preview ====================== */
 
 function ProductPreviewStack() {
@@ -565,7 +543,7 @@ function ProductPreviewStack() {
             <Mail className="size-3" />
           </span>
           <span className="text-[11px] font-semibold tracking-tight">
-            Daily digest · 8:00 AM
+            Daily digest · this morning
           </span>
         </div>
         <div className="space-y-1.5 px-4 py-3 text-[10.5px]">
@@ -615,7 +593,7 @@ function ProductPreviewStack() {
           </div>
         </div>
 
-        {/* Feed grid mock — three opportunity cards mirroring real product */}
+        {/* Feed grid mock */}
         <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
           <FeedCard
             cat="Internship"
@@ -724,12 +702,9 @@ function ShowcasePanel({
   tone: "primary" | "emerald" | "fuchsia";
 }) {
   const toneClasses = {
-    primary:
-      "before:from-primary/30 [--accent:var(--primary)] [--accent-soft:color-mix(in_oklch,var(--primary)_15%,transparent)]",
-    emerald:
-      "before:from-emerald-500/30 [--accent:theme(colors.emerald.500)] [--accent-soft:color-mix(in_oklch,theme(colors.emerald.500)_15%,transparent)]",
-    fuchsia:
-      "before:from-fuchsia-500/30 [--accent:theme(colors.fuchsia.500)] [--accent-soft:color-mix(in_oklch,theme(colors.fuchsia.500)_15%,transparent)]",
+    primary: "before:from-primary/30",
+    emerald: "before:from-emerald-500/30",
+    fuchsia: "before:from-fuchsia-500/30",
   };
 
   return (
@@ -800,7 +775,7 @@ function UploadVisual() {
 }
 
 function AutomationVisual() {
-  const sources = ["Unstop", "HN Jobs", "Greenhouse", "Devpost", "+16"];
+  const sources = ["Unstop", "HN Jobs", "Greenhouse", "Devpost", "Internshala"];
   return (
     <div className="space-y-2.5">
       <div className="rounded-lg border border-border/50 bg-background/80 px-3 py-2.5">
@@ -819,10 +794,10 @@ function AutomationVisual() {
         </div>
       </div>
       <p className="text-center font-mono text-[11px] text-muted-foreground">
-        ↓ every 6h
+        ↓ continuously
       </p>
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 font-mono text-[11px]">
-        <Row label="Scraped today" value="847" />
+        <Row label="New listings" value="847" />
         <Row label="Match your profile" value="12" valueClass="text-primary" />
         <Row
           label="High-fit alerts"
@@ -888,7 +863,6 @@ function BentoCard({
   body,
   visual,
   tone,
-  wide,
 }: {
   className?: string;
   eyebrow: string;
@@ -896,7 +870,6 @@ function BentoCard({
   body: string;
   visual: React.ReactNode;
   tone: "primary" | "sky" | "amber" | "emerald" | "fuchsia";
-  wide?: boolean;
 }) {
   const toneText = {
     primary: "text-primary",
@@ -923,7 +896,7 @@ function BentoCard({
           {body}
         </p>
       </div>
-      <div className={cn("mt-6", wide ? "" : "flex-1")}>{visual}</div>
+      <div className="mt-6 flex-1">{visual}</div>
     </article>
   );
 }
@@ -1012,7 +985,7 @@ function MiniEmailVisual() {
         <span className="flex size-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
           <Mail className="size-3" />
         </span>
-        <span className="text-[11px] font-semibold">8:00 AM digest</span>
+        <span className="text-[11px] font-semibold">Morning digest</span>
       </div>
       <p className="text-[11.5px] font-medium">5 top picks for today</p>
       <ul className="mt-1 space-y-0.5 text-[10.5px] text-muted-foreground">
@@ -1079,38 +1052,56 @@ function KanbanVisual() {
   );
 }
 
-function SourcesStripVisual() {
-  const sources: { name: string; tag: string }[] = [
-    { name: "Unstop", tag: "Hackathons · Comps" },
-    { name: "Internshala", tag: "Internships" },
-    { name: "Hacker News Jobs", tag: "Tech roles" },
-    { name: "We Work Remotely", tag: "Remote" },
-    { name: "Greenhouse", tag: "Postman, Cloudflare …" },
-    { name: "Devpost", tag: "Hackathons" },
-    { name: "r/developersIndia", tag: "Community drops" },
-    { name: "MLH events", tag: "Student hacks" },
-  ];
+/* ====================== Step visuals (How It Works) ====================== */
+
+function StepUploadVisual() {
   return (
-    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      {sources.map((s) => (
-        <div
-          key={s.name}
-          className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 px-3 py-2 transition-colors hover:border-border hover:bg-background"
-        >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500/15 to-indigo-500/15 text-muted-foreground">
-            <Folder className="size-3.5" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold leading-tight">
-              {s.name}
-            </p>
-            <p className="truncate text-[10.5px] text-muted-foreground">
-              {s.tag}
-            </p>
-          </div>
-        </div>
-      ))}
+    <div className="rounded-xl border-2 border-dashed border-primary/30 bg-background/80 p-3 text-center">
+      <div className="mx-auto flex size-7 items-center justify-center rounded-md bg-primary/15 text-primary">
+        <Upload className="size-3.5" />
+      </div>
+      <p className="mt-2 font-mono text-[11px]">resume.pdf</p>
+      <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+        ✓ 12 skills · 4 roles read
+      </p>
     </div>
   );
 }
 
+function StepPipelineVisual() {
+  return (
+    <div className="space-y-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-3 font-mono text-[10.5px]">
+      <p className="flex items-center justify-between">
+        <span className="text-muted-foreground">New listings</span>
+        <span className="font-semibold tabular-nums">847</span>
+      </p>
+      <p className="flex items-center justify-between">
+        <span className="text-muted-foreground">Match you</span>
+        <span className="font-semibold tabular-nums text-primary">12</span>
+      </p>
+      <p className="flex items-center justify-between">
+        <span className="text-muted-foreground">High-fit alerts</span>
+        <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+          3
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function StepPingVisual() {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background p-3 text-[10.5px]">
+      <div className="flex items-center gap-1.5 border-b border-border/40 pb-1.5">
+        <span className="flex size-5 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white">
+          <Sparkles className="size-2.5" />
+        </span>
+        <span className="text-[10.5px] font-semibold">Opportunity OS</span>
+      </div>
+      <p className="mt-2 font-medium">🚨 Closing in 48h</p>
+      <p className="mt-0.5 underline decoration-primary/40 underline-offset-2">
+        Kearney off-campus
+      </p>
+    </div>
+  );
+}
