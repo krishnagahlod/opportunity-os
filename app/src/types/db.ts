@@ -65,6 +65,9 @@ export type Opportunity = {
   description: string | null;
   summary: string | null;
   tags: string[];
+  /** Skills the listing explicitly requires. Lowercase. AI-extracted at ingest.
+   * Used by the detail page's "What you're missing" gap-analysis section. */
+  required_skills: string[];
   deadline: string | null;
   eligibility: string | null;
   location: string | null;

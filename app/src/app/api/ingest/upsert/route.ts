@@ -74,6 +74,17 @@ export async function POST(req: NextRequest) {
     ? await resolveOrCreateSource(supabase, source_name)
     : null;
 
+  // Normalize extracted required-skills: lowercase, trim, drop short tokens,
+  // dedupe. Cap at 8 (matches the schema's max). Belt-and-suspenders against
+  // bad AI output that slipped past Zod (e.g. duplicate casings).
+  const normalizedRequired = Array.from(
+    new Set(
+      (opp.required_skills ?? [])
+        .map((s) => s.toLowerCase().trim())
+        .filter((s) => s.length >= 2 && s.length <= 40),
+    ),
+  ).slice(0, 8);
+
   const row = {
     title: opp.title,
     organization,
@@ -81,6 +92,7 @@ export async function POST(req: NextRequest) {
     description: opp.description,
     summary: opp.summary,
     tags: opp.tags,
+    required_skills: normalizedRequired,
     deadline: opp.deadline,
     eligibility: opp.eligibility,
     location: opp.location,

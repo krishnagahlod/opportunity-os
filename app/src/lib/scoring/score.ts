@@ -221,6 +221,46 @@ function matchedInterest(profile: Profile, opp: Opportunity): string | null {
 }
 
 /**
+ * Return the opportunity's required_skills that the user *doesn't* have in
+ * their profile (skills + resume_skills + interests). Drives the detail
+ * page's "What you're missing" gap-analysis section.
+ *
+ * Comparison is case-insensitive. Returned values are the lowercase
+ * stored form (which is how AI extracts them at ingest), so they can be
+ * displayed verbatim or capitalised by the caller.
+ *
+ * Empty when:
+ *   - The opportunity has no extracted required_skills (older rows or AI
+ *     decided nothing was explicitly required)
+ *   - The user already has all of them (perfect fit on stated requirements)
+ */
+export function findMissingRequirements(
+  profile: Profile,
+  opp: Opportunity,
+): string[] {
+  const required = opp.required_skills ?? [];
+  if (required.length === 0) return [];
+
+  const have = new Set(
+    [
+      ...(profile.skills ?? []),
+      ...(profile.resume_skills ?? []),
+      ...(profile.interests ?? []),
+    ].map(normalize),
+  );
+
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  for (const r of required) {
+    const norm = normalize(r);
+    if (!norm || have.has(norm) || seen.has(norm)) continue;
+    missing.push(norm);
+    seen.add(norm);
+  }
+  return missing;
+}
+
+/**
  * Return up to 3 user terms that appear in the opportunity's text, in
  * priority order: confirmed skills first (strongest signal), then interests,
  * then AI-extracted resume_skills last. Preserves original casing for display

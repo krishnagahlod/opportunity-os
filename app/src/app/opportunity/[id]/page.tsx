@@ -23,7 +23,12 @@ import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
-import { computeScore, findMatchedTerms } from "@/lib/scoring/score";
+import {
+  computeScore,
+  findMatchedTerms,
+  findMissingRequirements,
+} from "@/lib/scoring/score";
+import { MissingSkillChip } from "@/components/MissingSkillChip";
 import { cn, stripHtml } from "@/lib/utils";
 import type {
   ApplicationStatus,
@@ -95,6 +100,7 @@ export default async function OpportunityDetailPage({
   // Deterministic on-the-fly score (no AI, no DB lookup needed).
   const { score, why } = computeScore(profile as Profile, opp);
   const matchedTerms = findMatchedTerms(profile as Profile, opp);
+  const missingSkills = findMissingRequirements(profile as Profile, opp);
 
   const cat = getCategoryStyle(opp.category);
   const Icon = cat.Icon;
@@ -239,7 +245,7 @@ export default async function OpportunityDetailPage({
         </section>
 
         {/* Why for you */}
-        {(why || matchedTerms.length > 0) && (
+        {(why || matchedTerms.length > 0 || missingSkills.length > 0) && (
           <section className="mt-8">
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Why this is for you
@@ -263,6 +269,19 @@ export default async function OpportunityDetailPage({
                       {t}
                     </span>
                   ))}
+                </div>
+              )}
+              {missingSkills.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-primary/15 pt-3">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    What you&apos;re missing
+                  </span>
+                  {missingSkills.map((t) => (
+                    <MissingSkillChip key={t} skill={t} />
+                  ))}
+                  <span className="text-[10.5px] text-muted-foreground/70">
+                    Tap to add to your skills
+                  </span>
                 </div>
               )}
             </div>

@@ -35,6 +35,10 @@ export const ExtractedOpportunitySchema = z.object({
   description: z.string().nullable().optional().default(null),
   summary: z.string().max(300).nullable().optional().default(null),
   tags: z.array(z.string()).max(8).default([]),
+  // Hard requirements the listing names — feeds the detail page's
+  // "What you're missing" gap analysis. Lowercase keywords only.
+  // Empty array if nothing is explicitly stated as required (don't infer).
+  required_skills: z.array(z.string().min(1).max(40)).max(8).default([]),
   deadline: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:?\d{2})?)?$/)
@@ -122,7 +126,7 @@ export function buildResumePrompt(
   ].join("\n");
 }
 
-export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. estimated_value_score = 0-100 honest assessment of career value. extraction_confidence = your 0..1 self-rating: 1.0 = explicit, well-formed posting with clear org+role; 0.5 = ambiguous (announcement, vague pitch); 0.2 = doesn't really look like an opportunity at all (Show HN, blog, news). Don't invent facts.`;
+export const EXTRACT_SYSTEM_INSTRUCTION = `Extract a single career opportunity from messy text into clean JSON. Output ONLY a JSON object — no prose, no fences. Use null for unknown fields, [] for missing arrays. Dates as ISO 8601 ("YYYY-MM-DD"). summary = 1-2 sentence pitch. tags = 3-6 lowercase keywords. required_skills = lowercase keywords the listing EXPLICITLY requires (e.g. "python", "sql", "react"). Empty array if not explicitly stated. Don't infer requirements from job title or general description — only include what's clearly named as a requirement. estimated_value_score = 0-100 honest assessment of career value. extraction_confidence = your 0..1 self-rating: 1.0 = explicit, well-formed posting with clear org+role; 0.5 = ambiguous (announcement, vague pitch); 0.2 = doesn't really look like an opportunity at all (Show HN, blog, news). Don't invent facts.`;
 
 export function buildExtractPrompt({
   rawText,
@@ -146,6 +150,7 @@ export function buildExtractPrompt({
   "description": string | null,
   "summary": string (1-2 sentences) | null,
   "tags": string[] (3-6 lowercase),
+  "required_skills": string[] (max 8, lowercase, only if EXPLICITLY required, [] otherwise),
   "deadline": ISO 8601 datetime | null,
   "eligibility": string | null,
   "location": string | null,
