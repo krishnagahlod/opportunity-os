@@ -6,6 +6,7 @@ import { ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
+import { recordPendingApply } from "./ApplyNudge";
 import { getCategoryStyle } from "@/lib/categories";
 import { cn, stripHtml } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
@@ -157,7 +158,14 @@ export function OpportunityCard({
               href={apply}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                recordPendingApply({
+                  id: opportunity.id,
+                  title: opportunity.title,
+                  organization: opportunity.organization,
+                });
+              }}
               className="ml-auto inline-flex items-center gap-1 rounded-md bg-foreground px-2.5 py-1 text-xs font-medium text-background transition hover:bg-foreground/85"
             >
               Apply

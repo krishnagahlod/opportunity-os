@@ -46,6 +46,9 @@ export type Profile = {
   resume_skills: string[];
   resume_uploaded_at: string | null;
   telegram_chat_id: string | null;
+  /** Minimum 0..100 score required for an opportunity to appear in this user's
+   * Telegram digest. Email digest ignores this. Default 70. */
+  telegram_min_score: number;
   /** UUID used to authenticate /api/calendar.ics subscribers. Null until first opt-in. */
   calendar_token: string | null;
   role: UserRole;

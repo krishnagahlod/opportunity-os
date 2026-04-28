@@ -42,6 +42,14 @@ export async function saveSettings(
   const time_commitment = String(formData.get("time_commitment") ?? "any");
   const telegram_chat_id =
     String(formData.get("telegram_chat_id") ?? "").trim() || null;
+  // Telegram min-score floor (0..100). Range slider sends an integer string.
+  const telegram_min_score_raw = String(
+    formData.get("telegram_min_score") ?? "70",
+  );
+  const telegram_min_score = Math.max(
+    0,
+    Math.min(100, Number.parseInt(telegram_min_score_raw, 10) || 70),
+  );
 
   let interests: string[] = [];
   let skills: string[] = [];
@@ -81,6 +89,7 @@ export async function saveSettings(
       remote_preference,
       time_commitment,
       telegram_chat_id,
+      telegram_min_score,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);

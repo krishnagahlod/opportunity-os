@@ -244,7 +244,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         title="Notifications"
         hint="Telegram chat ID for daily digest pushes. Get it by messaging your bot then visiting api.telegram.org/bot<TOKEN>/getUpdates."
       >
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+        <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
           <div className="space-y-1.5">
             <Label htmlFor="telegram_chat_id" className="text-xs">
               Telegram chat ID
@@ -259,6 +259,42 @@ export function SettingsForm({ profile }: { profile: Profile }) {
             <p className="text-[11px] text-muted-foreground">
               Leave blank to skip Telegram delivery — you&apos;ll still get the
               email digest.
+            </p>
+          </div>
+
+          <div className="space-y-1.5 border-t border-border/50 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="telegram_min_score" className="text-xs">
+                Telegram min score
+              </Label>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                ≥ <span id="telegram_min_score_label">
+                  {profile.telegram_min_score ?? 70}
+                </span>
+                /100
+              </span>
+            </div>
+            <input
+              id="telegram_min_score"
+              name="telegram_min_score"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              defaultValue={profile.telegram_min_score ?? 70}
+              onInput={(e) => {
+                const v = (e.target as HTMLInputElement).value;
+                const label = document.getElementById(
+                  "telegram_min_score_label",
+                );
+                if (label) label.textContent = v;
+              }}
+              className="w-full accent-primary"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Only ping me on Telegram for opportunities scoring at least this
+              high. Doesn&apos;t affect saved-deadline reminders or the email
+              digest.
             </p>
           </div>
         </div>

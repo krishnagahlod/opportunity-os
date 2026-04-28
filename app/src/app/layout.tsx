@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ApplyNudge } from "@/components/ApplyNudge";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,10 @@ export default function RootLayout({
           Skip to content
         </a>
         {children}
+        {/* Global "did you finish applying?" toast — null-renders when no
+            pending-apply flag is set in localStorage, so it's free for
+            logged-out marketing pages too. */}
+        <ApplyNudge />
       </body>
     </html>
   );

@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NavBar } from "@/components/NavBar";
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
+import { ExternalApplyLink } from "@/components/ApplyNudge";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import { computeScore, findMatchedTerms } from "@/lib/scoring/score";
@@ -176,18 +177,18 @@ export default async function OpportunityDetailPage({
             currentStatus={applicationStatus}
           />
           {opp.apply_url && (
-            <Link
+            <ExternalApplyLink
               href={opp.apply_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ size: "default" }),
-                "ml-auto gap-1.5 bg-foreground text-background hover:bg-foreground/85",
-              )}
+              opp={{
+                id: opp.id,
+                title: opp.title,
+                organization: opp.organization,
+              }}
+              className="ml-auto"
             >
               Apply
               <ArrowUpRight className="size-4" />
-            </Link>
+            </ExternalApplyLink>
           )}
         </div>
 

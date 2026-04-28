@@ -24,6 +24,14 @@ export async function saveOnboarding(formData: FormData) {
     String(formData.get("preferred_location") ?? "").trim() || null;
   const remote_preference = String(formData.get("remote_preference") ?? "any");
   const time_commitment = String(formData.get("time_commitment") ?? "any");
+  // Telegram is optional — empty/whitespace becomes null. We do light validation
+  // (digits only, reasonable length) so a typo'd "abc123" doesn't make it into
+  // the cron's chat_id and 400 the Telegram API every morning.
+  const telegram_raw = String(formData.get("telegram_chat_id") ?? "").trim();
+  const telegram_chat_id =
+    telegram_raw.length > 0 && /^-?\d{6,20}$/.test(telegram_raw)
+      ? telegram_raw
+      : null;
 
   let interests: string[] = [];
   let skills: string[] = [];
@@ -38,6 +46,15 @@ export async function saveOnboarding(formData: FormData) {
     return { error: "Full name, college, and graduation year are required" };
   }
 
+  // If they typed something that doesn't look like a Telegram chat ID, surface
+  // the validation issue inline rather than silently dropping it.
+  if (telegram_raw.length > 0 && telegram_chat_id === null) {
+    return {
+      error:
+        "Telegram chat ID should be a number (e.g. 1064311577). Leave blank to skip.",
+    };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -49,6 +66,7 @@ export async function saveOnboarding(formData: FormData) {
       preferred_location,
       remote_preference,
       time_commitment,
+      telegram_chat_id,
       onboarded: true,
       updated_at: new Date().toISOString(),
     })
@@ -62,5 +80,5 @@ export async function saveOnboarding(formData: FormData) {
   // against the new interests/skills.
   await invalidateUserScores(user.id);
 
-  redirect("/");
+  redirect("/onboarding/done");
 }

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireCronAuth } from "@/lib/auth/cron";
 import {
   buildDigestForUser,
+  filterDigestForTelegram,
   getDigestRecipients,
   markExpiredOpportunities,
 } from "@/lib/notifications/digest";
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
           digest.topPicks.length,
           digest.closingSoon.length,
           digest.myDeadlines.length,
+          digest.weekRecap !== null,
         );
         const send = await sendEmail({
           to: user.email,
@@ -79,6 +81,7 @@ export async function GET(req: NextRequest) {
             myDeadlines: digest.myDeadlines,
             topPicks: digest.topPicks,
             closingSoon: digest.closingSoon,
+            weekRecap: digest.weekRecap,
             appUrl,
           }),
         });
@@ -86,18 +89,27 @@ export async function GET(req: NextRequest) {
       }
 
       // --- Telegram (per-user; no env fallback) ---
+      // Apply the user's min-score floor before rendering. Email render
+      // above keeps the full payload — different signal/noise economics.
       let telegramResult = "skipped: no chat_id";
       const chatId = user.telegram_chat_id;
       if (chatId) {
-        const text = renderDigestForTelegram({
-          firstName,
-          myDeadlines: digest.myDeadlines,
-          topPicks: digest.topPicks,
-          closingSoon: digest.closingSoon,
-          appUrl,
-        });
-        const send = await sendTelegramMessage(chatId, text);
-        telegramResult = send.ok ? "sent" : `failed: ${send.error}`;
+        const minScore = user.telegram_min_score ?? 70;
+        const filtered = filterDigestForTelegram(digest, minScore);
+        if (!filtered) {
+          telegramResult = `skipped: nothing scored ≥ ${minScore}`;
+        } else {
+          const text = renderDigestForTelegram({
+            firstName,
+            myDeadlines: filtered.myDeadlines,
+            topPicks: filtered.topPicks,
+            closingSoon: filtered.closingSoon,
+            weekRecap: filtered.weekRecap,
+            appUrl,
+          });
+          const send = await sendTelegramMessage(chatId, text);
+          telegramResult = send.ok ? "sent" : `failed: ${send.error}`;
+        }
       }
 
       results.push({
@@ -127,11 +139,17 @@ function buildSubject(
   topCount: number,
   closingCount: number,
   myDeadlineCount: number,
+  hasWeekRecap: boolean,
 ): string {
   // Prioritise the user's own deadlines — that's the most actionable signal.
   if (myDeadlineCount > 0) {
     const noun = myDeadlineCount === 1 ? "saved opportunity" : "saved opportunities";
     return `🚨 ${myDeadlineCount} ${noun} closing in 48h`;
+  }
+  // Sunday week recap takes the next priority slot — gives users a reason
+  // to open the message even when there's no urgent action.
+  if (hasWeekRecap) {
+    return `📅 Your week + ${topCount} top pick${topCount === 1 ? "" : "s"}`;
   }
   if (closingCount > 0 && topCount > 0) {
     return `${closingCount} closing soon · ${topCount} top picks`;

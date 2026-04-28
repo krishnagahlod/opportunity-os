@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -274,6 +274,71 @@ export function OnboardingForm({
               </SelectContent>
             </Select>
           </div>
+        </div>
+      </section>
+
+      {/* === 05 Telegram (recommended) ============================== */}
+      <section>
+        <SectionLabel
+          step="05"
+          title="Get pinged on Telegram"
+          hint="Optional — but without this you'll miss the 48-hour deadline alerts that catch the things you'd otherwise miss."
+        />
+        <div className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
+              <Send className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-semibold tracking-tight">
+                Connect your Telegram chat
+              </p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">
+                Pings you when a high-fit opportunity drops, plus 48-hour
+                deadline warnings on the things you save.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-1.5">
+            <Label htmlFor="telegram_chat_id" className="text-xs">
+              Telegram chat ID
+            </Label>
+            <Input
+              id="telegram_chat_id"
+              name="telegram_chat_id"
+              placeholder="e.g. 1064311577"
+              inputMode="numeric"
+              className="bg-background/60 backdrop-blur-sm"
+            />
+          </div>
+
+          <details className="mt-3 text-[11.5px] text-muted-foreground">
+            <summary className="cursor-pointer select-none font-medium">
+              How do I get my Telegram chat ID?
+            </summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 leading-relaxed">
+              <li>
+                Open Telegram and message{" "}
+                <span className="font-mono">@opportunity_os_bot</span> (search
+                for it). Send <span className="font-mono">/start</span>.
+              </li>
+              <li>
+                Visit{" "}
+                <span className="font-mono">
+                  api.telegram.org/bot&lt;TOKEN&gt;/getUpdates
+                </span>{" "}
+                in your browser (we&apos;ll add a help link in Settings later).
+              </li>
+              <li>
+                Copy the <span className="font-mono">chat.id</span> number from
+                the JSON. Paste here.
+              </li>
+            </ol>
+            <p className="mt-2">
+              You can also skip this and add it later from Settings.
+            </p>
+          </details>
         </div>
       </section>
 

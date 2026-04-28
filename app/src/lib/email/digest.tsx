@@ -11,13 +11,15 @@ import {
   Text,
 } from "@react-email/components";
 import { format, parseISO } from "date-fns";
-import type { DigestItem } from "@/lib/notifications/digest";
+import type { DigestItem, WeekRecap } from "@/lib/notifications/digest";
 
 type Props = {
   firstName: string;
   myDeadlines: DigestItem[];
   topPicks: DigestItem[];
   closingSoon: DigestItem[];
+  /** Optional Sunday-only week recap; renders above the daily content. */
+  weekRecap?: WeekRecap | null;
   appUrl: string;
 };
 
@@ -26,9 +28,15 @@ export function DigestEmail({
   myDeadlines,
   topPicks,
   closingSoon,
+  weekRecap,
   appUrl,
 }: Props) {
   const previewLines: string[] = [];
+  if (weekRecap) {
+    previewLines.push(
+      `Week recap: ${weekRecap.matchedThisWeek} new strong matches`,
+    );
+  }
   if (myDeadlines.length > 0) {
     previewLines.push(
       `${myDeadlines.length} of your saved closing in 48h`,
@@ -60,6 +68,17 @@ export function DigestEmail({
           <Text style={paragraphStyle}>
             Here&apos;s what your feed surfaced today.
           </Text>
+
+          {weekRecap && (
+            <Section style={recapSectionStyle}>
+              <Heading style={recapH2Style}>📅 Your week</Heading>
+              <Text style={recapStatLine}>
+                <strong>{weekRecap.matchedThisWeek}</strong> new strong
+                matches · <strong>{weekRecap.savedThisWeek}</strong> saved ·{" "}
+                <strong>{weekRecap.closingThisWeek}</strong> closing this week
+              </Text>
+            </Section>
+          )}
 
           {myDeadlines.length > 0 && (
             <Section style={urgentSectionStyle}>
@@ -199,6 +218,30 @@ const urgentSectionStyle: React.CSSProperties = {
   borderRadius: "12px",
   border: "1px solid #fcd34d",
   backgroundColor: "#fffbeb",
+};
+
+const recapSectionStyle: React.CSSProperties = {
+  marginBottom: "24px",
+  padding: "16px",
+  borderRadius: "12px",
+  border: "1px solid #c7d2fe",
+  backgroundColor: "#eef2ff",
+};
+
+const recapH2Style: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#3730a3",
+  margin: "0 0 8px",
+};
+
+const recapStatLine: React.CSSProperties = {
+  fontSize: "14px",
+  lineHeight: "22px",
+  color: "#312e81",
+  margin: 0,
 };
 
 const h2Style: React.CSSProperties = {

@@ -1,5 +1,8 @@
 import "server-only";
-import type { DigestItem } from "@/lib/notifications/digest";
+import type {
+  DigestItem,
+  WeekRecap,
+} from "@/lib/notifications/digest";
 import { format, parseISO } from "date-fns";
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -55,17 +58,28 @@ export function renderDigestForTelegram({
   myDeadlines,
   topPicks,
   closingSoon,
+  weekRecap,
   appUrl,
 }: {
   firstName: string;
   myDeadlines: DigestItem[];
   topPicks: DigestItem[];
   closingSoon: DigestItem[];
+  /** Sunday-only week recap, rendered above the daily content when present. */
+  weekRecap?: WeekRecap | null;
   appUrl: string;
 }): string {
   const lines: string[] = [];
   lines.push(`<b>Hey ${escapeHtml(firstName)} — here's your digest</b>`);
   lines.push("");
+
+  if (weekRecap) {
+    lines.push("📅 <b>Your week</b>");
+    lines.push(
+      `<b>${weekRecap.matchedThisWeek}</b> new strong matches · <b>${weekRecap.savedThisWeek}</b> saved · <b>${weekRecap.closingThisWeek}</b> closing this week`,
+    );
+    lines.push("");
+  }
 
   if (myDeadlines.length > 0) {
     lines.push("🚨 <b>Your saved · closing in 48h</b>");
