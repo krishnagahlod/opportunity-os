@@ -246,6 +246,68 @@ function ShowcaseSection() {
 }
 
 function FeaturesBento() {
+  // Alternating side-by-side rows. Each feature gets its own row with visual
+  // on one side and copy on the other, alternating sides for visual rhythm.
+  // Reliable pattern (Linear / Vercel / Stripe marketing pages) — scales at
+  // any viewport, gives each visual room to breathe, no tiling holes.
+  const features: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    bullets: string[];
+    visual: React.ReactNode;
+    tone: "primary" | "sky" | "amber" | "emerald";
+  }[] = [
+    {
+      eyebrow: "AI scoring",
+      title: "Every opportunity scored against your actual resume.",
+      body: "Not against generic interest chips. We read your projects, roles, and trajectory — then tell you why each match matters in one line you can act on.",
+      bullets: [
+        "0–100 personal-fit score on every card",
+        "Specific terms from your profile that matched",
+        "Updated automatically as you tweak your skills",
+      ],
+      visual: <ScoredCardVisual />,
+      tone: "primary",
+    },
+    {
+      eyebrow: "Telegram alerts",
+      title: "Pinged on the channel you already check.",
+      body: "48-hour deadline warnings for items you've saved. Instant pings the moment a high-fit opportunity drops. The thing that makes you feel like the system is looking out for you.",
+      bullets: [
+        "Real-time push, not next-morning summary",
+        "Direct apply link in every alert",
+        "Per-user — your saved deadlines, your inbox",
+      ],
+      visual: <FeatureNotificationVisual />,
+      tone: "sky",
+    },
+    {
+      eyebrow: "Daily digest",
+      title: "A morning summary you'll actually open.",
+      body: "Top picks for today, items closing soon, anything you saved that's about to expire. One email at sunrise so you know whether to open the app today.",
+      bullets: [
+        "Top 5 picks ranked by personal fit",
+        "Closing-this-week section",
+        "Saved + applied with deadlines highlighted",
+      ],
+      visual: <FeatureEmailVisual />,
+      tone: "amber",
+    },
+    {
+      eyebrow: "Application tracker",
+      title: "Saved → Applied → Interviewing → Won.",
+      body: "Drag cards between columns to update status. See your active pipeline, response rate, wins this month — the data you need to know what's working.",
+      bullets: [
+        "Kanban with all your in-flight applications",
+        "Stats strip: active · response rate · wins",
+        "Calendar feed of every saved deadline",
+      ],
+      visual: <KanbanVisual />,
+      tone: "emerald",
+    },
+  ];
+
   return (
     <section className="border-b border-border/40 bg-muted/20">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
@@ -258,45 +320,108 @@ function FeaturesBento() {
           </h2>
         </div>
 
-        {/* Bento layout that fully tiles a 3-col × 3-row grid (no empty cells):
-              Row 1+2 col 1-2: AI scoring (2×2)   Row 1 col 3: Telegram (1×1)
-              Row 2 col 3: Email (1×1)
-              Row 3 col 1-3: Application tracker (3×1)
-            Sources moved to the hero strip so this grid stays compact. */}
-        <div className="mt-14 grid gap-4 sm:grid-cols-3 sm:auto-rows-[minmax(220px,auto)]">
-          <BentoCard
-            className="sm:col-span-2 sm:row-span-2"
-            eyebrow="AI scoring"
-            title="Every opportunity scored against your actual resume."
-            body="Not against generic interest chips. We read your projects and roles, then tell you why each match matters in one line you can act on."
-            visual={<ScoredCardVisual />}
-            tone="primary"
-          />
-          <BentoCard
-            eyebrow="Telegram"
-            title="Pings before the deadline."
-            body="48-hour deadline warnings on the channel you already check."
-            visual={<MiniTelegramVisual />}
-            tone="sky"
-          />
-          <BentoCard
-            eyebrow="Daily digest"
-            title="Top picks in your inbox."
-            body="Morning email summary so you know if it's worth opening today."
-            visual={<MiniEmailVisual />}
-            tone="amber"
-          />
-          <BentoCard
-            className="sm:col-span-3"
-            eyebrow="Application tracker"
-            title="Saved → Applied → Interviewing → Won."
-            body="Drag to update. See your active pipeline, response rate, wins this month. Without it, opportunities slip through cracks."
-            visual={<KanbanVisual />}
-            tone="emerald"
-          />
+        <div className="mt-16 space-y-20 sm:mt-20 sm:space-y-24">
+          {features.map((f, i) => (
+            <FeatureRow
+              key={f.eyebrow}
+              eyebrow={f.eyebrow}
+              title={f.title}
+              body={f.body}
+              bullets={f.bullets}
+              visual={f.visual}
+              tone={f.tone}
+              reverse={i % 2 === 1}
+            />
+          ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function FeatureRow({
+  eyebrow,
+  title,
+  body,
+  bullets,
+  visual,
+  tone,
+  reverse,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  bullets: string[];
+  visual: React.ReactNode;
+  tone: "primary" | "sky" | "amber" | "emerald";
+  reverse: boolean;
+}) {
+  const toneText = {
+    primary: "text-primary",
+    sky: "text-sky-600 dark:text-sky-400",
+    amber: "text-amber-600 dark:text-amber-400",
+    emerald: "text-emerald-600 dark:text-emerald-400",
+  };
+  const toneCheck = {
+    primary: "text-primary",
+    sky: "text-sky-500",
+    amber: "text-amber-500",
+    emerald: "text-emerald-500",
+  };
+
+  return (
+    <div
+      className={cn(
+        "grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16",
+        reverse && "lg:[&>div:first-child]:order-2",
+      )}
+    >
+      {/* Copy column */}
+      <div>
+        <p
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-[0.18em]",
+            toneText[tone],
+          )}
+        >
+          {eyebrow}
+        </p>
+        <h3 className="mt-3 text-balance text-2xl font-semibold leading-[1.15] tracking-tight sm:text-[32px]">
+          {title}
+        </h3>
+        <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+          {body}
+        </p>
+        <ul className="mt-6 space-y-2.5">
+          {bullets.map((b) => (
+            <li key={b} className="flex items-start gap-2.5 text-[13.5px]">
+              <Check
+                className={cn("mt-0.5 size-4 shrink-0", toneCheck[tone])}
+              />
+              <span className="text-foreground/85">{b}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Visual column — wrapped in a stylised card frame for consistency */}
+      <div className="relative">
+        <div className="pointer-events-none absolute -inset-8 -z-10 opacity-60">
+          <div
+            className={cn(
+              "absolute inset-0 rounded-3xl blur-3xl",
+              tone === "primary" && "bg-primary/10",
+              tone === "sky" && "bg-sky-500/10",
+              tone === "amber" && "bg-amber-500/10",
+              tone === "emerald" && "bg-emerald-500/10",
+            )}
+          />
+        </div>
+        <div className="rounded-3xl border border-border/60 bg-card/80 p-5 shadow-elevated backdrop-blur sm:p-7">
+          {visual}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -854,52 +979,7 @@ function TelegramVisual() {
   );
 }
 
-/* ====================== FEATURES bento ====================== */
-
-function BentoCard({
-  className,
-  eyebrow,
-  title,
-  body,
-  visual,
-  tone,
-}: {
-  className?: string;
-  eyebrow: string;
-  title: string;
-  body: string;
-  visual: React.ReactNode;
-  tone: "primary" | "sky" | "amber" | "emerald" | "fuchsia";
-}) {
-  const toneText = {
-    primary: "text-primary",
-    sky: "text-sky-600 dark:text-sky-400",
-    amber: "text-amber-600 dark:text-amber-400",
-    emerald: "text-emerald-600 dark:text-emerald-400",
-    fuchsia: "text-fuchsia-600 dark:text-fuchsia-400",
-  };
-  return (
-    <article
-      className={cn(
-        "group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
-        className,
-      )}
-    >
-      <div className="flex flex-col gap-2">
-        <p className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", toneText[tone])}>
-          {eyebrow}
-        </p>
-        <h3 className="text-balance text-[18px] font-semibold leading-snug tracking-tight sm:text-[20px]">
-          {title}
-        </h3>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          {body}
-        </p>
-      </div>
-      <div className="mt-6 flex-1">{visual}</div>
-    </article>
-  );
-}
+/* ====================== FEATURE-row visuals ====================== */
 
 function ScoredCardVisual() {
   return (
@@ -958,41 +1038,143 @@ function ScoredCardVisual() {
   );
 }
 
-function MiniTelegramVisual() {
+/* Richer Telegram chat visual — full conversation feel with two messages */
+function FeatureNotificationVisual() {
   return (
-    <div className="rounded-xl border border-border/60 bg-background/80 p-3">
-      <div className="flex items-center gap-2 pb-2">
-        <span className="flex size-6 items-center justify-center rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400">
-          <Send className="size-3" />
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm">
+      {/* Telegram-style chat header */}
+      <div className="flex items-center gap-3 border-b border-border/50 bg-muted/30 px-4 py-3">
+        <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
+          <Sparkles className="size-4" />
         </span>
-        <span className="text-[11px] font-semibold">Telegram · now</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold tracking-tight">
+            Opportunity OS
+          </p>
+          <p className="text-[10.5px] text-emerald-600 dark:text-emerald-400">
+            ● online
+          </p>
+        </div>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          just now
+        </span>
       </div>
-      <p className="text-[11.5px] font-medium">🚨 Closing in 48h</p>
-      <p className="mt-0.5 text-[11px] underline decoration-primary/40 underline-offset-2">
-        Kearney off-campus 2026
-      </p>
-      <p className="mt-0.5 text-[10.5px] text-muted-foreground">
-        88/100 · Due May 1
-      </p>
+
+      {/* Messages */}
+      <div className="space-y-3 px-4 py-4">
+        <div className="rounded-2xl rounded-tl-sm border border-border/60 bg-card px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sm">
+          <p className="font-semibold">🚨 New high-fit opportunity</p>
+          <p className="mt-1.5 underline decoration-primary/40 underline-offset-2">
+            Razorpay APM Internship
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[11px]">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
+              <Sparkles className="size-2.5" />
+              92/100
+            </span>
+            <span className="text-muted-foreground">· closing in 3 days</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl rounded-tl-sm border border-amber-500/30 bg-amber-500/[0.06] px-3.5 py-2.5 text-[12.5px] leading-relaxed shadow-sm">
+          <p className="font-semibold text-amber-700 dark:text-amber-300">
+            ⏰ Closing in 48h — 1 of yours
+          </p>
+          <p className="mt-1.5 underline decoration-primary/40 underline-offset-2">
+            Kearney off-campus 2026
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Apply by May 1 · you saved this 4 days ago
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function MiniEmailVisual() {
+/* Richer email digest visual — looks like a real inbox preview */
+function FeatureEmailVisual() {
+  const items: { title: string; org: string; score: number; tone: string }[] = [
+    {
+      title: "BCG ACE 2026",
+      org: "Boston Consulting Group",
+      score: 92,
+      tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    },
+    {
+      title: "APM Internship",
+      org: "Razorpay",
+      score: 89,
+      tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    },
+    {
+      title: "Young India Fellowship",
+      org: "Ashoka University",
+      score: 84,
+      tone: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+    },
+    {
+      title: "Kearney off-campus 2026",
+      org: "Kearney",
+      score: 81,
+      tone: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+    },
+  ];
   return (
-    <div className="rounded-xl border border-border/60 bg-background/80 p-3">
-      <div className="flex items-center gap-2 pb-2">
-        <span className="flex size-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
-          <Mail className="size-3" />
-        </span>
-        <span className="text-[11px] font-semibold">Morning digest</span>
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm">
+      {/* Email header with from/subject */}
+      <div className="border-b border-border/50 bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 items-center justify-center rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
+            <Mail className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-semibold tracking-tight">
+              Your daily digest · 4 top picks
+            </p>
+            <p className="truncate text-[10.5px] text-muted-foreground">
+              digest@opportunity-os.app · this morning
+            </p>
+          </div>
+        </div>
       </div>
-      <p className="text-[11.5px] font-medium">5 top picks for today</p>
-      <ul className="mt-1 space-y-0.5 text-[10.5px] text-muted-foreground">
-        <li>· BCG ACE · 92/100</li>
-        <li>· Razorpay APM · 89/100</li>
-        <li>· YIF · 84/100</li>
-      </ul>
+
+      {/* Top picks list */}
+      <div className="px-4 py-4">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          Top picks for today
+        </p>
+        <ul className="mt-2 space-y-2">
+          {items.map((it) => (
+            <li
+              key={it.title}
+              className="flex items-center gap-3 rounded-lg border border-border/40 bg-card/40 px-3 py-2"
+            >
+              <span className="size-1.5 shrink-0 rounded-full bg-primary/60" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold leading-tight">
+                  {it.title}
+                </p>
+                <p className="truncate text-[10.5px] text-muted-foreground">
+                  {it.org}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                  it.tone,
+                )}
+              >
+                <Sparkles className="size-2.5" />
+                {it.score}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-center text-[10.5px] text-muted-foreground">
+          Plus 2 closing this week →
+        </p>
+      </div>
     </div>
   );
 }
