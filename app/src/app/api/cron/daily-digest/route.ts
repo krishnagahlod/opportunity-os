@@ -6,12 +6,20 @@ import {
   getDigestRecipients,
   markExpiredOpportunities,
 } from "@/lib/notifications/digest";
+import {
+  checkPipelineHealth,
+  getAdminRecipients,
+  renderPipelineAlertForTelegram,
+  type PipelineHealth,
+} from "@/lib/notifications/health";
 import { sendEmail } from "@/lib/email/send";
 import { DigestEmail } from "@/lib/email/digest";
+import { PipelineAlertEmail } from "@/lib/email/pipeline-alert";
 import {
   renderDigestForTelegram,
   sendTelegramMessage,
 } from "@/lib/telegram/send";
+import type { Profile } from "@/types/db";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,6 +52,20 @@ export async function GET(req: NextRequest) {
   // Sweep expired opportunities first so today's digest doesn't surface
   // anything whose deadline already passed.
   const expired = await markExpiredOpportunities();
+
+  // Pipeline-health check — if no ingestion activity in the last 24h, n8n
+  // has likely been suspended / lost its published state. Daily reminder
+  // to admin users until they fix it. Fires once per cron tick, BEFORE the
+  // per-user digest loop, so it goes out even on days when there's nothing
+  // to digest.
+  const health = await checkPipelineHealth();
+  let healthAlertResult: {
+    sent: number;
+    errors: string[];
+  } | null = null;
+  if (!health.healthy) {
+    healthAlertResult = await sendPipelineAlerts(health, appUrl);
+  }
 
   const recipients = await getDigestRecipients();
   const results: Array<{
@@ -127,9 +149,64 @@ export async function GET(req: NextRequest) {
     ok: true,
     expired_swept: expired.count,
     recipients: recipients.length,
+    pipeline_health: {
+      healthy: health.healthy,
+      ingestions_last_24h: health.ingestionsLast24h,
+      last_ingestion_at: health.lastIngestionAt,
+      hours_since_last: health.hoursSinceLast,
+    },
+    pipeline_alert: healthAlertResult,
     results,
     generated_at: new Date().toISOString(),
   });
+}
+
+/**
+ * Fan out the pipeline-dead alert to every onboarded admin user. Sends to
+ * their Telegram (if chat_id set) and to their email. Errors are collected
+ * and returned but don't fail the whole cron — best-effort delivery, same
+ * pattern as the digest.
+ */
+async function sendPipelineAlerts(
+  health: PipelineHealth,
+  appUrl: string,
+): Promise<{ sent: number; errors: string[] }> {
+  const admins = await getAdminRecipients();
+  const errors: string[] = [];
+  let sent = 0;
+
+  for (const admin of admins as Profile[]) {
+    // Email
+    if (admin.email) {
+      try {
+        const send = await sendEmail({
+          to: admin.email,
+          subject: "🚨 Opportunity OS — pipeline appears dead",
+          react: PipelineAlertEmail({ health, appUrl }),
+        });
+        if (!send.ok) errors.push(`email[${admin.id}]: ${send.error}`);
+        else sent++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`email[${admin.id}]: ${msg}`);
+      }
+    }
+
+    // Telegram (per-admin chat_id only)
+    if (admin.telegram_chat_id) {
+      try {
+        const text = renderPipelineAlertForTelegram(health, appUrl);
+        const send = await sendTelegramMessage(admin.telegram_chat_id, text);
+        if (!send.ok) errors.push(`telegram[${admin.id}]: ${send.error}`);
+        else sent++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`telegram[${admin.id}]: ${msg}`);
+      }
+    }
+  }
+
+  return { sent, errors };
 }
 
 /** Lets us trigger the same flow with POST too (some cron services prefer POST). */
