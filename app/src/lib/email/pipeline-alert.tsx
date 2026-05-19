@@ -96,6 +96,24 @@ export function PipelineAlertEmail({
             </Section>
           )}
 
+          {health.autoDisabledSources.length > 0 && (
+            <Section style={reviewSectionStyle}>
+              <Heading style={reviewHeadingStyle}>
+                ⚠️ {health.autoDisabledSources.length} source
+                {health.autoDisabledSources.length === 1 ? "" : "s"}{" "}
+                auto-disabled
+              </Heading>
+              <Text style={reviewTextStyle}>
+                {health.autoDisabledSources
+                  .map((s) => `${s.name} (${s.failureCount} fails)`)
+                  .join(" · ")}
+                <br />
+                Each crossed 5+ consecutive failures with no successful runs.
+                Fix the root cause then re-enable in /admin.
+              </Text>
+            </Section>
+          )}
+
           <Hr style={hrStyle} />
 
           <Text style={footerStyle}>

@@ -167,3 +167,54 @@ export function buildExtractPrompt({
   parts.push("--- End raw text ---");
   return parts.join("\n");
 }
+
+/* ============ Cross-source dedup check ============ */
+
+/** Compact snapshot of an opportunity fed to the dedup AI. Title + org are
+ * the strongest signals; category/location/summary disambiguate when the
+ * top-line fields match but the role is actually different. */
+export type DedupPostingSnapshot = {
+  title: string;
+  organization: string;
+  category: string;
+  location?: string | null;
+  summary?: string | null;
+};
+
+export const DedupCheckSchema = z.object({
+  same: z.boolean(),
+  /** 0..1 — model's self-rated confidence in the boolean. We treat
+   * confidence < 0.7 as "uncertain → don't dedup" (false-negative bias
+   * is safer than false-positive). */
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().max(200).optional(),
+});
+
+export type DedupCheck = z.infer<typeof DedupCheckSchema>;
+
+export const DEDUP_SYSTEM_INSTRUCTION = `You determine whether two job/opportunity postings refer to the same role. Output ONE JSON object — no prose, no fences. Two postings are SAME when they are clearly the same role at the same organization being reposted from a different source. They are DIFFERENT when role title, level (intern vs full-time vs lead), or location differs in any meaningful way. When uncertain, return same=false with low confidence. False negatives (allowing a duplicate row to exist) are far safer than false positives (rejecting a legitimately different role). Confidence should be your honest 0..1 self-rating: 1.0 = obvious match (or obvious mismatch), 0.5 = could go either way, 0.2 = haven't really told you enough.`;
+
+export function buildDedupPrompt(
+  a: DedupPostingSnapshot,
+  b: DedupPostingSnapshot,
+): string {
+  return [
+    "Are these two postings the same opportunity?",
+    "",
+    "Posting A:",
+    `  Title: ${a.title}`,
+    `  Organization: ${a.organization}`,
+    `  Category: ${a.category}`,
+    `  Location: ${a.location ?? "unspecified"}`,
+    `  Summary: ${(a.summary ?? "").slice(0, 300)}`,
+    "",
+    "Posting B:",
+    `  Title: ${b.title}`,
+    `  Organization: ${b.organization}`,
+    `  Category: ${b.category}`,
+    `  Location: ${b.location ?? "unspecified"}`,
+    `  Summary: ${(b.summary ?? "").slice(0, 300)}`,
+    "",
+    'Return JSON: { "same": boolean, "confidence": 0..1, "reasoning"?: short string }',
+  ].join("\n");
+}

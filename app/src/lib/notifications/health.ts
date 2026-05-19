@@ -31,6 +31,9 @@ export type PipelineHealth = {
    * + extraction_confidence < 0.5). Reported in the daily pipeline alert
    * so the admin sees a reminder even when ingestion is otherwise healthy. */
   needsReviewCount: number;
+  /** Sources auto-disabled during this health check (5+ consecutive failed
+   * ingestion log rows with no successful row in between). */
+  autoDisabledSources: { id: string; name: string; failureCount: number }[];
 };
 
 const ALERT_THRESHOLD_HOURS = 24;
@@ -69,13 +72,81 @@ export async function checkPipelineHealth(): Promise<PipelineHealth> {
     ? (Date.now() - new Date(lastIngestionAt).getTime()) / (1000 * 60 * 60)
     : null;
 
+  // Auto-disable sources that have failed 5+ times in a row with no
+  // successful run in between. Reduces wasted AI tokens on broken sources
+  // and lets the admin focus on what's worth fixing.
+  const autoDisabledSources = await autoDisableFailingSources(supabase);
+
   return {
     healthy: (ingestionCount ?? 0) > 0,
     ingestionsLast24h: ingestionCount ?? 0,
     lastIngestionAt,
     hoursSinceLast,
     needsReviewCount: needsReviewCount ?? 0,
+    autoDisabledSources,
   };
+}
+
+/** Threshold: a source with this many consecutive `failed` logs (no
+ * successful upserted/extracted row between them) gets auto-disabled. */
+const CONSECUTIVE_FAILURE_THRESHOLD = 5;
+
+/**
+ * Scan enabled sources for consecutive-failure streaks. For each that
+ * crossed the threshold, set `enabled=false` and return its summary so the
+ * pipeline-alert can mention it. Best-effort: errors on a single source
+ * don't fail the whole check.
+ */
+async function autoDisableFailingSources(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<{ id: string; name: string; failureCount: number }[]> {
+  const disabled: { id: string; name: string; failureCount: number }[] = [];
+
+  const { data: sources, error } = await supabase
+    .from("sources")
+    .select("id, name")
+    .eq("enabled", true);
+  if (error || !sources) return disabled;
+
+  for (const src of sources as { id: string; name: string }[]) {
+    // Get the last N=10 logs for this source, newest first. We need the
+    // most recent successful row to bound the streak — anything before it
+    // is irrelevant.
+    const { data: logs } = await supabase
+      .from("ingestion_logs")
+      .select("status")
+      .eq("source_id", src.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (!logs || logs.length < CONSECUTIVE_FAILURE_THRESHOLD) continue;
+
+    let streak = 0;
+    for (const log of logs as { status: string }[]) {
+      if (log.status === "failed") {
+        streak++;
+        if (streak >= CONSECUTIVE_FAILURE_THRESHOLD) break;
+      } else if (log.status === "upserted" || log.status === "extracted") {
+        // Hit a success — streak broken.
+        break;
+      }
+      // Other statuses (skipped_*) neither extend nor break the streak.
+    }
+
+    if (streak >= CONSECUTIVE_FAILURE_THRESHOLD) {
+      const { error: disableErr } = await supabase
+        .from("sources")
+        .update({
+          enabled: false,
+          last_error: `auto-disabled: ${streak} consecutive failures`,
+        })
+        .eq("id", src.id);
+      if (!disableErr) {
+        disabled.push({ id: src.id, name: src.name, failureCount: streak });
+      }
+    }
+  }
+
+  return disabled;
 }
 
 /** Onboarded admin users — recipients for the pipeline-dead alert. */
@@ -124,8 +195,20 @@ export function renderPipelineAlertForTelegram(
 
   if (health.needsReviewCount > 0) {
     lines.push(
-      `<b>${health.needsReviewCount}</b> item${health.needsReviewCount === 1 ? "" : "s"} pending admin review (low-confidence extractions or user submissions). They&apos;re hidden from the user feed until approved.`,
+      `<b>${health.needsReviewCount}</b> item${health.needsReviewCount === 1 ? "" : "s"} pending admin review (low-confidence extractions or user submissions). They're hidden from the user feed until approved.`,
     );
+    lines.push("");
+  }
+
+  if (health.autoDisabledSources.length > 0) {
+    lines.push("<b>⚠️ Auto-disabled sources</b>");
+    lines.push(
+      `${health.autoDisabledSources.length} source${health.autoDisabledSources.length === 1 ? "" : "s"} hit 5+ consecutive failures and were auto-disabled:`,
+    );
+    for (const s of health.autoDisabledSources) {
+      lines.push(`• ${escapeHtml(s.name)} (${s.failureCount} fails)`);
+    }
+    lines.push("Fix the root cause then re-enable in /admin.");
     lines.push("");
   }
 
@@ -137,10 +220,14 @@ export function renderPipelineAlertForTelegram(
   return lines.join("\n");
 }
 
-/** True if the alert should fire today — either pipeline is dead OR there
- * are items waiting in the admin review queue. */
+/** True if the alert should fire today — pipeline dead, items in the
+ * review queue, or sources just auto-disabled. */
 export function shouldAlert(health: PipelineHealth): boolean {
-  return !health.healthy || health.needsReviewCount > 0;
+  return (
+    !health.healthy ||
+    health.needsReviewCount > 0 ||
+    health.autoDisabledSources.length > 0
+  );
 }
 
 function formatRelative(iso: string): string {
@@ -154,10 +241,10 @@ function formatRelative(iso: string): string {
   return `${hours} hour${hours === 1 ? "" : "s"} ago`;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function escapeAttr(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }

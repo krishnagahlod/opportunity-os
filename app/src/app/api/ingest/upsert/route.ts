@@ -6,6 +6,7 @@ import {
   CATEGORIES,
   ExtractedOpportunitySchema,
 } from "@/lib/ai/prompts";
+import { checkDuplicate } from "@/lib/ai/dedup";
 import { requireIngestAuth } from "@/lib/auth/ingest";
 import { logIngestion } from "@/lib/ingestion/logs";
 
@@ -73,6 +74,87 @@ export async function POST(req: NextRequest) {
   const source_id = source_name
     ? await resolveOrCreateSource(supabase, source_name)
     : null;
+
+  // Cross-source dedup: before inserting, look for an opportunity with the
+  // same (normalized title + organization) on a DIFFERENT source_url, added
+  // in the last 14 days. If we find one, ask the AI whether they're the
+  // same role. Skip the insert if AI confirms.
+  //
+  // Bypass when source_url already matches an existing row (caller will hit
+  // the standard upsert-on-conflict path) — the same-URL case is exact dedup,
+  // not the cross-source we're guarding against here.
+  const titleNorm = opp.title.toLowerCase().trim();
+  const orgNorm = organization.toLowerCase().trim();
+  const fourteenDaysAgo = new Date(
+    Date.now() - 14 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data: fuzzyMatches } = await supabase
+    .from("opportunities")
+    .select("id, title, organization, category, location, summary, source_url")
+    .ilike("title", titleNorm)
+    .ilike("organization", orgNorm)
+    .neq("source_url", dedupUrl)
+    .gte("date_added", fourteenDaysAgo)
+    .eq("status", "active")
+    .limit(1);
+
+  if (fuzzyMatches && fuzzyMatches.length > 0) {
+    const candidate = fuzzyMatches[0] as {
+      id: string;
+      title: string;
+      organization: string;
+      category: string;
+      location: string | null;
+      summary: string | null;
+    };
+    try {
+      const verdict = await checkDuplicate(
+        {
+          title: opp.title,
+          organization,
+          category: opp.category,
+          location: opp.location,
+          summary: opp.summary,
+        },
+        {
+          title: candidate.title,
+          organization: candidate.organization,
+          category: candidate.category,
+          location: candidate.location,
+          summary: candidate.summary,
+        },
+      );
+
+      if (verdict.same && verdict.confidence >= 0.7) {
+        // AI confirms duplicate — log and bail with success-but-skipped so
+        // the workflow doesn't error.
+        void logIngestion({
+          status: "skipped_duplicate",
+          source_url: dedupUrl,
+          source_name: source_name ?? null,
+          source_id,
+          opportunity_id: candidate.id,
+          reason: `cross-source dedup: matches ${candidate.id} (confidence ${verdict.confidence.toFixed(2)})`,
+          duration_ms: Date.now() - start,
+        });
+        return NextResponse.json({
+          id: candidate.id,
+          source_url: dedupUrl,
+          ok: true,
+          skipped: "cross-source duplicate",
+          matchedId: candidate.id,
+        });
+      }
+    } catch (e) {
+      // AI failure shouldn't block ingestion — better to occasionally
+      // double-insert than silently lose a legitimate opportunity.
+      console.warn(
+        "[upsert] cross-source dedup AI failed; falling through:",
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+  }
 
   // Normalize extracted required-skills: lowercase, trim, drop short tokens,
   // dedupe. Cap at 8 (matches the schema's max). Belt-and-suspenders against
