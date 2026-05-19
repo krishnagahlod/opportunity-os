@@ -11,6 +11,11 @@ import {
   toggleSourceEnabled,
 } from "./actions";
 import { AdminActionButton } from "./AdminActionButton";
+import {
+  NeedsReviewSection,
+  type ReviewRow,
+} from "./NeedsReviewSection";
+import type { Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +65,7 @@ export default async function AdminPage() {
     activeOppsRes,
     last24OppsRes,
     lowConfRes,
+    needsReviewRes,
   ] = await Promise.all([
     admin
       .from("sources")
@@ -91,12 +97,31 @@ export default async function AdminPage() {
       .from("opportunities")
       .select("id", { count: "exact", head: true })
       .lt("extraction_confidence", 0.7),
+    // Needs-review queue: pending submissions + low-confidence extractions
+    // (< 0.5) that the feed hides. Limit to 100 to keep payload light.
+    admin
+      .from("opportunities")
+      .select("*")
+      .or("status.eq.pending,extraction_confidence.lt.0.5")
+      .neq("status", "spam")
+      .order("date_added", { ascending: false })
+      .limit(100),
   ]);
 
   const sources = sourcesRes.data ?? [];
   const logs = logsRes.data ?? [];
   const opps = oppsRes.data ?? [];
   const last24Logs = last24LogsRes.data ?? [];
+  // Tag each review row with its reason so the queue UI can color-code.
+  const needsReview: ReviewRow[] = (
+    (needsReviewRes.data ?? []) as Opportunity[]
+  ).map((o) => ({
+    ...o,
+    kind:
+      o.status === "pending"
+        ? "pending"
+        : ("low-confidence" as const),
+  }));
 
   // Source health: any enabled source whose last_run_at is older than 26h
   // (one cycle past our daily schedule) — or never ran at all.
@@ -136,6 +161,9 @@ export default async function AdminPage() {
             controls.
           </p>
         </header>
+
+        {/* Needs-review queue (low-confidence + pending submissions) */}
+        <NeedsReviewSection rows={needsReview} />
 
         {/* Source-health alert banner */}
         {staleSources.length > 0 && (

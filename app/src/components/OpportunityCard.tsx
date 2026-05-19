@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
 import { recordPendingApply } from "./ApplyNudge";
 import { getCategoryStyle } from "@/lib/categories";
+import { shouldWarnLowConfidence } from "@/lib/scoring/eligibility";
 import { cn, stripHtml } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
@@ -91,6 +92,18 @@ export function OpportunityCard({
                 >
                   <Clock className="size-3" />
                   {deadline.text}
+                </span>
+              </>
+            )}
+            {shouldWarnLowConfidence(opportunity) && (
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span
+                  title="Lower-confidence AI extraction — verify details before applying"
+                  className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300"
+                >
+                  <AlertCircle className="size-2.5" />
+                  shaky
                 </span>
               </>
             )}

@@ -27,6 +27,10 @@ export type PipelineHealth = {
   lastIngestionAt: string | null;
   /** Hours since lastIngestionAt; null if never. */
   hoursSinceLast: number | null;
+  /** Number of items in the admin "Needs review" queue (pending submissions
+   * + extraction_confidence < 0.5). Reported in the daily pipeline alert
+   * so the admin sees a reminder even when ingestion is otherwise healthy. */
+  needsReviewCount: number;
 };
 
 const ALERT_THRESHOLD_HOURS = 24;
@@ -37,19 +41,28 @@ export async function checkPipelineHealth(): Promise<PipelineHealth> {
     Date.now() - ALERT_THRESHOLD_HOURS * 60 * 60 * 1000,
   ).toISOString();
 
-  // Count any ingestion activity in last 24h
-  const { count } = await supabase
-    .from("ingestion_logs")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", since);
-
-  // Most recent ingestion log of any kind — used for the alert copy
-  const { data: latest } = await supabase
-    .from("ingestion_logs")
-    .select("created_at")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Three checks in parallel: ingestion activity, latest log, and needs-review count
+  const [
+    { count: ingestionCount },
+    { data: latest },
+    { count: needsReviewCount },
+  ] = await Promise.all([
+    supabase
+      .from("ingestion_logs")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", since),
+    supabase
+      .from("ingestion_logs")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("opportunities")
+      .select("*", { count: "exact", head: true })
+      .or("status.eq.pending,extraction_confidence.lt.0.5")
+      .neq("status", "spam"),
+  ]);
 
   const lastIngestionAt = (latest?.created_at as string | undefined) ?? null;
   const hoursSinceLast = lastIngestionAt
@@ -57,10 +70,11 @@ export async function checkPipelineHealth(): Promise<PipelineHealth> {
     : null;
 
   return {
-    healthy: (count ?? 0) > 0,
-    ingestionsLast24h: count ?? 0,
+    healthy: (ingestionCount ?? 0) > 0,
+    ingestionsLast24h: ingestionCount ?? 0,
     lastIngestionAt,
     hoursSinceLast,
+    needsReviewCount: needsReviewCount ?? 0,
   };
 }
 
@@ -76,36 +90,57 @@ export async function getAdminRecipients(): Promise<Profile[]> {
 }
 
 /**
- * Render a pipeline-dead alert as HTML for Telegram. Keeps the same HTML
- * parse mode the regular digest uses so escaping rules are consistent.
+ * Render a pipeline-status alert as HTML for Telegram. Adaptive copy —
+ * leads with the pipeline-dead story when unhealthy, mentions the
+ * needs-review queue when non-empty. Both can fire in the same alert.
  */
 export function renderPipelineAlertForTelegram(
   health: PipelineHealth,
   appUrl: string,
 ): string {
   const lines: string[] = [];
-  lines.push("🚨 <b>Opportunity OS — pipeline appears dead</b>");
-  lines.push("");
-  if (health.lastIngestionAt && health.hoursSinceLast !== null) {
-    const hours = Math.round(health.hoursSinceLast);
-    lines.push(
-      `No ingestion activity in the last <b>${hours} hours</b>. Last log entry was ${formatRelative(health.lastIngestionAt)}.`,
-    );
-  } else {
-    lines.push("No ingestion logs found at all.");
+
+  if (!health.healthy) {
+    lines.push("🚨 <b>Opportunity OS — pipeline appears dead</b>");
+    lines.push("");
+    if (health.lastIngestionAt && health.hoursSinceLast !== null) {
+      const hours = Math.round(health.hoursSinceLast);
+      lines.push(
+        `No ingestion activity in the last <b>${hours} hours</b>. Last log entry was ${formatRelative(health.lastIngestionAt)}.`,
+      );
+    } else {
+      lines.push("No ingestion logs found at all.");
+    }
+    lines.push("");
+    lines.push("<b>Likely causes</b>");
+    lines.push("• Render free tier suspended n8n (monthly quota)");
+    lines.push("• Workflows lost their published state after restart");
+    lines.push("• Neon database auto-paused");
+    lines.push("");
+  } else if (health.needsReviewCount > 0) {
+    lines.push("📋 <b>Opportunity OS — items awaiting review</b>");
+    lines.push("");
   }
-  lines.push("");
-  lines.push("<b>Likely causes</b>");
-  lines.push("• Render free tier suspended n8n (monthly quota)");
-  lines.push("• Workflows lost their published state after restart");
-  lines.push("• Neon database auto-paused");
-  lines.push("");
+
+  if (health.needsReviewCount > 0) {
+    lines.push(
+      `<b>${health.needsReviewCount}</b> item${health.needsReviewCount === 1 ? "" : "s"} pending admin review (low-confidence extractions or user submissions). They&apos;re hidden from the user feed until approved.`,
+    );
+    lines.push("");
+  }
+
   if (appUrl && !appUrl.includes("localhost")) {
     lines.push(`<a href="${escapeAttr(appUrl)}/admin">Open admin dashboard →</a>`);
   } else {
-    lines.push("<i>Check Render service status and re-publish workflows.</i>");
+    lines.push("<i>Check the admin dashboard at /admin.</i>");
   }
   return lines.join("\n");
+}
+
+/** True if the alert should fire today — either pipeline is dead OR there
+ * are items waiting in the admin review queue. */
+export function shouldAlert(health: PipelineHealth): boolean {
+  return !health.healthy || health.needsReviewCount > 0;
 }
 
 function formatRelative(iso: string): string {

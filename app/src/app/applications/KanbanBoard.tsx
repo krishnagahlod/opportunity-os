@@ -243,11 +243,16 @@ function KanbanCardInner({
 }) {
   const cat = getCategoryStyle(item.opportunity.category);
   const Icon = cat.Icon;
+  const isClosed = item.opportunity.status !== "active";
   return (
     <div
       className={cn(
         "group relative cursor-grab rounded-xl border border-border/70 bg-card p-3 shadow-sm transition active:cursor-grabbing",
         !dragging && "hover:-translate-y-0.5 hover:shadow-md",
+        // Visually demote closed cards — kept in tracker so user can see
+        // wins/rejects/etc. across the lifecycle, but clearly differentiated
+        // from in-flight active opps.
+        isClosed && "opacity-70",
       )}
     >
       <div className="flex items-start gap-2.5">
@@ -272,6 +277,14 @@ function KanbanCardInner({
               {orgInitials(item.opportunity.organization)}
             </span>
             <span className="truncate">{item.opportunity.organization}</span>
+            {isClosed && (
+              <span
+                title={`Opportunity status: ${item.opportunity.status}`}
+                className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+              >
+                Closed
+              </span>
+            )}
           </div>
         </div>
         {/* Grip visible at low opacity, full on hover/focus — keyboard users see it */}

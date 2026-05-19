@@ -115,7 +115,10 @@ export async function GET(req: NextRequest) {
     .in("id", oppIds)
     .not("deadline", "is", null)
     .gte("deadline", nowIso)
-    .neq("status", "spam");
+    // Only active opps end up in the calendar feed. Phase 12 — previously
+    // only `spam` was excluded; `expired` and `pending` could slip through
+    // if their deadline somehow was future-looking.
+    .eq("status", "active");
 
   const items: CalendarItem[] = ((opps ?? []) as Opportunity[]).map((o) => ({
     opportunity: o,

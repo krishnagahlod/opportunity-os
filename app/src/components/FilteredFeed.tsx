@@ -15,6 +15,10 @@ import {
   type SortMode,
 } from "@/components/FilterBar";
 import { CATEGORIES } from "@/lib/ai/prompts";
+import {
+  DASHBOARD_SCORE_FLOOR,
+  isFeedEligible,
+} from "@/lib/scoring/eligibility";
 import type {
   ApplicationStatus,
   Opportunity,
@@ -179,6 +183,12 @@ export function FilteredFeed({
     return Array.from(seen).sort();
   }, [opportunities, sourceMap]);
 
+  // Session-level toggle to reveal sub-floor-score rows when the user is
+  // curious. Default off — the floor keeps low-fit noise out of the
+  // browse view. Search mode bypasses the floor entirely (user typed a
+  // specific query; they want every match).
+  const [showLowFit, setShowLowFit] = useState(false);
+
   // ===== local filter + sort over the active pool =====
   const filtered = useMemo(() => {
     const catSet = new Set(state.categories);
@@ -187,6 +197,11 @@ export function FilteredFeed({
     const localQ = inSearchMode ? "" : state.q.trim().toLowerCase();
 
     return sourcePool.filter((o) => {
+      // Quality gate — confidence floor applies on every surface, including
+      // search. Hidden rows still exist in the DB; admin sees them in the
+      // Needs-review queue at /admin.
+      if (!isFeedEligible(o)) return false;
+
       if (catSet.size > 0 && !catSet.has(o.category)) return false;
 
       if (srcSet.size > 0) {
@@ -220,9 +235,35 @@ export function FilteredFeed({
         if (!hay.includes(localQ)) return false;
       }
 
+      // Score floor — browse view only. Skip in search mode and when user
+      // opts in via the "show low-fit" toggle below the grid.
+      if (!inSearchMode && !showLowFit) {
+        const score = effectiveScoreMap[o.id]?.score ?? 0;
+        if (score < DASHBOARD_SCORE_FLOOR) return false;
+      }
+
       return true;
     });
-  }, [sourcePool, state, effectiveSourceMap, inSearchMode]);
+  }, [
+    sourcePool,
+    state,
+    effectiveSourceMap,
+    effectiveScoreMap,
+    inSearchMode,
+    showLowFit,
+  ]);
+
+  // How many rows are hidden purely by the score floor? Drives the toggle
+  // label so the user knows whether clicking "show low-fit" will reveal
+  // anything new.
+  const hiddenLowFitCount = useMemo(() => {
+    if (inSearchMode || showLowFit) return 0;
+    return sourcePool.filter((o) => {
+      if (!isFeedEligible(o)) return false; // confidence-hidden, don't count
+      const score = effectiveScoreMap[o.id]?.score ?? 0;
+      return score < DASHBOARD_SCORE_FLOOR;
+    }).length;
+  }, [sourcePool, inSearchMode, showLowFit, effectiveScoreMap]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -350,6 +391,29 @@ export function FilteredFeed({
               </div>
             ))}
           </div>
+          {hiddenLowFitCount > 0 && (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowLowFit(true)}
+                className="rounded-full border border-border/60 bg-background px-4 py-1.5 text-[12px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
+              >
+                Show {hiddenLowFitCount} low-fit{" "}
+                {hiddenLowFitCount === 1 ? "result" : "results"}
+              </button>
+            </div>
+          )}
+          {showLowFit && !inSearchMode && (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowLowFit(false)}
+                className="rounded-full border border-border/60 bg-background px-4 py-1.5 text-[12px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
+              >
+                Hide low-fit results
+              </button>
+            </div>
+          )}
         </section>
       )}
     </div>

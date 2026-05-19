@@ -60,6 +60,9 @@ export async function buildDigestForUser(
       .from("opportunities")
       .select("*")
       .eq("status", "active")
+      // Hide low-confidence extractions from the digest pool — they go to
+      // the admin Needs-review queue instead. NULL kept (pre-Phase-2.5 rows).
+      .or("extraction_confidence.is.null,extraction_confidence.gte.0.5")
       .order("date_added", { ascending: false })
       .limit(150),
     supabase
@@ -233,25 +236,62 @@ async function maybeBuildWeekRecap(
   };
 }
 
+/** Rolling-deadline opportunities (deadline IS NULL) get auto-expired after
+ * this many days since `date_added`. Catches stale "we're always hiring"
+ * posts that quietly closed. 60 days is conservative — bumps if false
+ * positives accumulate on legitimate evergreen fellowships. */
+const ROLLING_EXPIRY_DAYS = 60;
+
 /**
- * Mark every active opportunity whose deadline has passed as expired.
- * Run before the digest fan-out so dead links don't appear in today's
- * emails. Rolling-deadline rows (deadline IS NULL) stay active.
+ * Mark every closed opportunity as expired:
+ *   1. Active rows whose `deadline` has passed.
+ *   2. Active rolling-deadline rows (`deadline IS NULL`) older than
+ *      ROLLING_EXPIRY_DAYS since `date_added`. Phase 12 addition — these
+ *      previously accumulated forever.
+ *
+ * Run at the start of the daily-digest cron so today's emails don't surface
+ * dead listings.
  */
-export async function markExpiredOpportunities(): Promise<{ count: number }> {
+export async function markExpiredOpportunities(): Promise<{
+  count: number;
+  dated: number;
+  rolling: number;
+}> {
   const supabase = createAdminClient();
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
+  const rollingCutoff = new Date(
+    Date.now() - ROLLING_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  // Pass 1: dated-and-past
+  const { data: datedRows, error: datedErr } = await supabase
     .from("opportunities")
     .update({ status: "expired" })
     .eq("status", "active")
     .lt("deadline", nowIso)
     .select("id");
-  if (error) {
-    console.error("[markExpiredOpportunities] failed:", error.message);
-    return { count: 0 };
+  if (datedErr) {
+    console.error("[markExpiredOpportunities] dated pass failed:", datedErr.message);
   }
-  return { count: data?.length ?? 0 };
+  const dated = datedRows?.length ?? 0;
+
+  // Pass 2: rolling deadlines (deadline IS NULL) older than the cutoff
+  const { data: rollingRows, error: rollingErr } = await supabase
+    .from("opportunities")
+    .update({ status: "expired" })
+    .eq("status", "active")
+    .is("deadline", null)
+    .lt("date_added", rollingCutoff)
+    .select("id");
+  if (rollingErr) {
+    console.error(
+      "[markExpiredOpportunities] rolling pass failed:",
+      rollingErr.message,
+    );
+  }
+  const rolling = rollingRows?.length ?? 0;
+
+  return { count: dated + rolling, dated, rolling };
 }
 
 /** Returns all users with onboarded=true, suitable for digest delivery. */

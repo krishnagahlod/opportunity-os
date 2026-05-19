@@ -29,9 +29,11 @@ export function PipelineAlertEmail({
   const hours =
     health.hoursSinceLast !== null ? Math.round(health.hoursSinceLast) : null;
 
-  const preview = hours
-    ? `Pipeline silent for ${hours}h — check Render`
-    : "Pipeline silent — check Render";
+  const preview = !health.healthy
+    ? hours
+      ? `Pipeline silent for ${hours}h — check Render`
+      : "Pipeline silent — check Render"
+    : `${health.needsReviewCount} item${health.needsReviewCount === 1 ? "" : "s"} awaiting review`;
 
   return (
     <Html>
@@ -39,40 +41,60 @@ export function PipelineAlertEmail({
       <Preview>{preview}</Preview>
       <Body style={bodyStyle}>
         <Container style={containerStyle}>
-          <Section style={alertStyle}>
-            <Heading style={alertHeadingStyle}>
-              🚨 Pipeline appears dead
-            </Heading>
-            <Text style={alertTextStyle}>
-              {hours !== null
-                ? `No ingestion activity in the last ${hours} hours.`
-                : "No ingestion logs found at all."}
-            </Text>
-          </Section>
+          {!health.healthy && (
+            <Section style={alertStyle}>
+              <Heading style={alertHeadingStyle}>
+                🚨 Pipeline appears dead
+              </Heading>
+              <Text style={alertTextStyle}>
+                {hours !== null
+                  ? `No ingestion activity in the last ${hours} hours.`
+                  : "No ingestion logs found at all."}
+              </Text>
+            </Section>
+          )}
 
-          <Heading style={h2Style}>Likely causes</Heading>
-          <Text style={paragraphStyle}>
-            • <strong>Render free tier suspended n8n</strong> — monthly compute-hour quota exceeded.
-            <br />
-            • <strong>Workflows lost their published state</strong> — common
-            after Render restarts the container.
-            <br />
-            • <strong>Neon database auto-paused</strong> — wakes on first
-            connect but if the connection itself failed, n8n is stuck.
-          </Text>
+          {!health.healthy && (
+            <>
+              <Heading style={h2Style}>Likely causes</Heading>
+              <Text style={paragraphStyle}>
+                • <strong>Render free tier suspended n8n</strong> — monthly compute-hour quota exceeded.
+                <br />
+                • <strong>Workflows lost their published state</strong> — common
+                after Render restarts the container.
+                <br />
+                • <strong>Neon database auto-paused</strong> — wakes on first
+                connect but if the connection itself failed, n8n is stuck.
+              </Text>
 
-          <Heading style={h2Style}>Fix sequence</Heading>
-          <Text style={paragraphStyle}>
-            1. Open the Render dashboard, verify n8n service is{" "}
-            <strong>Running</strong> (not Suspended).
-            <br />
-            2. Visit the n8n URL — should load the login screen, not a 503.
-            <br />
-            3. Log in, walk every workflow, click <strong>Publish</strong>{" "}
-            (pill should flip to <code>1/1</code>).
-            <br />
-            4. Run one workflow manually as a smoke test.
-          </Text>
+              <Heading style={h2Style}>Fix sequence</Heading>
+              <Text style={paragraphStyle}>
+                1. Open the Render dashboard, verify n8n service is{" "}
+                <strong>Running</strong> (not Suspended).
+                <br />
+                2. Visit the n8n URL — should load the login screen, not a 503.
+                <br />
+                3. Log in, walk every workflow, click <strong>Publish</strong>{" "}
+                (pill should flip to <code>1/1</code>).
+                <br />
+                4. Run one workflow manually as a smoke test.
+              </Text>
+            </>
+          )}
+
+          {health.needsReviewCount > 0 && (
+            <Section style={reviewSectionStyle}>
+              <Heading style={reviewHeadingStyle}>
+                📋 {health.needsReviewCount} item
+                {health.needsReviewCount === 1 ? "" : "s"} pending admin review
+              </Heading>
+              <Text style={reviewTextStyle}>
+                Low-confidence AI extractions or user-submitted opportunities
+                are hidden from the user feed until approved. Review them in
+                the Needs review queue on the admin dashboard.
+              </Text>
+            </Section>
+          )}
 
           <Hr style={hrStyle} />
 
@@ -83,8 +105,8 @@ export function PipelineAlertEmail({
           </Text>
           <Text style={mutedFooterStyle}>
             You&apos;re getting this because you&apos;re an admin on Opportunity
-            OS and the ingestion pipeline has been silent for over a day. This
-            alert repeats daily until it&apos;s fixed.
+            OS. This alert repeats daily until the pipeline is healthy and the
+            review queue is empty.
           </Text>
         </Container>
       </Body>
@@ -125,6 +147,29 @@ const alertTextStyle: React.CSSProperties = {
   fontSize: "15px",
   lineHeight: "22px",
   color: "#7f1d1d",
+  margin: 0,
+};
+
+const reviewSectionStyle: React.CSSProperties = {
+  marginTop: "20px",
+  marginBottom: "8px",
+  padding: "16px 20px",
+  borderRadius: "12px",
+  border: "1px solid #fcd34d",
+  backgroundColor: "#fffbeb",
+};
+
+const reviewHeadingStyle: React.CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 700,
+  color: "#92400e",
+  margin: "0 0 6px",
+};
+
+const reviewTextStyle: React.CSSProperties = {
+  fontSize: "13.5px",
+  lineHeight: "20px",
+  color: "#78350f",
   margin: 0,
 };
 

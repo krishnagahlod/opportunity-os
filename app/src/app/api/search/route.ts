@@ -63,10 +63,14 @@ export async function GET(req: NextRequest) {
     if (tokens.length === 0) return NextResponse.json(emptyPayload());
 
     // Build query: each token AND-chains a 3-column OR group via .or().
+    // Hard quality gate at the DB level: exclude low-confidence extractions
+    // (< 0.5) from search results. They go to the admin Needs-review queue
+    // instead. NULLs are kept (pre-Phase-2.5 rows weren't scored).
     let queryBuilder = supabase
       .from("opportunities")
       .select(FEED_COLUMNS)
-      .eq("status", "active");
+      .eq("status", "active")
+      .or("extraction_confidence.is.null,extraction_confidence.gte.0.5");
 
     for (const token of tokens) {
       // PostgREST ILIKE in `or` filter strings uses `*` as the wildcard

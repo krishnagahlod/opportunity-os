@@ -10,6 +10,7 @@ import {
   checkPipelineHealth,
   getAdminRecipients,
   renderPipelineAlertForTelegram,
+  shouldAlert,
   type PipelineHealth,
 } from "@/lib/notifications/health";
 import { sendEmail } from "@/lib/email/send";
@@ -53,17 +54,16 @@ export async function GET(req: NextRequest) {
   // anything whose deadline already passed.
   const expired = await markExpiredOpportunities();
 
-  // Pipeline-health check — if no ingestion activity in the last 24h, n8n
-  // has likely been suspended / lost its published state. Daily reminder
-  // to admin users until they fix it. Fires once per cron tick, BEFORE the
-  // per-user digest loop, so it goes out even on days when there's nothing
-  // to digest.
+  // Pipeline-health + admin-review check. Combined alert fires daily when
+  // EITHER ingestion is dead (no logs in 24h) OR there are items in the
+  // admin Needs-review queue (low-confidence extractions / user submissions).
+  // Same recipients (admin role), one alert covering both states.
   const health = await checkPipelineHealth();
   let healthAlertResult: {
     sent: number;
     errors: string[];
   } | null = null;
-  if (!health.healthy) {
+  if (shouldAlert(health)) {
     healthAlertResult = await sendPipelineAlerts(health, appUrl);
   }
 
@@ -148,6 +148,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     expired_swept: expired.count,
+    expired_dated: expired.dated,
+    expired_rolling: expired.rolling,
     recipients: recipients.length,
     pipeline_health: {
       healthy: health.healthy,
@@ -175,13 +177,18 @@ async function sendPipelineAlerts(
   const errors: string[] = [];
   let sent = 0;
 
+  // Subject adapts to which condition fired the alert.
+  const subject = !health.healthy
+    ? "🚨 Opportunity OS — pipeline appears dead"
+    : `📋 Opportunity OS — ${health.needsReviewCount} item${health.needsReviewCount === 1 ? "" : "s"} awaiting review`;
+
   for (const admin of admins as Profile[]) {
     // Email
     if (admin.email) {
       try {
         const send = await sendEmail({
           to: admin.email,
-          subject: "🚨 Opportunity OS — pipeline appears dead",
+          subject,
           react: PipelineAlertEmail({ health, appUrl }),
         });
         if (!send.ok) errors.push(`email[${admin.id}]: ${send.error}`);
