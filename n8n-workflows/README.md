@@ -3,9 +3,32 @@
 This folder contains version-controlled exports of the ingestion workflows that
 populate the `opportunities` table.
 
-Current status: **Phase 2.5 complete** — full pipeline with pre-AI dedup,
-keyword filter, and observability via `ingestion_logs`. Workflows are built
-by hand in the n8n UI and exported here once working.
+Current status: **Phase 9.2 — data-driven source trim.** Audit of 30-day
+`ingestion_logs` + engagement showed only 2 of 18 sources earned any
+saves/apps. WeWorkRemotely (38% of AI spend, 0 engagement), both Reddit
+feeds (sub-0.5 avg confidence), and HN Jobs (US/senior, 0 engagement) are
+disabled. Greenhouse trimmed (drop Figma+Discord) + expanded by 6 dev-tooling
+companies. Devpost dropped to daily. Workflows are built by hand in the n8n
+UI and exported here once working.
+
+## ⚠️ Operational checklist after pulling this commit
+
+The JSON files in this folder are source-of-truth, but **Render's running n8n
+holds its own copy** — these changes do nothing until you sync them:
+
+1. **In Render n8n UI, toggle Inactive (or delete)** these 3 workflows:
+   - `RSS — HN Jobs` (was `01-rss-hn-jobs`)
+   - `RSS — WeWorkRemotely` (was `02-rss-weworkremotely`)
+   - `RSS — Reddit India` (was `10-rss-reddit-india`)
+2. **Re-import `03-greenhouse-ats.json`** to pick up the new COMPANIES array
+   + Limit=70. After import, paste your `INGEST_SHARED_SECRET` into each
+   HTTP node's `X-Ingest-Secret` header (placeholder is reset on import).
+3. **Open `Devpost — Hackathons` workflow** → Schedule Trigger node → change
+   Hours Between Triggers from 12 to 24. (Or re-import `04-devpost-hackathons.json`.)
+4. **Publish** each modified/imported workflow so its new schedule takes effect.
+
+Expected impact within 24h: ~62% drop in AI tokens, ~10 lower-confidence rows
+disappearing from the feed daily, more diversity in the Greenhouse-sourced cards.
 
 ## Pipeline architecture (post Phase 2.5)
 
@@ -300,18 +323,24 @@ When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
 
 ## Workflows
 
-- [x] **`01-rss-hn-jobs`** — Hacker News "Who's hiring" RSS, every 6h
-- [x] **`02-rss-weworkremotely`** — WeWorkRemotely all-jobs RSS, every 6h
-- [x] **`03-greenhouse-ats`** — Greenhouse JSON Job Board API, 9 companies (Anthropic, Figma, Vercel, Discord, Airbnb, Postman, Cloudflare, Stripe, Webflow), every 12h
-- [x] **`04-devpost-hackathons`** — Devpost hackathons via internal JSON API (direct upsert, no AI), every 12h
+**Active (kept post-audit):**
+- [x] **`03-greenhouse-ats`** — Greenhouse JSON Job Board API, 13 companies (Anthropic, Vercel, Airbnb, Postman, Cloudflare, Stripe, Webflow, Brex, Datadog, GitLab, MongoDB, Databricks, Twilio), every 12h. JSON files in repo are source-of-truth; if you edit COMPANIES in the n8n UI re-export and overwrite the JSON here.
+- [x] **`04-devpost-hackathons`** — Devpost hackathons via internal JSON API (direct upsert, no AI), every 24h (reduced from 12h in Phase 9.2 — zero engagement, kept as global-hackathon backstop)
 - [x] **`05-unstop-hackathons`** — Unstop India hackathons via public search API (direct upsert, no AI), every 12h
 - [x] **`06-unstop-competitions`** — Unstop case competitions via the same search API; per-item type filter to skip leaked hackathons (direct upsert), every 12h
-- [x] **`07-unstop-internships`** — Unstop India internships with structured stipend extraction (direct upsert), every 6h
-- [x] **`08-internshala-internships`** — Internshala via their internal `/hiring/search` JSON endpoint, programming category (direct upsert), every 6h
-- [x] **`10-rss-reddit-india`** — Aggregates Atom feeds from `r/developersIndia`, `r/cscareerquestionsIndia`, `r/csMajors` with keyword filter and AI extract, every 12h
-- [x] **`11-lever-ats`** — Lever JSON Public Postings API, 2 confirmed companies (CRED, Meesho). AI Extract path. Designed to grow — add slugs to the COMPANIES array as you find live ones, every 12h
-- [ ] **`09-mlh-events`** — Reserved. MLH does not expose JSON or iCal; an HTML scrape + AI extract path needs a separate session
-- [ ] **`12-cleanup-expired`** — daily job that sets `status='expired'` for past-deadline rows (currently folded into the daily-digest cron in app code)
+- [x] **`07-unstop-internships`** — Unstop India internships with structured stipend extraction (direct upsert), every 6h ← **highest-engagement source by 5×**
+- [x] **`08-internshala-internships`** — Internshala via their internal `/hiring/search` JSON endpoint, programming category (direct upsert), every 6h ← suspected broken deadline parser; all 10 ingested rows in last 30d arrived pre-expired. Investigation pending.
+- [x] **`11-lever-ats`** — Lever JSON Public Postings API, 2 confirmed companies (CRED, Meesho). AI Extract path. **No expansion planned** — Indian startups and most US tech have moved off Lever to Greenhouse/Ashby/Workday. See "Lever dead-end" section below.
+
+**Disabled / dead (Phase 9.2 audit — keep JSON files for history, toggle Inactive or delete in n8n UI):**
+- [ ] **`01-rss-hn-jobs`** — disabled. Quality was high (0.96 conf, $79 value) but zero saves/apps over 30 days. Roles were US/senior/remote — not the target user. Burned ~2,500 tokens/month for nothing.
+- [ ] **`02-rss-weworkremotely`** — disabled. Single biggest AI cost (12,435 tokens/month, ~38% of total spend) for zero engagement. All rolling-deadline international remote roles. The Greenhouse cluster covers what little signal it had.
+- [ ] **`10-rss-reddit-india`** — disabled. Both subreddits (r/developersIndia + r/csMajors) extracted at avg 0.38–0.46 confidence (sub-0.5 threshold for "hidden from feed"). Community posts are mostly vent threads / referral asks, not real opportunities. Keyword filter caught ~half but the rest still polluted the feed.
+
+**Reserved (planned but not built):**
+- [ ] **`09-mlh-events`** — Reserved. MLH does not expose JSON or iCal; an HTML scrape + AI extract path needs a separate session.
+- [ ] **`12-fellowships-india`** — Planned Phase 9.3. New workflow scraping 5 Indian fellowships once a day: Acumen India, Teach For India, Young India Fellowship (Ashoka), Gandhi Fellowship, PMRDF. Fills the `fellowship` category which has zero rows today.
+- [ ] **`13-cleanup-expired`** — Not needed as a separate workflow; rolling-deadline expiry + past-deadline expiry both run inside the daily-digest cron (`markExpiredOpportunities` at lib/notifications/digest.ts).
 
 ## How to verify a Greenhouse company before adding
 
@@ -321,7 +350,7 @@ Each company's careers page URL embeds the Greenhouse "board token" — that's t
 https://boards-api.greenhouse.io/v1/boards/<slug>/jobs
 ```
 
-A 200 with a `jobs` array means add it. A 404 means the company moved to a different ATS (Lever, Ashby, Workday) and the slug should be dropped. Companies that 404'd as of Phase 9: hasura, atlassian, github, huggingface, plaid, notion, razorpay, openai. Those would need separate Lever/Ashby workflows.
+A 200 with a `jobs` array means add it. A 404 means the company moved to a different ATS (Lever, Ashby, Workday) and the slug should be dropped. Companies that 404'd as of Phase 9: hasura, atlassian, github, huggingface, plaid, notion, razorpay, openai. **Re-verified 404 as of Phase 9.2**: linear, ramp, modal, replit, pinecone, perplexity, snowflake, doordash, sentry, openai (all moved to Ashby). Confirmed live and added in Phase 9.2: brex, datadog, gitlab, dropbox, lyft, mongodb, databricks, robinhood, reddit, pinterest, twilio, duolingo, gusto, faire, instacart. (We chose the dev-tooling/data-infra subset since user engagement signal pointed there.)
 
 ## How to verify a Lever company before adding
 
@@ -334,6 +363,8 @@ https://api.lever.co/v0/postings/<slug>?mode=json
 A 200 returning a non-empty array of job objects means the slug is live; add it to the `COMPANIES` array in `11-lever-ats.json`. A 404 means the company isn't on Lever (or uses a different slug). An empty array `[]` means the slug exists but has no open postings — skip until they reopen, no point ingesting an empty list.
 
 Most US tech companies have moved off Lever to Greenhouse / Ashby / Workday. As of Phase 10.3a these stayed valid: `cred`, `meesho`. These 404'd: razorpay, atomberg, smallcase, urbancompany, urban-company, groww, zomato, swiggy, netflix, ramp, shopify, mercury, cohere, doordash, lattice, spinny, dunzo, box, juspay, glean, replit, scaleai, leadsquared. Several returned 200 but with empty arrays (attentive, lever) — same effect, skip until populated.
+
+**Lever dead-end (Phase 9.2 verification):** Re-checked another batch — atlassian (200 empty), eventbrite, khanacademy, mercury, leaplabs (all 404). Only palantir + spotify returned non-empty jobs, but neither fits the target user (US senior data/eng roles, not India-focused, not student-friendly). The Indian-startup-on-Lever pattern is effectively over. Future India-startup additions should target Ashby (`https://api.ashbyhq.com/posting-api/job-board/<slug>`) instead — that's where Razorpay, Linear, Ramp, Modal, etc. now host their boards.
 
 ## Reddit aggregator notes
 
@@ -380,9 +411,10 @@ browser — should return JSON with a `jobs` array.
 listing, so the keyword IF node from the RSS workflows would always
 pass. Skipping it keeps the graph clean.
 
-**Why every 12h** (not 6h): 5 companies × 8 jobs each = up to 40 fresh
-extractions per run. Twice-daily keeps Gemini free-tier headroom while
-still catching new postings within ~12 hours.
+**Why every 12h** (not 6h): 13 companies × 5 jobs each = up to 65 fresh
+extractions per run, but in steady state most hit `skipped_duplicate` —
+audit data shows ~10–15 actual AI extracts per fire. Twice-daily keeps
+Gemini free-tier headroom while still catching new postings within ~12 hours.
 
 **`source_name`** is per-company (`Greenhouse: Anthropic`, etc.) so the
 admin source-health view shows which companies are healthy. The upsert
