@@ -16,9 +16,10 @@ UI and exported here once working.
 The JSON files in this folder are source-of-truth, but **Render's running n8n
 holds its own copy** — these changes do nothing until you sync them:
 
-1. **In Render n8n UI, toggle Inactive (or delete)** these 3 workflows:
+1. **In Render n8n UI, toggle Inactive (or delete)** these 4 workflows:
    - `RSS — HN Jobs` (was `01-rss-hn-jobs`)
    - `RSS — WeWorkRemotely` (was `02-rss-weworkremotely`)
+   - `Internshala — Internships` (was `08-internshala-internships`) — endpoint deprecated, serves stale Jan-2024 sample
    - `RSS — Reddit India` (was `10-rss-reddit-india`)
 2. **Re-import `03-greenhouse-ats.json`** to pick up the new COMPANIES array
    + Limit=70. After import, paste your `INGEST_SHARED_SECRET` into each
@@ -28,7 +29,8 @@ holds its own copy** — these changes do nothing until you sync them:
 4. **Publish** each modified/imported workflow so its new schedule takes effect.
 
 Expected impact within 24h: ~62% drop in AI tokens, ~10 lower-confidence rows
-disappearing from the feed daily, more diversity in the Greenhouse-sourced cards.
+disappearing from the feed daily, more diversity in the Greenhouse-sourced cards,
+and no more pre-expired Internshala junk reaching the feed.
 
 ## Pipeline architecture (post Phase 2.5)
 
@@ -329,12 +331,12 @@ When you have a workflow JSON in this folder (e.g. `01-rss-hn-jobs.json`):
 - [x] **`05-unstop-hackathons`** — Unstop India hackathons via public search API (direct upsert, no AI), every 12h
 - [x] **`06-unstop-competitions`** — Unstop case competitions via the same search API; per-item type filter to skip leaked hackathons (direct upsert), every 12h
 - [x] **`07-unstop-internships`** — Unstop India internships with structured stipend extraction (direct upsert), every 6h ← **highest-engagement source by 5×**
-- [x] **`08-internshala-internships`** — Internshala via their internal `/hiring/search` JSON endpoint, programming category (direct upsert), every 6h ← suspected broken deadline parser; all 10 ingested rows in last 30d arrived pre-expired. Investigation pending.
 - [x] **`11-lever-ats`** — Lever JSON Public Postings API, 2 confirmed companies (CRED, Meesho). AI Extract path. **No expansion planned** — Indian startups and most US tech have moved off Lever to Greenhouse/Ashby/Workday. See "Lever dead-end" section below.
 
 **Disabled / dead (Phase 9.2 audit — keep JSON files for history, toggle Inactive or delete in n8n UI):**
 - [ ] **`01-rss-hn-jobs`** — disabled. Quality was high (0.96 conf, $79 value) but zero saves/apps over 30 days. Roles were US/senior/remote — not the target user. Burned ~2,500 tokens/month for nothing.
 - [ ] **`02-rss-weworkremotely`** — disabled. Single biggest AI cost (12,435 tokens/month, ~38% of total spend) for zero engagement. All rolling-deadline international remote roles. The Greenhouse cluster covers what little signal it had.
+- [ ] **`08-internshala-internships`** — **disabled — endpoint deprecated.** Internshala's `/hiring/search` JSON API now returns a frozen sample of 10 internships from January 2024 regardless of query params. All 10 rows ingested in last 30d arrived already-expired because the API serves stale data, not because of a parser bug. Real listings are now server-rendered HTML only (`<div class="container-fluid individual_internship" internshipId="...">` blocks on `/internships/work-from-home-internships/` etc.) — rebuilding as an HTML scraper + AI extract would be a 2-3 hour job and isn't justified since Unstop Internships already covers India internships much better (210 rows ingested in 30d, 0.90 avg confidence, 3 saves + 2 apps vs Internshala's 0 engagement). Revisit only if Unstop coverage drops.
 - [ ] **`10-rss-reddit-india`** — disabled. Both subreddits (r/developersIndia + r/csMajors) extracted at avg 0.38–0.46 confidence (sub-0.5 threshold for "hidden from feed"). Community posts are mostly vent threads / referral asks, not real opportunities. Keyword filter caught ~half but the rest still polluted the feed.
 
 **Reserved (planned but not built):**
