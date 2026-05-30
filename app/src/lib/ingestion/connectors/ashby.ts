@@ -1,4 +1,4 @@
-import { SourceListing } from "../types";
+import { type SourceListing } from "../types";
 
 export type AshbyConfig = {
   companies: { slug: string; displayName: string }[];

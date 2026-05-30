@@ -1,4 +1,4 @@
-import { type SourceListing } from "./types";
+import { type SourceListing } from "../types";
 
 export interface LeverConfig {
   companies: { slug: string; displayName: string }[];

@@ -1,4 +1,4 @@
-import { type SourceListing } from "./types";
+import { type SourceListing } from "../types";
 
 export interface GreenhouseConfig {
   boards: { slug: string; displayName: string }[];
