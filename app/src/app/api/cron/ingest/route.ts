@@ -52,10 +52,11 @@ export async function GET(req: NextRequest) {
     for (const listing of listings) {
       const opp = listing.structured;
       const organization = opp.organization || "Unknown";
-      const source_url = listing.sourceUrl || opp.apply_url || hashUrl(opp.title, organization);
+      const title = opp.title || "Unknown Title";
+      const source_url = listing.sourceUrl || opp.apply_url || hashUrl(title, organization);
       
       const row = {
-        title: opp.title,
+        title,
         organization,
         category: opp.category,
         description: opp.description || null,
