@@ -53,6 +53,11 @@ export type Profile = {
   calendar_token: string | null;
   role: UserRole;
   onboarded: boolean;
+  stage?: string | null;
+  opportunity_goals?: string[];
+  avoid_tags?: string[];
+  target_companies?: string[];
+  min_compensation?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -83,6 +88,16 @@ export type Opportunity = {
   date_added: string;
   featured: boolean;
   status: OpportunityStatus;
+  // Enrichment fields (Phase 2)
+  role_seniority?: string | null;
+  eligibility_tags?: string[];
+  effort_score?: number | null;
+  upside_score?: number | null;
+  competition_intensity?: number | null;
+  legitimacy_score?: number | null;
+  action_plan?: string | null;
+  red_flags?: string[];
+  enriched_at?: string | null;
 };
 
 export type IngestionLogStatus =

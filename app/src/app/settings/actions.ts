@@ -51,13 +51,22 @@ export async function saveSettings(
     Math.min(100, Number.parseInt(telegram_min_score_raw, 10) || 70),
   );
 
+  const stage = String(formData.get("stage") ?? "").trim() || null;
+  const min_compensation = String(formData.get("min_compensation") ?? "").trim() || null;
+
   let interests: string[] = [];
   let skills: string[] = [];
+  let opportunity_goals: string[] = [];
+  let avoid_tags: string[] = [];
+  let target_companies: string[] = [];
   try {
     interests = JSON.parse(String(formData.get("interests") ?? "[]"));
     skills = JSON.parse(String(formData.get("skills") ?? "[]"));
+    opportunity_goals = JSON.parse(String(formData.get("opportunity_goals") ?? "[]"));
+    avoid_tags = JSON.parse(String(formData.get("avoid_tags") ?? "[]"));
+    target_companies = JSON.parse(String(formData.get("target_companies") ?? "[]"));
   } catch {
-    return { error: "Invalid interests/skills payload" };
+    return { error: "Invalid array payloads" };
   }
 
   if (!full_name || !college || !graduation_year) {
@@ -85,6 +94,11 @@ export async function saveSettings(
       graduation_year,
       interests,
       skills,
+      opportunity_goals,
+      avoid_tags,
+      target_companies,
+      stage,
+      min_compensation,
       preferred_location,
       remote_preference,
       time_commitment,

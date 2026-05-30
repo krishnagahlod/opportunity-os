@@ -5,6 +5,7 @@ import { NavBar } from "@/components/NavBar";
 import { SettingsForm } from "./SettingsForm";
 import { CalendarSection } from "./CalendarSection";
 import { ResumeSection } from "./ResumeSection";
+import { TargetAlertsSection } from "./TargetAlertsSection";
 import type { Profile } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,9 @@ export default async function SettingsPage() {
             initialToken={(profile as Profile).calendar_token ?? null}
             appUrl={appUrl}
           />
+        </div>
+        <div className="mt-10">
+          <TargetAlertsSection isPremium={false} />
         </div>
       </main>
     </div>

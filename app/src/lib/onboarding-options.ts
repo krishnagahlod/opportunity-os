@@ -40,5 +40,35 @@ export const SKILL_OPTIONS = [
   "No-code tools",
 ] as const;
 
+export const STAGE_OPTIONS = [
+  "First Year",
+  "Second Year",
+  "Pre-final Year",
+  "Final Year",
+  "Graduate",
+  "Early Professional"
+] as const;
+
+export const GOAL_OPTIONS = [
+  "Internships",
+  "Full-time roles",
+  "Hackathons",
+  "Case Competitions",
+  "Fellowships",
+  "Scholarships",
+  "Workshops / Events"
+] as const;
+
+export const AVOID_OPTIONS = [
+  "Unpaid",
+  "Onsite",
+  "Senior roles",
+  "Sales / Marketing",
+  "Low-stipend internships"
+] as const;
+
 export type InterestOption = (typeof INTEREST_OPTIONS)[number];
 export type SkillOption = (typeof SKILL_OPTIONS)[number];
+export type StageOption = (typeof STAGE_OPTIONS)[number];
+export type GoalOption = (typeof GOAL_OPTIONS)[number];
+export type AvoidOption = (typeof AVOID_OPTIONS)[number];

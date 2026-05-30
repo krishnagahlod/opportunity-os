@@ -13,7 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { INTEREST_OPTIONS, SKILL_OPTIONS } from "@/lib/onboarding-options";
+import { 
+  INTEREST_OPTIONS, 
+  SKILL_OPTIONS,
+  STAGE_OPTIONS,
+  GOAL_OPTIONS,
+  AVOID_OPTIONS
+} from "@/lib/onboarding-options";
 import type { Profile } from "@/types/db";
 import { saveSettings } from "./actions";
 
@@ -82,18 +88,17 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   const [skills, setSkills] = useState<Set<string>>(
     new Set(profile.skills ?? []),
   );
+  const [goals, setGoals] = useState<Set<string>>(
+    new Set(profile.opportunity_goals ?? []),
+  );
+  const [avoids, setAvoids] = useState<Set<string>>(
+    new Set(profile.avoid_tags ?? []),
+  );
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
-  const toggleInterest = (v: string) =>
-    setInterests((s) => {
-      const n = new Set(s);
-      n.has(v) ? n.delete(v) : n.add(v);
-      return n;
-    });
-
-  const toggleSkill = (v: string) =>
-    setSkills((s) => {
+  const toggleSet = (setFunc: React.Dispatch<React.SetStateAction<Set<string>>>) => (v: string) =>
+    setFunc((s) => {
       const n = new Set(s);
       n.has(v) ? n.delete(v) : n.add(v);
       return n;
@@ -104,6 +109,9 @@ export function SettingsForm({ profile }: { profile: Profile }) {
     setSavedAt(null);
     formData.set("interests", JSON.stringify([...interests]));
     formData.set("skills", JSON.stringify([...skills]));
+    formData.set("opportunity_goals", JSON.stringify([...goals]));
+    formData.set("avoid_tags", JSON.stringify([...avoids]));
+    
     startTransition(async () => {
       const res = await saveSettings(formData);
       if (res && "error" in res) {
@@ -159,83 +167,116 @@ export function SettingsForm({ profile }: { profile: Profile }) {
                 required
               />
             </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="stage" className="text-xs">Current Stage</Label>
+              <Select name="stage" defaultValue={profile.stage ?? ""}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your current stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAGE_OPTIONS.map(opt => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </Section>
 
       <Section
-        title="Interests"
+        title="Interests & Skills"
         hint="Powers your feed ranking. Adding/removing rescores on next dashboard load."
       >
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-          <Chips
-            options={INTEREST_OPTIONS}
-            selected={interests}
-            onToggle={toggleInterest}
-          />
-        </div>
-      </Section>
-
-      <Section title="Skills">
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
-          <Chips
-            options={SKILL_OPTIONS}
-            selected={skills}
-            onToggle={toggleSkill}
-          />
-        </div>
-      </Section>
-
-      <Section title="Preferences">
-        <div className="grid gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="preferred_location" className="text-xs">
-              Preferred location
-            </Label>
-            <Input
-              id="preferred_location"
-              name="preferred_location"
-              defaultValue={profile.preferred_location ?? ""}
-              placeholder="Bangalore, Mumbai, anywhere, ..."
+        <div className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+          <div>
+            <Label className="text-xs mb-2 block text-muted-foreground">Interests / Tracks</Label>
+            <Chips
+              options={INTEREST_OPTIONS}
+              selected={interests}
+              onToggle={toggleSet(setInterests)}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="remote_preference" className="text-xs">
-              Remote preference
-            </Label>
-            <Select
-              name="remote_preference"
-              defaultValue={profile.remote_preference ?? "any"}
-            >
-              <SelectTrigger id="remote_preference">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="remote">Remote only</SelectItem>
-                <SelectItem value="onsite">On-site only</SelectItem>
-                <SelectItem value="hybrid">Hybrid</SelectItem>
-                <SelectItem value="any">Any</SelectItem>
-              </SelectContent>
-            </Select>
+          <div>
+            <Label className="text-xs mb-2 block text-muted-foreground">Skills</Label>
+            <Chips
+              options={SKILL_OPTIONS}
+              selected={skills}
+              onToggle={toggleSet(setSkills)}
+            />
           </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="time_commitment" className="text-xs">
-              What are you looking for?
-            </Label>
-            <Select
-              name="time_commitment"
-              defaultValue={profile.time_commitment ?? "any"}
-            >
-              <SelectTrigger id="time_commitment">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="internship">Internships</SelectItem>
-                <SelectItem value="full-time">Full-time roles</SelectItem>
-                <SelectItem value="part-time">Part-time / gigs</SelectItem>
-                <SelectItem value="any">Anything relevant</SelectItem>
-              </SelectContent>
-            </Select>
+        </div>
+      </Section>
+
+      <Section title="Goals & Preferences">
+        <div className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+          <div>
+            <Label className="text-xs mb-2 block text-muted-foreground">Goals (What do you want to see?)</Label>
+            <Chips
+              options={GOAL_OPTIONS}
+              selected={goals}
+              onToggle={toggleSet(setGoals)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs mb-2 block text-muted-foreground">Avoid (What do you not want to see?)</Label>
+            <Chips
+              options={AVOID_OPTIONS}
+              selected={avoids}
+              onToggle={toggleSet(setAvoids)}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">
+            <div className="space-y-1.5">
+              <Label htmlFor="preferred_location" className="text-xs">
+                Preferred location
+              </Label>
+              <Input
+                id="preferred_location"
+                name="preferred_location"
+                defaultValue={profile.preferred_location ?? ""}
+                placeholder="Bangalore, Mumbai, anywhere, ..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="remote_preference" className="text-xs">
+                Remote preference
+              </Label>
+              <Select
+                name="remote_preference"
+                defaultValue={profile.remote_preference ?? "any"}
+              >
+                <SelectTrigger id="remote_preference">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="remote">Remote only</SelectItem>
+                  <SelectItem value="onsite">On-site only</SelectItem>
+                  <SelectItem value="hybrid">Hybrid</SelectItem>
+                  <SelectItem value="any">Any</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="time_commitment" className="text-xs">
+                Type of role
+              </Label>
+              <Select
+                name="time_commitment"
+                defaultValue={profile.time_commitment ?? "any"}
+              >
+                <SelectTrigger id="time_commitment">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="internship">Internships</SelectItem>
+                  <SelectItem value="full-time">Full-time roles</SelectItem>
+                  <SelectItem value="part-time">Part-time / gigs</SelectItem>
+                  <SelectItem value="any">Anything relevant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </Section>

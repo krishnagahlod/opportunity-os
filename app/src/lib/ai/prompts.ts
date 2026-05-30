@@ -218,3 +218,65 @@ export function buildDedupPrompt(
     'Return JSON: { "same": boolean, "confidence": 0..1, "reasoning"?: short string }',
   ].join("\n");
 }
+
+/* ============ Enrich Opportunity ============ */
+
+export const OpportunityEnrichmentSchema = z.object({
+  role_seniority: z.enum([
+    "student",
+    "intern",
+    "entry_level",
+    "early_career",
+    "mid_level",
+    "senior",
+    "unknown",
+  ]),
+  best_for: z.array(z.string()).max(5),
+  eligibility_tags: z.array(z.string()).max(10),
+  nice_to_have_skills: z.array(z.string()).max(10),
+  effort_score: z.number().int().min(0).max(100),
+  upside_score: z.number().int().min(0).max(100),
+  competition_intensity: z.number().int().min(0).max(100),
+  legitimacy_score: z.number().int().min(0).max(100),
+  action_plan: z.string().max(300),
+  red_flags: z.array(z.string()).max(8),
+});
+
+export type OpportunityEnrichment = z.infer<typeof OpportunityEnrichmentSchema>;
+
+export const ENRICH_SYSTEM_INSTRUCTION = `You read a career opportunity posting and extract qualitative judgments. Output ONE complete JSON object — no prose, no fences.
+Facts must come from the listing text. Inferences must be conservative. If unclear, return lower confidence or a red flag.`;
+
+export function buildEnrichPrompt(
+  title: string,
+  organization: string,
+  category: string,
+  description: string | null,
+  eligibility: string | null
+): string {
+  return [
+    "Enrich this opportunity with qualitative judgments.",
+    "",
+    `Title: ${title}`,
+    `Organization: ${organization}`,
+    `Category: ${category}`,
+    `Eligibility: ${eligibility || "Unknown"}`,
+    "",
+    "Description:",
+    (description || "").slice(0, 3000),
+    "",
+    "Expected JSON format:",
+    `{
+  "role_seniority": "student" | "intern" | "entry_level" | "early_career" | "mid_level" | "senior" | "unknown",
+  "best_for": string[] (max 5),
+  "eligibility_tags": string[] (max 10),
+  "nice_to_have_skills": string[] (max 10),
+  "effort_score": 0-100,
+  "upside_score": 0-100,
+  "competition_intensity": 0-100,
+  "legitimacy_score": 0-100,
+  "action_plan": string (max 300),
+  "red_flags": string[] (max 8)
+}`
+  ].join("\n");
+}

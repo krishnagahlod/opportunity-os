@@ -1,0 +1,1537 @@
+# Opportunity OS Improvements Plan
+
+Prepared from a full repository review plus source/API research on 2026-05-28.
+
+This is written as a product + technical execution plan, not a brainstorm. The goal is to turn the current personal MVP into a genuinely useful and sellable opportunity intelligence product for ambitious Indian students and early professionals.
+
+## Research Anchors
+
+Current repo context:
+
+- The app is a Next.js + Supabase product with n8n ingestion, AI extraction, deterministic scoring, email/Telegram digests, application tracking, and admin moderation.
+- Existing high-signal source direction is already visible in the n8n audit: Unstop internships converted best; noisy RSS/Reddit/HN/WWR sources had low engagement or low confidence.
+- Current weak points are source quality, content usefulness, ranking trust, multi-user operations, and monetizable outcomes.
+
+External source/API notes:
+
+- Greenhouse has a public Job Board API for published jobs and does not require auth for GET endpoints: https://developer.greenhouse.io/job-board.html
+- Ashby exposes a public job posting API at `https://api.ashbyhq.com/posting-api/job-board/{JOB_BOARD_NAME}` and supports `includeCompensation=true`: https://developers.ashbyhq.com/docs/public-job-posting-api
+- Lever exposes public postings at `https://api.lever.co/v0/postings/{site}?mode=json`: https://github.com/lever/postings-api
+- Adzuna provides a jobs API with country search endpoints, including India support through `/jobs/{country}/search/{page}`: https://developer.adzuna.com/activedocs
+- Remotive has a public API, but its public API terms require attribution/linkback and explicitly restrict some third-party use cases. Treat this as "use only with clear attribution/permission" rather than a default ingestion source: https://github.com/remotive-io/remote-jobs-api
+- Google Programmable Search JSON API exists, but open web search APIs are unstable and not ideal as a primary data backbone. Use site-specific crawling and direct APIs first: https://developers.google.com/custom-search/v1/
+- Unstop has public pages/API-backed category pages such as `api.unstop.com/all-opportunities` and `api.unstop.com/hackathons`; the repo already has working Unstop workflows. Treat as a high-value source, but monitor for API changes.
+
+## Executive Diagnosis
+
+The current product is strong for an MVP because it already has the hard skeleton:
+
+- Authentication and onboarding.
+- Opportunity storage and personalization.
+- Automated ingestion.
+- AI parsing.
+- Score caching.
+- Saved/apply tracker.
+- Email and Telegram digest.
+- Admin health view.
+
+However, a sellable product is not "a feed of opportunities". Users will only pay if it consistently produces outcomes:
+
+- "I found things I would have missed."
+- "The feed is cleaner than Unstop/LinkedIn/WhatsApp groups."
+- "I know exactly why this is worth my time."
+- "I can apply earlier than everyone else."
+- "I get reminders before deadlines."
+- "It learns what I care about."
+
+So the product should evolve from an aggregator into an opportunity intelligence system.
+
+The highest leverage improvements are:
+
+1. Build a source-quality engine, not just more scrapers.
+2. Add richer opportunity enrichment so every card answers "Should I spend time on this?"
+3. Upgrade scoring from generic fit to outcome-aware ranking.
+4. Add feedback loops so the system learns from saves, hides, applies, and wins.
+5. Make daily digest/alerts feel like a personal analyst, not a dump of links.
+6. Move ingestion from fragile local n8n to a production ingestion architecture.
+7. Package the product around a clear buyer and willingness-to-pay.
+
+## Product Positioning
+
+### Recommended Positioning
+
+"A personalized opportunity radar for ambitious Indian students and early-career professionals. It finds high-quality internships, competitions, fellowships, hackathons, and early-career roles before deadlines pass, ranks them by fit, and explains what to do next."
+
+### Avoid Positioning It As
+
+- A generic job board.
+- A LinkedIn alternative.
+- A scraper dashboard.
+- "AI recommendations" without proof.
+
+### Sellable Promise
+
+For students:
+
+- Never miss a high-value internship, competition, fellowship, or hackathon.
+- See why an opportunity fits you.
+- Track deadlines and applications in one place.
+- Get alerts only for things worth applying to.
+
+For colleges/campus clubs:
+
+- A curated opportunity intelligence board for students.
+- Analytics on what students save/apply to.
+- Admin ability to add campus-specific opportunities.
+
+For premium individual users:
+
+- Faster alerts.
+- Resume/opportunity match analysis.
+- Skill gap and application prep.
+- Priority source coverage for target companies/categories.
+
+## North Star Metrics
+
+Do not optimize for total opportunities ingested. That rewards noise.
+
+Primary metric:
+
+- Qualified Actions Per Weekly Active User: count of saves, applies, calendar subscriptions, reminders set, and "not interested" feedback on opportunities with score >= 60.
+
+Activation metric:
+
+- User completes onboarding, saves at least 2 opportunities, and subscribes to one notification channel within 24 hours.
+
+Retention metrics:
+
+- Weekly active users.
+- Digest open/click rate.
+- Telegram alert click rate.
+- Percentage of users who save/apply in week 2 after signup.
+
+Quality metrics:
+
+- Source-to-save rate: saves per 100 opportunities from a source.
+- Source-to-apply rate: applies per 100 opportunities from a source.
+- Hidden/spam rate.
+- Duplicate rate.
+- Expired-at-ingestion rate.
+- Low-confidence extraction rate.
+- User "not interested" rate by source/category.
+
+Business metrics:
+
+- Free-to-premium conversion.
+- Premium retention after first month.
+- Number of "outcome events": interviews, selected, won, shortlisted.
+
+## Improvement Pillar 1: Source Quality
+
+### Current Problem
+
+The product has workflows for many sources, but the source strategy is still partly opportunistic. Some sources have poor user fit:
+
+- HN Jobs: high-quality jobs, but often senior/US/global, not the target user.
+- WeWorkRemotely: large volume but low engagement and remote global noise.
+- Reddit: community posts are messy and often not real opportunities.
+- Internshala: existing endpoint became stale/deprecated.
+- Direct structured sources like Unstop, Devpost, Greenhouse, Lever are stronger because they reduce AI parsing cost and improve freshness.
+
+### Desired Source Portfolio
+
+Split sources into tiers.
+
+Tier 1 - Direct structured, high intent:
+
+- Unstop internships, hackathons, case competitions, scholarships, workshops.
+- Devpost hackathons.
+- Greenhouse public job boards.
+- Ashby public job boards.
+- Lever public postings.
+- Select official fellowship/scholarship pages.
+- College placement/career cell public pages where permitted.
+
+Tier 2 - Semi-structured, curated:
+
+- Company early-career pages.
+- YC/Wellfound/startup pages if access is reliable and compliant.
+- Public newsletters with RSS.
+- Public Telegram/WhatsApp replacement channels only if content can be ingested lawfully and with consent.
+
+Tier 3 - Experimental/noisy:
+
+- Reddit.
+- HN jobs.
+- Generic remote job boards.
+- Search result scraping.
+
+Tier 3 should not feed the main dashboard directly. It should feed a review/learning sandbox until it proves source quality.
+
+### Implementation Plan: Source Registry
+
+Add a real source registry instead of only `sources`.
+
+New table: `source_connectors`
+
+```sql
+create table public.source_connectors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  connector_type text not null check (connector_type in (
+    'unstop',
+    'devpost',
+    'greenhouse',
+    'ashby',
+    'lever',
+    'rss',
+    'html',
+    'manual',
+    'user_submission',
+    'search_api'
+  )),
+  url text,
+  config jsonb not null default '{}',
+  target_personas text[] not null default '{}',
+  categories text[] not null default '{}',
+  country_focus text[] not null default '{}',
+  enabled boolean not null default true,
+  trust_tier int not null default 2 check (trust_tier between 1 and 5),
+  fetch_frequency_minutes int not null default 720,
+  last_run_at timestamptz,
+  last_success_at timestamptz,
+  last_error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
+
+New table: `source_quality_daily`
+
+```sql
+create table public.source_quality_daily (
+  source_connector_id uuid references public.source_connectors(id) on delete cascade,
+  day date not null,
+  fetched_count int not null default 0,
+  inserted_count int not null default 0,
+  duplicate_count int not null default 0,
+  expired_count int not null default 0,
+  low_confidence_count int not null default 0,
+  hidden_count int not null default 0,
+  save_count int not null default 0,
+  apply_count int not null default 0,
+  dismiss_count int not null default 0,
+  avg_score numeric(5,2),
+  avg_confidence numeric(4,3),
+  primary key (source_connector_id, day)
+);
+```
+
+Purpose:
+
+- Decide objectively which sources deserve quota.
+- Auto-disable sources that produce expired/noisy listings.
+- Prioritize sources that drive saves/applications.
+
+### Implementation Plan: Add Ashby Connector
+
+Why:
+
+- Many high-growth startups have moved to Ashby.
+- Ashby gives structured data and can include compensation.
+- The repo README already notes that many companies moved off Lever/Greenhouse to Ashby.
+
+Build:
+
+1. Add `12-ashby-ats.json` n8n workflow or, better, a TypeScript ingestion route/runner.
+2. Store company slugs in `source_connectors.config`, for example:
+
+```json
+{
+  "companies": [
+    { "slug": "linear", "displayName": "Linear" },
+    { "slug": "notion", "displayName": "Notion" },
+    { "slug": "ramp", "displayName": "Ramp" }
+  ],
+  "includeCompensation": true,
+  "perCompanyLimit": 10
+}
+```
+
+3. Fetch `https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true`.
+4. Map structured fields directly:
+
+- `title`
+- `organization`
+- `location`
+- `department/team`
+- `employmentType` or inferred category
+- `compensation`
+- `applicationUrl`
+- `descriptionHtml`
+
+5. Run AI only for enrichment fields that are not present:
+
+- required skills
+- eligibility
+- short summary
+- role seniority
+- student friendliness
+
+6. Add early-career filters:
+
+- Include titles containing: intern, internship, graduate, new grad, university, campus, associate, analyst, entry level, junior.
+- Include student-friendly competitions/fellowships even if not jobs.
+- Exclude titles containing: staff, principal, senior, lead, manager, director, head of, 5+ years, 7+ years.
+
+7. Record skipped reasons in `ingestion_logs`.
+
+Success criteria:
+
+- At least 70 percent extraction confidence.
+- Less than 10 percent irrelevant/senior roles.
+- At least 1 save per 50 inserted roles in target cohort.
+
+### Implementation Plan: Expand Unstop Coverage Carefully
+
+Why:
+
+- Existing repo notes Unstop internships are highest engagement.
+- Unstop is highly aligned with Indian students.
+- It covers internships, competitions, hackathons, quizzes, scholarships, workshops.
+
+Build:
+
+1. Create separate connectors per category:
+
+- `unstop_internships`
+- `unstop_competitions`
+- `unstop_hackathons`
+- `unstop_scholarships`
+- `unstop_workshops`
+- `unstop_jobs_entry_level`
+
+2. Normalize all Unstop rows into a consistent internal object before upsert.
+
+3. Add a `source_specific` JSONB column to `opportunities`:
+
+```sql
+alter table public.opportunities
+add column if not exists source_specific jsonb not null default '{}';
+```
+
+Store:
+
+- registration count
+- impressions
+- listed eligibility
+- prize amount
+- organizer type
+- team size
+- rounds
+- mode
+- application/start/end timestamps if present
+
+4. Use these fields for scoring:
+
+- More registrations can signal popularity but also competition.
+- Prize and organizer reputation affect career value.
+- Team size affects application effort.
+- Deadline and round count affect urgency.
+
+5. Add a "source reliability" job that verifies current Unstop endpoint output is fresh. If the newest `posted_at` is older than 14 days, auto-alert admin.
+
+Success criteria:
+
+- Unstop rows should have >= 0.9 structured confidence because no AI is needed for core fields.
+- Add at least 3 category types beyond internships without dropping save/apply rate.
+
+### Implementation Plan: Fellowship and Scholarship Vertical
+
+Why:
+
+- Fellowships and scholarships are high-value, low-frequency, and students miss them.
+- They are less commoditized than jobs.
+- They make the product feel like an "opportunity OS", not a job board.
+
+Sources to start:
+
+- Teach For India.
+- Young India Fellowship / Ashoka.
+- Gandhi Fellowship.
+- Acumen India Fellowship.
+- PMRDF or government fellowship pages if active.
+- National Scholarship Portal pages.
+- Major university scholarships and exchange programs.
+- DAAD, Chevening, Erasmus, Rhodes-type pages for Indian students.
+
+Build:
+
+1. Use `source_connectors` with connector type `html` or `rss`.
+2. Fetch the official page daily or weekly.
+3. Extract page content and hash the meaningful text.
+4. Only call AI when the hash changes.
+5. Store `deadline_confidence` and `source_last_verified_at`.
+6. Add admin review before publishing if:
+
+- no deadline found
+- deadline changed
+- eligibility is ambiguous
+- application URL changed
+
+New fields:
+
+```sql
+alter table public.opportunities
+add column if not exists deadline_confidence numeric(3,2),
+add column if not exists source_last_verified_at timestamptz,
+add column if not exists application_effort text check (application_effort in ('low','medium','high')),
+add column if not exists selection_value text check (selection_value in ('low','medium','high','elite'));
+```
+
+Success criteria:
+
+- At least 30 high-quality fellowship/scholarship rows.
+- Less than 5 percent broken apply links.
+- High save rate even if low volume.
+
+### Implementation Plan: Source Candidate Pipeline
+
+Right now, adding a source is manual and scattered in JSON workflows. Create a funnel:
+
+New table: `source_candidates`
+
+```sql
+create table public.source_candidates (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  url text not null,
+  suggested_by uuid references public.profiles(id),
+  connector_guess text,
+  status text not null default 'new' check (status in (
+    'new',
+    'testing',
+    'approved',
+    'rejected',
+    'paused'
+  )),
+  notes text,
+  created_at timestamptz not null default now()
+);
+```
+
+Admin workflow:
+
+1. User/admin submits a source URL.
+2. System runs "source probe":
+   - Is it Greenhouse, Ashby, Lever, RSS, HTML?
+   - Does it return current listings?
+   - Can listings be parsed without login?
+   - Are listings relevant to target persona?
+3. Admin sees probe result.
+4. Approved candidates become `source_connectors`.
+
+This creates a scalable way to grow coverage without hardcoding every source.
+
+## Improvement Pillar 2: Opportunity Content Quality
+
+### Current Problem
+
+Opportunity cards currently show the basics:
+
+- title
+- organization
+- deadline
+- location
+- compensation
+- category
+- save/apply actions
+- short summary
+- why recommendation
+
+That is enough for browsing, but not enough for confident action. A sellable product should answer:
+
+- Is this legitimate?
+- Am I eligible?
+- How much effort will applying take?
+- What is the upside?
+- What skills are required?
+- What should I do next?
+- Is the deadline reliable?
+- Is this too senior for me?
+
+### Add an Opportunity Enrichment Layer
+
+Introduce a second AI/content pass called "enrichment". Extraction should only capture facts. Enrichment should interpret usefulness.
+
+New fields:
+
+```sql
+alter table public.opportunities
+add column if not exists role_seniority text check (role_seniority in (
+  'student',
+  'intern',
+  'entry_level',
+  'early_career',
+  'mid_level',
+  'senior',
+  'unknown'
+)),
+add column if not exists eligibility_tags text[] not null default '{}',
+add column if not exists effort_score int check (effort_score between 0 and 100),
+add column if not exists upside_score int check (upside_score between 0 and 100),
+add column if not exists competition_intensity int check (competition_intensity between 0 and 100),
+add column if not exists legitimacy_score int check (legitimacy_score between 0 and 100),
+add column if not exists action_plan text,
+add column if not exists red_flags text[] not null default '{}',
+add column if not exists enrichment_version int not null default 1,
+add column if not exists enriched_at timestamptz;
+```
+
+Enrichment output should include:
+
+- `plain_language_summary`: "What this actually is".
+- `best_for`: e.g. "CS sophomores with React projects", "consulting aspirants", "first hackathon builders".
+- `eligibility_tags`: undergraduate, postgraduate, women-only, India-only, engineering, MBA, final-year, pre-final-year.
+- `required_skills`: explicit skill requirements.
+- `nice_to_have_skills`: inferred but not required.
+- `effort_score`: expected application effort.
+- `upside_score`: expected payoff.
+- `red_flags`: unpaid, unclear org, broken link, excessive assignment, senior role, questionable source, missing deadline.
+- `action_plan`: short "next step" text.
+
+### Implementation Plan: New Enrichment Route
+
+Add:
+
+- `app/src/app/api/ai/enrich/route.ts`
+- `app/src/lib/ai/enrich.ts`
+- `app/src/lib/ai/enrichment-schema.ts`
+
+Request:
+
+```json
+{
+  "opportunity_id": "uuid",
+  "force": false
+}
+```
+
+Flow:
+
+1. Admin/server fetches opportunity by ID.
+2. Build enrichment prompt from title, org, summary, description, eligibility, compensation, source, source_specific.
+3. Call `callLLM`.
+4. Validate with Zod.
+5. Save enrichment fields.
+6. Log provider, duration, and token estimate.
+
+Run enrichment:
+
+- On upsert for new rows only.
+- Re-run if `description`, `deadline`, `eligibility`, or `apply_url` changes.
+- Batch low priority in background to avoid blocking ingestion.
+
+Important principle:
+
+- Do not let AI invent facts. Store inferred fields separately from factual fields.
+- Use labels like "likely", "unclear", "verify" when confidence is low.
+
+### Card Content Improvements
+
+Dashboard card should show:
+
+- Fit score.
+- Deadline.
+- One-line "why it matters".
+- Eligibility chip.
+- Effort chip.
+- Upside chip.
+- Warning chip if red flags exist.
+
+Example card content:
+
+```text
+Razorpay Product Intern
+Best for: PM + fintech profiles
+Why: Matches product + fintech interests, strong brand, closing in 6 days.
+Eligibility: Pre-final/final year
+Effort: Medium
+Upside: High
+```
+
+Detail page should add sections:
+
+- "Should you apply?"
+- "Eligibility check"
+- "Skills you match"
+- "Skills to strengthen"
+- "Application effort"
+- "Red flags / verify before applying"
+- "Suggested next step"
+
+### Implementation Plan: Detail Page Upgrade
+
+Modify [app/src/app/opportunity/[id]/page.tsx] to include:
+
+1. A decision summary panel:
+
+```text
+Recommended if: You want fintech/product internships and can apply this week.
+Think twice if: You only want remote roles.
+```
+
+2. Skill fit:
+
+- Existing `findMatchedTerms`.
+- Existing `findMissingRequirements`.
+- Add `nice_to_have_skills`.
+
+3. Eligibility:
+
+- Show chips from `eligibility_tags`.
+- If user profile says graduation year and opportunity says pre-final/final, show a match/mismatch.
+
+4. Effort/upside:
+
+- Low/medium/high badges.
+- Explain why effort is high: "requires team formation", "multi-round case", "assignment likely".
+
+5. Verification:
+
+- Show "Last verified".
+- Show source.
+- Show broken link status if available.
+
+## Improvement Pillar 3: Scoring Logic
+
+### Current Problem
+
+The scoring model is deterministic and understandable, which is good. But it is still a generic relevance score. It does not fully distinguish:
+
+- "Good fit but low value"
+- "High value but likely ineligible"
+- "Urgent but not worth applying"
+- "Popular but too competitive"
+- "Great opportunity but application effort too high this week"
+- "Source is noisy"
+
+### New Scoring Philosophy
+
+Use multiple scores instead of one opaque score:
+
+1. Fit Score: how well it matches the user.
+2. Value Score: how worthwhile it is.
+3. Actionability Score: whether the user can realistically act now.
+4. Confidence Score: whether the data is trustworthy.
+5. Final Recommendation Score: weighted combination.
+
+Show the final score on cards, but use the components internally and on detail pages.
+
+### Proposed Formula
+
+```text
+final_score =
+  0.30 * fit_score
+  0.25 * value_score
+  0.15 * actionability_score
+  0.10 * timing_score
+  0.10 * behavioral_score
+  0.10 * source_quality_score
+
+final_score = final_score * confidence_multiplier
+final_score = apply_hard_penalties(final_score)
+```
+
+Hard penalties:
+
+- Ineligible: cap at 35.
+- Senior role for student user: cap at 30.
+- Expired/broken link: hide.
+- Low legitimacy: cap at 40.
+- Unpaid + high effort + unknown org: cap at 45.
+- Extraction confidence below 0.5: hide and admin review.
+
+### Component Details
+
+Fit Score:
+
+- User interests.
+- Skills.
+- Resume skills.
+- Preferred category.
+- Location/remote preference.
+- Graduation year eligibility.
+- Role seniority fit.
+
+Value Score:
+
+- Organization tier.
+- Category value baseline.
+- Compensation/prize/scholarship amount.
+- Brand/network value.
+- Selectivity/prestige.
+- Learning value.
+- Career path alignment.
+
+Actionability Score:
+
+- Apply URL present.
+- Clear eligibility.
+- Application effort.
+- Deadline not too soon.
+- User has enough matching skills.
+- Team requirement manageable.
+
+Timing Score:
+
+- Deadline proximity.
+- Freshness.
+- "Apply early" boost for job roles posted in last 72 hours.
+- Deadline urgency only if opportunity is otherwise relevant.
+
+Behavioral Score:
+
+- Saved categories/tags/orgs.
+- Applied categories/tags/orgs.
+- Dismissed categories/tags/orgs.
+- User-selected target companies/categories.
+
+Source Quality Score:
+
+- Historical save/apply rate.
+- Low duplicate rate.
+- Low expired-at-ingestion rate.
+- Low low-confidence rate.
+- Freshness reliability.
+
+### Implementation Plan: Score Schema
+
+Update `scores.breakdown` to include the new components. No migration is strictly needed because `breakdown` is JSONB, but update TypeScript type.
+
+Current type in [app/src/types/db.ts] is stale compared with the current scoring implementation. Update it:
+
+```ts
+export type ScoreBreakdown = {
+  fit: number;
+  value: number;
+  actionability: number;
+  timing: number;
+  behavioral: number;
+  source_quality: number;
+  confidence: number;
+  penalties: string[];
+};
+```
+
+Then refactor:
+
+- `app/src/lib/scoring/score.ts`
+- `app/src/lib/scoring/orgs.ts`
+- add `app/src/lib/scoring/source-quality.ts`
+- add `app/src/lib/scoring/eligibility-fit.ts`
+
+### Implementation Plan: Feedback Loop
+
+Add explicit user feedback.
+
+New table:
+
+```sql
+create table public.opportunity_feedback (
+  user_id uuid references public.profiles(id) on delete cascade,
+  opportunity_id uuid references public.opportunities(id) on delete cascade,
+  feedback text not null check (feedback in (
+    'not_interested',
+    'bad_match',
+    'already_seen',
+    'ineligible',
+    'low_quality',
+    'broken_link',
+    'great_match'
+  )),
+  created_at timestamptz not null default now(),
+  primary key (user_id, opportunity_id, feedback)
+);
+```
+
+UI:
+
+- Add "Hide" or "Not for me" to opportunity cards.
+- On click, ask lightweight reason.
+- Store feedback.
+- Immediately remove from feed.
+
+Scoring:
+
+- Penalize similar category/tags/source if user repeatedly dismisses them.
+- Boost similar items if user marks "great match", saves, applies, or wins.
+
+Source quality:
+
+- `broken_link`, `low_quality`, `already_seen` feedback should affect source metrics.
+
+### Implementation Plan: Outcome Tracking
+
+Applications currently track statuses, but the product needs outcomes.
+
+Add:
+
+```sql
+alter table public.applications
+add column if not exists applied_at timestamptz,
+add column if not exists outcome_at timestamptz,
+add column if not exists source_channel text,
+add column if not exists user_rating int check (user_rating between 1 and 5);
+```
+
+Use this to learn:
+
+- Which sources produce interviews/wins.
+- Which score ranges produce actions.
+- Which categories retain users.
+
+## Improvement Pillar 4: Search and Discovery
+
+### Current Problem
+
+Search uses ILIKE token matching over title/org/summary, then computes score. It works for a small dataset but will become weak as rows grow.
+
+### Recommended Search Upgrade
+
+Phase 1: Postgres full-text + trigram
+
+Add migration:
+
+```sql
+create extension if not exists pg_trgm;
+
+alter table public.opportunities
+add column if not exists search_text text generated always as (
+  coalesce(title,'') || ' ' ||
+  coalesce(organization,'') || ' ' ||
+  coalesce(summary,'') || ' ' ||
+  coalesce(description,'') || ' ' ||
+  coalesce(array_to_string(tags, ' '),'') || ' ' ||
+  coalesce(array_to_string(required_skills, ' '),'')
+) stored;
+
+create index if not exists opportunities_search_trgm_idx
+on public.opportunities using gin (search_text gin_trgm_ops);
+```
+
+Then update `/api/search` to search `search_text`.
+
+Phase 2: Semantic search
+
+Add embeddings only after data quality is strong.
+
+New table:
+
+```sql
+create extension if not exists vector;
+
+create table public.opportunity_embeddings (
+  opportunity_id uuid primary key references public.opportunities(id) on delete cascade,
+  embedding vector(1536),
+  embedding_model text not null,
+  updated_at timestamptz not null default now()
+);
+```
+
+Use semantic search for:
+
+- "PM internship in fintech"
+- "case competition for consulting"
+- "remote AI research"
+- "low effort scholarships"
+
+Do not replace filters/ranking. Semantic search should create a candidate pool, then score normally.
+
+## Improvement Pillar 5: Notifications That Users Actually Want
+
+### Current Problem
+
+The daily digest is useful but still broad. Telegram threshold helps, but notification value should be based on "should interrupt the user now".
+
+### Notification Types
+
+1. Daily digest: broad, email-first.
+2. Urgent deadline reminder: saved/applied item closing soon.
+3. High-fit instant alert: score >= threshold and high value.
+4. New target-company alert: user selected company/category.
+5. Weekly recap: progress and missed opportunities.
+
+### Implementation Plan
+
+Add notification preferences:
+
+```sql
+alter table public.profiles
+add column if not exists notification_prefs jsonb not null default '{
+  "email_daily": true,
+  "telegram_daily": false,
+  "telegram_instant_high_fit": false,
+  "deadline_reminders": true,
+  "weekly_recap": true
+}'::jsonb;
+```
+
+Add target preferences:
+
+```sql
+create table public.user_targets (
+  user_id uuid references public.profiles(id) on delete cascade,
+  target_type text not null check (target_type in ('company','category','skill','source','keyword')),
+  value text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, target_type, value)
+);
+```
+
+Instant alert flow:
+
+1. New opportunity inserted.
+2. Compute score for users who match target filters first.
+3. If final score >= threshold and value/actionability high, notify.
+4. Rate-limit instant alerts per user to avoid spam.
+
+Add table:
+
+```sql
+create table public.notification_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  opportunity_id uuid references public.opportunities(id) on delete cascade,
+  channel text not null check (channel in ('email','telegram')),
+  notification_type text not null,
+  status text not null check (status in ('queued','sent','failed','skipped')),
+  reason text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now()
+);
+```
+
+Use this to avoid duplicate alerts and track effectiveness.
+
+## Improvement Pillar 6: Application Workflow and User Outcomes
+
+### Current Problem
+
+The tracker is useful, but it is still passive. A sellable product should help users move from discovery to application.
+
+### Add "Apply Plan"
+
+For each saved opportunity, provide:
+
+- Deadline countdown.
+- Required assets: resume, cover letter, team, portfolio, GitHub, case deck.
+- Estimated time to apply.
+- Suggested next action.
+- Reminder schedule.
+
+Implementation:
+
+New table:
+
+```sql
+create table public.application_tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  opportunity_id uuid references public.opportunities(id) on delete cascade,
+  title text not null,
+  status text not null default 'todo' check (status in ('todo','done','skipped')),
+  due_at timestamptz,
+  created_at timestamptz not null default now()
+);
+```
+
+Auto-create tasks when user saves:
+
+- "Read eligibility"
+- "Prepare resume"
+- "Submit application"
+- "Mark applied"
+- For competitions: "Find team", "Register team", "Submit round 1"
+
+Do this using deterministic templates based on category and enrichment fields. Use AI only for custom complex tasks later.
+
+### Add Resume Match
+
+The product already parses resumes for skills. Use it more:
+
+- On detail page: "Your resume mentions 3 of 5 required skills."
+- Show missing skills.
+- Show "Add to profile" chips.
+- Premium: generate application checklist or resume bullet suggestions.
+
+Avoid auto-generating full resumes initially. It is a high-risk, crowded feature. Start with "resume fit analysis".
+
+## Improvement Pillar 7: Admin and Data Operations
+
+### Current Problem
+
+Admin shows ingestion logs and review items, but operating this at scale needs queues, source metrics, and replay tools.
+
+### Add Admin Queues
+
+Queues:
+
+- Needs review: already exists.
+- Broken links.
+- Expired but still active at source.
+- Duplicate candidates.
+- Low source quality.
+- User-reported bad rows.
+
+New table:
+
+```sql
+create table public.admin_review_items (
+  id uuid primary key default gen_random_uuid(),
+  item_type text not null check (item_type in (
+    'opportunity',
+    'source',
+    'duplicate',
+    'broken_link',
+    'user_report'
+  )),
+  item_id uuid,
+  reason text not null,
+  priority int not null default 3 check (priority between 1 and 5),
+  status text not null default 'open' check (status in ('open','resolved','dismissed')),
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+```
+
+### Add Link Verification
+
+Daily job:
+
+1. Fetch `apply_url` with HEAD/GET.
+2. Mark broken if 404/410 or repeated 500.
+3. If broken, hide from feed or warn.
+4. If source says posting is gone, mark expired.
+
+Fields:
+
+```sql
+alter table public.opportunities
+add column if not exists apply_url_status text check (apply_url_status in (
+  'unknown',
+  'ok',
+  'redirected',
+  'broken'
+)) default 'unknown',
+add column if not exists apply_url_checked_at timestamptz;
+```
+
+### Add Raw Payload Storage
+
+For debugging and reprocessing, store raw ingestion payloads.
+
+```sql
+create table public.raw_opportunity_events (
+  id uuid primary key default gen_random_uuid(),
+  source_connector_id uuid references public.source_connectors(id),
+  source_url text,
+  raw_payload jsonb,
+  raw_text text,
+  content_hash text,
+  processing_status text not null default 'new',
+  opportunity_id uuid references public.opportunities(id),
+  created_at timestamptz not null default now()
+);
+```
+
+Benefits:
+
+- Re-run enrichment after prompt changes.
+- Debug hallucinations.
+- Compare source changes over time.
+- Avoid repeated fetching.
+
+## Improvement Pillar 8: Production Ingestion Architecture
+
+### Current Problem
+
+n8n is good for prototyping, but local/Render n8n is fragile for a sellable product. The repo itself documents risks: workflows may stop, source changes need manual import, and local Docker only runs when the laptop is on.
+
+### Recommended Architecture
+
+Keep n8n for experiments. Move production connectors into code.
+
+Components:
+
+1. `source_connectors` table controls what to fetch.
+2. A scheduled Vercel Cron or external worker triggers ingestion.
+3. A TypeScript ingestion runner fetches connectors.
+4. Jobs are queued and rate-limited.
+5. Raw payloads are stored.
+6. Structured rows are upserted.
+7. Enrichment runs asynchronously.
+8. Source metrics update daily.
+
+Vercel Cron may be enough early, but longer jobs can hit time limits. If ingestion grows, move workers to:
+
+- Fly.io
+- Render paid worker
+- Railway
+- Oracle Cloud VM
+- Supabase Edge Functions plus queue
+
+### Implementation Plan
+
+Add:
+
+- `app/src/lib/ingestion/connectors/greenhouse.ts`
+- `app/src/lib/ingestion/connectors/ashby.ts`
+- `app/src/lib/ingestion/connectors/lever.ts`
+- `app/src/lib/ingestion/connectors/unstop.ts`
+- `app/src/lib/ingestion/connectors/devpost.ts`
+- `app/src/lib/ingestion/pipeline.ts`
+- `app/src/app/api/cron/ingest/route.ts`
+
+Flow:
+
+```text
+/api/cron/ingest
+  -> load due source_connectors
+  -> for each connector, fetch listings
+  -> normalize to SourceListing[]
+  -> check exact duplicate by source_url
+  -> store raw event
+  -> map structured fields
+  -> optional AI extract/enrich
+  -> upsert opportunities
+  -> update source metrics
+```
+
+Keep `/api/ingest/upsert` for n8n and manual integrations.
+
+## Improvement Pillar 9: Personalization and Onboarding
+
+### Current Problem
+
+Onboarding asks for interests and skills, which is good, but it does not capture user intent deeply enough:
+
+- What year are they in?
+- Are they looking for internships, jobs, case comps, hackathons, fellowships?
+- Are they willing to do unpaid work?
+- How much weekly time do they have?
+- Which companies/categories matter?
+- What is their risk appetite?
+
+### Improved Onboarding
+
+Ask fewer but higher-signal questions:
+
+1. What are you hunting for right now?
+   - internships
+   - full-time roles
+   - hackathons
+   - case competitions
+   - fellowships/scholarships
+   - workshops/events
+
+2. What is your current stage?
+   - first year
+   - second year
+   - pre-final
+   - final year
+   - graduate
+   - early professional
+
+3. What are your top 3 tracks?
+   - software
+   - product
+   - data/AI
+   - consulting
+   - finance
+   - design
+   - research
+   - startups
+
+4. What should we avoid?
+   - unpaid
+   - onsite
+   - long assignments
+   - senior roles
+   - sales/marketing
+   - low-stipend internships
+
+5. Optional:
+   - target companies
+   - resume upload
+   - Telegram alerts
+
+New profile fields:
+
+```sql
+alter table public.profiles
+add column if not exists stage text,
+add column if not exists opportunity_goals text[] not null default '{}',
+add column if not exists avoid_tags text[] not null default '{}',
+add column if not exists target_companies text[] not null default '{}',
+add column if not exists min_compensation text;
+```
+
+Use these directly in scoring and filters.
+
+## Improvement Pillar 10: Monetization
+
+### Recommended Business Model
+
+Start with individual subscriptions, then campus/team plans.
+
+Free:
+
+- Browse feed.
+- Save opportunities.
+- Basic daily email.
+- Limited scoring details.
+- Limited saved items or standard refresh speed.
+
+Premium Individual:
+
+- Instant Telegram alerts.
+- Resume/opportunity match analysis.
+- Advanced filters.
+- Calendar sync.
+- Saved application tasks.
+- Target company/category alerts.
+- Weekly recap.
+- Higher source freshness.
+
+Campus/Club Plan:
+
+- Private campus board.
+- Admin upload.
+- Department/category dashboards.
+- Student engagement analytics.
+- Curated weekly digest for students.
+- Branded submission form.
+
+Avoid monetizing too early with generic "more opportunities". Users pay for relevance, speed, and outcomes.
+
+### Pricing Hypothesis
+
+India student market is price sensitive. Test:
+
+- Free.
+- Premium: INR 99-199/month.
+- Annual/student plan: INR 999/year.
+- Campus/club: INR 5,000-25,000/year depending on size.
+
+Do not build billing first. Prove users return for 3-4 weeks and click/apply before adding payments.
+
+## Improvement Pillar 11: Trust, Compliance, and Risk
+
+### Current Risk
+
+The product ingests public data from multiple sources. A sellable version needs source attribution, robots/terms awareness, and clear user trust.
+
+### Actions
+
+1. Add visible source attribution on every detail page.
+2. Link to original source/apply page.
+3. Avoid scraping logged-in/private content.
+4. Use official APIs or public job-board endpoints where possible.
+5. Respect source terms.
+6. Keep raw content snippets minimal when source terms are restrictive.
+7. Add "Report issue" button.
+8. Add privacy policy before public launch.
+9. Rotate secrets found in docs/history before deployment.
+
+Important security cleanup:
+
+- `Idea.md` contains a credential-looking database password. Rotate the Supabase/Postgres password, remove the secret from the file, and purge it from git history before making the repo public or inviting collaborators.
+
+## Suggested Roadmap
+
+### Phase 1: Data Quality Foundation, 1-2 Weeks
+
+Goal: Make the feed reliably useful for one target persona.
+
+Build:
+
+- Add `source_connectors`.
+- Add `source_quality_daily`.
+- Add source quality dashboard.
+- Add user feedback table and "Not for me".
+- Add link verification fields.
+- Add Ashby connector.
+- Expand Unstop categories cautiously.
+- Update `ScoreBreakdown` type.
+
+Ship criteria:
+
+- 5-8 reliable active sources.
+- Less than 10 percent low-confidence rows in feed.
+- At least 20 percent of onboarded users save one item in first session.
+
+### Phase 2: Content Enrichment, 2 Weeks
+
+Goal: Every opportunity should be decision-ready.
+
+Build:
+
+- Enrichment schema.
+- Enrichment API.
+- Add role seniority, eligibility tags, effort, upside, red flags, action plan.
+- Upgrade detail page.
+- Upgrade cards with effort/upside/eligibility.
+- Add "Report issue".
+
+Ship criteria:
+
+- 80 percent of active rows enriched.
+- Users can understand fit without opening source site.
+- Admin review catches low confidence/broken links.
+
+### Phase 3: Ranking V2, 1-2 Weeks
+
+Goal: Ranking should optimize for useful actions, not just keyword overlap.
+
+Build:
+
+- New scoring components: fit, value, actionability, timing, behavioral, source quality.
+- Hard caps for ineligible/senior/broken/low-legitimacy rows.
+- Feedback loop from saves/applies/dismisses.
+- Source quality score in scoring.
+
+Ship criteria:
+
+- Higher save/apply rate per feed impression.
+- Lower hide/dismiss rate.
+- Top 10 feed feels meaningfully better than "newest".
+
+### Phase 4: Notifications and Workflow, 2 Weeks
+
+Goal: Product becomes habit-forming.
+
+Build:
+
+- Notification preferences.
+- Target alerts.
+- Notification event log.
+- Application tasks.
+- Better weekly recap.
+- Calendar reminders improved.
+
+Ship criteria:
+
+- Daily/weekly digest click-through improves.
+- Users return because of alerts, not manual browsing.
+
+### Phase 5: Productionization, 2-4 Weeks
+
+Goal: Make it stable enough for external users.
+
+Build:
+
+- Move high-value ingestion from n8n to TypeScript worker.
+- Store raw payloads.
+- Add replay/re-enrich tools.
+- Add rate limiting to ingestion/AI endpoints.
+- Add privacy policy and terms.
+- Add basic analytics.
+- Add error monitoring.
+
+Ship criteria:
+
+- Ingestion runs without local laptop.
+- Source health alerts are actionable.
+- No secret leakage.
+- Product can support 100-500 users.
+
+### Phase 6: Monetization Test, 2-4 Weeks
+
+Goal: Validate willingness to pay.
+
+Build:
+
+- Premium gating for instant alerts, advanced match analysis, target alerts.
+- Waitlist/payment interest page.
+- Campus admin demo.
+- Export/share digest.
+
+Ship criteria:
+
+- 10+ users say they would pay or join premium waitlist.
+- 3+ users pay manually or commit.
+- At least one campus club/placement group agrees to pilot.
+
+## Concrete Next Engineering Tasks
+
+Priority order:
+
+1. Add `source_connectors` and `source_quality_daily` migrations.
+2. Add Ashby connector.
+3. Add feedback table and "Not for me" UI.
+4. Add enrichment fields and enrichment API.
+5. Refactor scoring into component scores.
+6. Add source quality score.
+7. Upgrade opportunity detail page.
+8. Add notification event log.
+9. Move production ingestion out of local n8n.
+10. Add analytics dashboard for activation, saves, applies, source ROI.
+
+## Example Technical Design: Ashby Connector
+
+File:
+
+- `app/src/lib/ingestion/connectors/ashby.ts`
+
+Interface:
+
+```ts
+export type SourceListing = {
+  sourceUrl: string;
+  title: string;
+  organization: string;
+  rawText: string;
+  structured: Partial<ExtractedOpportunity>;
+  sourceSpecific: Record<string, unknown>;
+};
+
+export async function fetchAshbyConnector(config: AshbyConfig): Promise<SourceListing[]> {
+  // 1. Loop companies.
+  // 2. Fetch public Ashby API.
+  // 3. Filter early-career/student-friendly roles.
+  // 4. Normalize compensation/location/team/department.
+  // 5. Return listings.
+}
+```
+
+Upsert:
+
+- Use existing `upsert` logic but expose a direct library function so code connectors do not need HTTP calls.
+
+## Example Technical Design: Enrichment Schema
+
+```ts
+export const OpportunityEnrichmentSchema = z.object({
+  role_seniority: z.enum([
+    "student",
+    "intern",
+    "entry_level",
+    "early_career",
+    "mid_level",
+    "senior",
+    "unknown",
+  ]),
+  best_for: z.array(z.string()).max(5),
+  eligibility_tags: z.array(z.string()).max(10),
+  nice_to_have_skills: z.array(z.string()).max(10),
+  effort_score: z.number().int().min(0).max(100),
+  upside_score: z.number().int().min(0).max(100),
+  competition_intensity: z.number().int().min(0).max(100),
+  legitimacy_score: z.number().int().min(0).max(100),
+  action_plan: z.string().max(300),
+  red_flags: z.array(z.string()).max(8),
+});
+```
+
+Prompt rule:
+
+- Facts must come from listing text.
+- Inferences must be conservative.
+- If unclear, return lower confidence or a red flag.
+
+## Example Technical Design: Scoring V2
+
+```ts
+export function computeScoreV2(input: {
+  profile: Profile;
+  opportunity: Opportunity;
+  enrichment: OpportunityEnrichment | null;
+  behavioralSignal: BehavioralSignal;
+  sourceQuality: SourceQuality | null;
+  feedbackSignal: FeedbackSignal;
+}): Score {
+  const fit = computeFit(...);
+  const value = computeValue(...);
+  const actionability = computeActionability(...);
+  const timing = computeTiming(...);
+  const behavioral = computeBehavioral(...);
+  const sourceQualityScore = computeSourceQuality(...);
+  const confidence = computeConfidence(...);
+
+  let raw =
+    0.30 * fit +
+    0.25 * value +
+    0.15 * actionability +
+    0.10 * timing +
+    0.10 * behavioral +
+    0.10 * sourceQualityScore;
+
+  const penalties = collectHardPenalties(...);
+  raw = applyCaps(raw, penalties);
+
+  return {
+    score: Math.round(raw * confidence),
+    breakdown: { fit, value, actionability, timing, behavioral, source_quality: sourceQualityScore, confidence, penalties },
+    why: generateWhyV2(...),
+  };
+}
+```
+
+## Product Experiments
+
+Experiment 1: Source pruning
+
+- Show feed from high-quality sources only to half of test users.
+- Compare saves/applies/session.
+- Hypothesis: fewer but better opportunities increases actions.
+
+Experiment 2: Rich cards
+
+- Control: current card.
+- Variant: card with eligibility/effort/upside.
+- Compare card click and save rate.
+
+Experiment 3: Instant alerts
+
+- Control: daily digest only.
+- Variant: high-fit Telegram instant alert.
+- Compare apply rate and retention.
+
+Experiment 4: Not-for-me feedback
+
+- Measure whether explicit hides improve next-session saves.
+
+Experiment 5: Category-specific onboarding
+
+- Compare broad onboarding vs "what are you hunting for right now?"
+
+## What Not To Build Yet
+
+Do not build these until core quality is proven:
+
+- Full AI auto-apply.
+- Complex social network features.
+- Public comments/discussions.
+- Resume builder.
+- Paid billing system.
+- Mobile app.
+- Browser extension.
+- Scraping LinkedIn.
+
+These are tempting but premature. The product wins first by having a cleaner, fresher, more actionable opportunity feed.
+
+## Final Recommendation
+
+The product should become source-quality-first and action-first.
+
+The current MVP already has enough infrastructure. The next version should not chase more UI polish or more random sources. It should:
+
+1. Expand structured high-quality sources, especially Ashby and more Unstop categories.
+2. Add enrichment so every listing becomes decision-ready.
+3. Use source and user feedback data to rank better.
+4. Give users fewer, sharper alerts.
+5. Track outcomes and prove the product saves time and improves career results.
+
+Once the product can consistently get users to save/apply to relevant opportunities weekly, it becomes sellable.

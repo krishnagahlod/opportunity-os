@@ -9,6 +9,10 @@ import {
   Sparkles,
   Tag,
   Wallet,
+  Activity,
+  TrendingUp,
+  ShieldAlert,
+  CheckCircle,
 } from "lucide-react";
 import {
   format,
@@ -250,6 +254,20 @@ export default async function OpportunityDetailPage({
               value={sourceName}
             />
           )}
+          {opp.upside_score !== null && opp.upside_score !== undefined && (
+            <Fact
+              icon={<TrendingUp className="size-3.5" />}
+              label="Career Upside"
+              value={`${opp.upside_score}/100`}
+            />
+          )}
+          {opp.effort_score !== null && opp.effort_score !== undefined && (
+            <Fact
+              icon={<Activity className="size-3.5" />}
+              label="Application Effort"
+              value={`${opp.effort_score}/100`}
+            />
+          )}
         </section>
 
         {/* Why for you */}
@@ -290,6 +308,45 @@ export default async function OpportunityDetailPage({
                   <span className="text-[10.5px] text-muted-foreground/70">
                     Tap to add to your skills
                   </span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Intelligence */}
+        {(opp.action_plan || (opp.red_flags && opp.red_flags.length > 0)) && (
+          <section className="mt-8">
+            <h2 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              <Sparkles className="size-3" />
+              Intelligence
+            </h2>
+            <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
+              {opp.red_flags && opp.red_flags.length > 0 && (
+                <div>
+                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
+                    <ShieldAlert className="size-3.5" />
+                    Red Flags
+                  </h3>
+                  <ul className="space-y-1 text-[13.5px] text-muted-foreground">
+                    {opp.red_flags.map((flag) => (
+                      <li key={flag} className="flex gap-2">
+                        <span className="text-destructive/50">•</span>
+                        <span>{flag}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {opp.action_plan && (
+                <div>
+                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                    <CheckCircle className="size-3.5 text-emerald-500" />
+                    Action Plan
+                  </h3>
+                  <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+                    {opp.action_plan}
+                  </p>
                 </div>
               )}
             </div>
@@ -346,6 +403,14 @@ export default async function OpportunityDetailPage({
                 <span
                   key={t}
                   className="rounded-md border border-border/60 bg-background px-2 py-0.5 text-[11.5px] text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ))}
+              {opp.eligibility_tags?.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11.5px] text-blue-600 dark:text-blue-400"
                 >
                   {t}
                 </span>

@@ -80,14 +80,17 @@ export function computeScore(
 ): Score {
   const profile_relevance = relevanceScore(profile, opp);
   const preference_fit = preferenceFitScore(profile, opp);
-  const career_value = getCareerValueTier(opp.organization, opp.category);
+  const base_career = getCareerValueTier(opp.organization, opp.category);
+  const career_value = opp.upside_score !== null && opp.upside_score !== undefined ? opp.upside_score / 100 : base_career;
   const brand_value = getOrgTier(opp.organization);
   const compensation = compensationScore(opp.compensation);
-  const ease = easeScore(opp.apply_url);
+  const base_ease = easeScore(opp.apply_url);
+  const ease = opp.effort_score !== null && opp.effort_score !== undefined ? (100 - opp.effort_score) / 100 : base_ease;
   const urgency = urgencyScore(opp.deadline);
   const recency = recencyScore(opp.date_added);
   const behavioral_fit = behavioralFitScore(opp, signal);
   const confidence = opp.extraction_confidence ?? 0.7;
+  const legitimacy = opp.legitimacy_score !== null && opp.legitimacy_score !== undefined ? opp.legitimacy_score / 100 : 1.0;
 
   const raw =
     0.30 * profile_relevance +
@@ -100,7 +103,7 @@ export function computeScore(
     0.05 * recency +
     0.07 * behavioral_fit;
 
-  const score = Math.max(0, Math.min(100, Math.round(raw * confidence * 100)));
+  const score = Math.max(0, Math.min(100, Math.round(raw * confidence * legitimacy * 100)));
 
   const breakdown: ScoreBreakdown = {
     profile_relevance: pct(profile_relevance),

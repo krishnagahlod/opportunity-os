@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowRight, Check, Send } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { INTEREST_OPTIONS, SKILL_OPTIONS } from "@/lib/onboarding-options";
+import { 
+  INTEREST_OPTIONS, 
+  SKILL_OPTIONS,
+  STAGE_OPTIONS,
+  GOAL_OPTIONS,
+  AVOID_OPTIONS
+} from "@/lib/onboarding-options";
 import { saveOnboarding } from "./actions";
 import { ResumeQuickStart, type ParseResultStats } from "./ResumeQuickStart";
 import type { ResumeExtraction } from "@/lib/ai/prompts";
@@ -54,27 +60,20 @@ function Chips({
 }
 
 function SectionLabel({
-  step,
   title,
   hint,
 }: {
-  step: string;
   title: string;
   hint?: string;
 }) {
   return (
-    <div className="mb-4 flex items-baseline gap-3">
-      <span className="font-mono text-[11px] tabular-nums text-primary/70">
-        {step}
-      </span>
-      <div>
-        <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-          {title}
-        </h2>
-        {hint && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-        )}
-      </div>
+    <div className="mb-6">
+      <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+        {title}
+      </h2>
+      {hint && (
+        <p className="mt-1.5 text-sm text-muted-foreground">{hint}</p>
+      )}
     </div>
   );
 }
@@ -89,35 +88,22 @@ export function OnboardingForm({
   initialName: string;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [interests, setInterests] = useState<Set<string>>(new Set());
-  const [skills, setSkills] = useState<Set<string>>(new Set());
+  const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  const toggleInterest = (v: string) =>
-    setInterests((s) => {
+  // Selections
+  const [interests, setInterests] = useState<Set<string>>(new Set());
+  const [skills, setSkills] = useState<Set<string>>(new Set());
+  const [goals, setGoals] = useState<Set<string>>(new Set());
+  const [avoids, setAvoids] = useState<Set<string>>(new Set());
+
+  const toggleSet = (setFunc: React.Dispatch<React.SetStateAction<Set<string>>>) => (v: string) =>
+    setFunc((s) => {
       const n = new Set(s);
       n.has(v) ? n.delete(v) : n.add(v);
       return n;
     });
 
-  const toggleSkill = (v: string) =>
-    setSkills((s) => {
-      const n = new Set(s);
-      n.has(v) ? n.delete(v) : n.add(v);
-      return n;
-    });
-
-  // Resume parser is now constrained to return values from INTEREST_OPTIONS
-  // for roles_of_interest, so the matcher just needs case-insensitive equality.
-  // For skills the AI prefers chip-list spellings but may also return free
-  // lowercase keywords (e.g. "dcf") that don't appear in our chips — those
-  // get persisted in profile.resume_skills (via the parseResume action) for
-  // confirmation later in Settings, so no signal is lost.
-  //
-  // Returns the actual ticked counts so the QuickStart block can show the
-  // truth ("2 skills, 1 interest ticked") instead of the AI's raw extraction
-  // count which can be misleading when many extracted terms aren't on our
-  // chip list.
   function applyResumeExtraction(extraction: ResumeExtraction): ParseResultStats {
     const skillLower = new Set(extraction.skills.map((s) => s.toLowerCase()));
     const matchedSkills = SKILL_OPTIONS.filter((opt) =>
@@ -137,8 +123,6 @@ export function OnboardingForm({
     return {
       matchedSkills: matchedSkills.length,
       matchedInterests: matchedInterests.length,
-      // Off-chip skills the AI surfaced but couldn't auto-tick (still saved
-      // to profile.resume_skills for review in Settings).
       extraSkills: Math.max(0, extraction.skills.length - matchedSkills.length),
     };
   }
@@ -147,229 +131,244 @@ export function OnboardingForm({
     setError(null);
     formData.set("interests", JSON.stringify([...interests]));
     formData.set("skills", JSON.stringify([...skills]));
+    formData.set("opportunity_goals", JSON.stringify([...goals]));
+    formData.set("avoid_tags", JSON.stringify([...avoids]));
+    
     startTransition(async () => {
       const res = await saveOnboarding(formData);
       if (res && "error" in res) setError(res.error);
     });
   }
 
+  const nextStep = () => setStep((s) => Math.min(s + 1, 4));
+  const prevStep = () => setStep((s) => Math.max(s - 1, 1));
+
   return (
-    <form action={onSubmit} className="space-y-12">
-      {/* Resume quick start — prominent, gradient-tinted hero affordance */}
-      <ResumeQuickStart userId={userId} onParsed={applyResumeExtraction} />
-
-      {/* === 01 Basics ============================================== */}
-      <section>
-        <SectionLabel step="01" title="About you" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="full_name"
-            name="full_name"
-            label="Full name"
-            defaultValue={initialName}
-            required
-          />
-          <Field
-            id="onboarding-email"
-            label="Email"
-            value={initialEmail}
-            disabled
-          />
-          <Field
-            id="college"
-            name="college"
-            label="College / University"
-            placeholder="IIT Bombay"
-            required
-          />
-          <Field
-            id="graduation_year"
-            name="graduation_year"
-            label="Graduation year"
-            type="number"
-            min={2020}
-            max={2035}
-            placeholder="2027"
-            required
-          />
-        </div>
-      </section>
-
-      {/* === 02 Interests ============================================ */}
-      <section>
-        <SectionLabel
-          step="02"
-          title="What are you into?"
-          hint="Pick every area you're genuinely curious about. We rank matches against these."
-        />
-        <Chips
-          options={INTEREST_OPTIONS}
-          selected={interests}
-          onToggle={toggleInterest}
-        />
-      </section>
-
-      {/* === 03 Skills =============================================== */}
-      <section>
-        <SectionLabel
-          step="03"
-          title="What are you good at?"
-          hint="Tools, languages, capabilities — anything you'd put on a resume."
-        />
-        <Chips
-          options={SKILL_OPTIONS}
-          selected={skills}
-          onToggle={toggleSkill}
-        />
-      </section>
-
-      {/* === 04 Preferences ========================================== */}
-      <section>
-        <SectionLabel
-          step="04"
-          title="What are you looking for?"
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="preferred_location"
-            name="preferred_location"
-            label="Preferred location"
-            placeholder="Bangalore, Mumbai, anywhere…"
-          />
-          <div className="space-y-1.5">
-            <Label htmlFor="remote_preference" className="text-xs">
-              Remote preference
-            </Label>
-            <Select name="remote_preference" defaultValue="any">
-              <SelectTrigger
-                id="remote_preference"
-                className="bg-background/60 backdrop-blur-sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="remote">Remote only</SelectItem>
-                <SelectItem value="onsite">On-site only</SelectItem>
-                <SelectItem value="hybrid">Hybrid</SelectItem>
-                <SelectItem value="any">Any</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="time_commitment" className="text-xs">
-              Type of opportunity
-            </Label>
-            <Select name="time_commitment" defaultValue="any">
-              <SelectTrigger
-                id="time_commitment"
-                className="bg-background/60 backdrop-blur-sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="internship">Internships</SelectItem>
-                <SelectItem value="full-time">Full-time roles</SelectItem>
-                <SelectItem value="part-time">Part-time / gigs</SelectItem>
-                <SelectItem value="any">Anything relevant</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </section>
-
-      {/* === 05 Telegram (recommended) ============================== */}
-      <section>
-        <SectionLabel
-          step="05"
-          title="Get pinged on Telegram"
-          hint="Optional — but without this you'll miss the 48-hour deadline alerts that catch the things you'd otherwise miss."
-        />
-        <div className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-5">
-          <div className="flex items-start gap-3">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
-              <Send className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13.5px] font-semibold tracking-tight">
-                Connect your Telegram chat
-              </p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Pings you when a high-fit opportunity drops, plus 48-hour
-                deadline warnings on the things you save.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1.5">
-            <Label htmlFor="telegram_chat_id" className="text-xs">
-              Telegram chat ID
-            </Label>
-            <Input
-              id="telegram_chat_id"
-              name="telegram_chat_id"
-              placeholder="e.g. 1064311577"
-              inputMode="numeric"
-              className="bg-background/60 backdrop-blur-sm"
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-1.5 w-12 rounded-full transition-colors",
+                i <= step ? "bg-primary" : "bg-primary/20"
+              )}
             />
-          </div>
-
-          <details className="mt-3 text-[11.5px] text-muted-foreground">
-            <summary className="cursor-pointer select-none font-medium">
-              How do I get my Telegram chat ID?
-            </summary>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 leading-relaxed">
-              <li>
-                Open Telegram and message{" "}
-                <span className="font-mono">@opportunity_os_bot</span> (search
-                for it). Send <span className="font-mono">/start</span>.
-              </li>
-              <li>
-                Visit{" "}
-                <span className="font-mono">
-                  api.telegram.org/bot&lt;TOKEN&gt;/getUpdates
-                </span>{" "}
-                in your browser (we&apos;ll add a help link in Settings later).
-              </li>
-              <li>
-                Copy the <span className="font-mono">chat.id</span> number from
-                the JSON. Paste here.
-              </li>
-            </ol>
-            <p className="mt-2">
-              You can also skip this and add it later from Settings.
-            </p>
-          </details>
+          ))}
         </div>
-      </section>
-
-      {error && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      {/* Sticky CTA bar — floats above the bottom edge so it's always reachable
-          regardless of how far the user has scrolled. */}
-      <div className="sticky bottom-4 z-10 mt-14">
-        <div className="rounded-2xl border border-border/70 bg-card/85 p-2.5 shadow-[0_20px_50px_-20px_color-mix(in_oklch,var(--primary)_30%,transparent)] backdrop-blur-md">
-          <Button
-            type="submit"
-            size="lg"
-            className="group/cta w-full justify-center gap-2 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md transition hover:from-indigo-500 hover:to-violet-500 hover:shadow-lg"
-            disabled={isPending}
-          >
-            {isPending ? "Saving…" : "Save and see my feed"}
-            {!isPending && (
-              <ArrowRight className="size-4 transition-transform group-hover/cta:translate-x-0.5" />
-            )}
-          </Button>
-        </div>
+        <span className="text-sm font-medium text-muted-foreground">Step {step} of 4</span>
       </div>
-    </form>
+
+      <form action={onSubmit} className="space-y-8">
+        {step === 1 && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+            <ResumeQuickStart userId={userId} onParsed={applyResumeExtraction} />
+            <section>
+              <SectionLabel title="About you" />
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field
+                  id="full_name"
+                  name="full_name"
+                  label="Full name"
+                  defaultValue={initialName}
+                  required
+                />
+                <Field
+                  id="onboarding-email"
+                  label="Email"
+                  value={initialEmail}
+                  disabled
+                />
+                <Field
+                  id="college"
+                  name="college"
+                  label="College / University"
+                  placeholder="IIT Bombay"
+                  required
+                />
+                <Field
+                  id="graduation_year"
+                  name="graduation_year"
+                  label="Graduation year"
+                  type="number"
+                  min={2020}
+                  max={2035}
+                  placeholder="2027"
+                  required
+                />
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="stage" className="text-xs">Current Stage</Label>
+                  <Select name="stage">
+                    <SelectTrigger className="bg-background/60 backdrop-blur-sm">
+                      <SelectValue placeholder="Select your current stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STAGE_OPTIONS.map(opt => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+            <section>
+              <SectionLabel
+                title="What tracks are you hunting for?"
+                hint="Pick every area you're genuinely curious about. We rank matches against these."
+              />
+              <Chips
+                options={INTEREST_OPTIONS}
+                selected={interests}
+                onToggle={toggleSet(setInterests)}
+              />
+            </section>
+            <section>
+              <SectionLabel
+                title="What are you good at?"
+                hint="Tools, languages, capabilities — anything you'd put on a resume."
+              />
+              <Chips
+                options={SKILL_OPTIONS}
+                selected={skills}
+                onToggle={toggleSet(setSkills)}
+              />
+            </section>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+            <section>
+              <SectionLabel
+                title="What are your goals?"
+                hint="Select the types of opportunities you actually want to see."
+              />
+              <Chips
+                options={GOAL_OPTIONS}
+                selected={goals}
+                onToggle={toggleSet(setGoals)}
+              />
+            </section>
+            <section>
+              <SectionLabel
+                title="What should we avoid?"
+                hint="Select any red flags or dealbreakers."
+              />
+              <Chips
+                options={AVOID_OPTIONS}
+                selected={avoids}
+                onToggle={toggleSet(setAvoids)}
+              />
+            </section>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+            <section>
+              <SectionLabel title="Preferences & Targets" />
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field
+                  id="preferred_location"
+                  name="preferred_location"
+                  label="Preferred location"
+                  placeholder="Bangalore, Mumbai, anywhere…"
+                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="remote_preference" className="text-xs">
+                    Remote preference
+                  </Label>
+                  <Select name="remote_preference" defaultValue="any">
+                    <SelectTrigger id="remote_preference" className="bg-background/60 backdrop-blur-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="remote">Remote only</SelectItem>
+                      <SelectItem value="onsite">On-site only</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                      <SelectItem value="any">Any</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <SectionLabel
+                title="Get pinged on Telegram"
+                hint="Optional — but without this you'll miss the 48-hour deadline alerts that catch the things you'd otherwise miss."
+              />
+              <div className="rounded-2xl border border-primary/25 bg-primary/[0.04] p-5">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
+                    <Send className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold tracking-tight">
+                      Connect your Telegram chat
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label htmlFor="telegram_chat_id" className="text-xs">
+                    Telegram chat ID
+                  </Label>
+                  <Input
+                    id="telegram_chat_id"
+                    name="telegram_chat_id"
+                    placeholder="e.g. 1064311577"
+                    inputMode="numeric"
+                    className="bg-background/60 backdrop-blur-sm"
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {error && (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between pt-6 border-t border-border">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={prevStep}
+            disabled={step === 1 || isPending}
+          >
+            <ArrowLeft className="mr-2 size-4" />
+            Back
+          </Button>
+          
+          {step < 4 ? (
+            <Button type="button" onClick={nextStep}>
+              Next Step
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              className="bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white"
+              disabled={isPending}
+            >
+              {isPending ? "Saving…" : "Save & View Dashboard"}
+            </Button>
+          )}
+        </div>
+      </form>
+    </div>
   );
 }
-
-/* ============ small primitives ============ */
 
 function Field({
   id,

@@ -1,11 +1,13 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
+import { HideButton } from "./HideButton";
 import { recordPendingApply } from "./ApplyNudge";
 import { getCategoryStyle } from "@/lib/categories";
 import { shouldWarnLowConfidence } from "@/lib/scoring/eligibility";
@@ -37,6 +39,7 @@ export function OpportunityCard({
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
 }) {
+  const [hidden, setHidden] = React.useState(false);
   const router = useRouter();
   const cat = getCategoryStyle(opportunity.category);
   const deadline = formatDeadline(opportunity.deadline);
@@ -48,6 +51,8 @@ export function OpportunityCard({
 
   const detailHref = `/opportunity/${opportunity.id}`;
   const openDetail = () => router.push(detailHref);
+
+  if (hidden) return null;
 
   return (
     <article
@@ -161,6 +166,11 @@ export function OpportunityCard({
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
+          <HideButton
+            opportunityId={opportunity.id}
+            compact
+            onHidden={() => setHidden(true)}
+          />
           <SaveButton
             opportunityId={opportunity.id}
             isSaved={isSaved}
