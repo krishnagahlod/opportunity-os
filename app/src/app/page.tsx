@@ -44,7 +44,7 @@ export default async function HomePage() {
       // go to the admin Needs-review queue. NULL kept (pre-Phase-2.5 rows).
       .or("extraction_confidence.is.null,extraction_confidence.gte.0.5")
       .order("date_added", { ascending: false })
-      .limit(120),
+      .limit(500),
     supabase
       .from("saved_opportunities")
       .select("opportunity_id")
