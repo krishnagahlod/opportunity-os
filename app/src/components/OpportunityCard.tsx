@@ -76,10 +76,7 @@ export function OpportunityCard({
     >
       {/* Header — title + org + deadline */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <span
-          aria-hidden
-          className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", cat.dotBg)}
-        />
+        <CompanyLogo name={opportunity.organization} />
         <div className="min-w-0 flex-1">
           {matchReason && (
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-primary">
@@ -225,4 +222,26 @@ function formatDeadline(
   const distance = formatDistanceToNowStrict(date, { addSuffix: false });
   const days = (date.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   return { text: `${distance} left`, urgent: days <= 7 };
+}
+
+function CompanyLogo({ name }: { name: string }) {
+  const [failed, setFailed] = React.useState(false);
+  const domain = name.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
+
+  if (failed) {
+    return (
+      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/50 text-xs font-bold text-muted-foreground uppercase shadow-sm">
+        {name.slice(0, 2)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`https://logo.clearbit.com/${domain}`}
+      alt={`${name} logo`}
+      className="mt-0.5 size-9 shrink-0 rounded-lg border border-border/60 bg-white object-cover shadow-sm"
+      onError={() => setFailed(true)}
+    />
+  );
 }
