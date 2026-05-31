@@ -60,6 +60,7 @@ export function FeaturedRow({
             opportunity={opp}
             isSaved={savedSet.has(opp.id)}
             applicationStatus={appliedMap[opp.id]}
+            matchReason={scoreMap[opp.id]?.why}
           />
         ))}
       </div>

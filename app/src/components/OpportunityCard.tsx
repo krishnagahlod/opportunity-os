@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet, Sparkles } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
@@ -34,10 +34,12 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
+  matchReason,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
+  matchReason?: string | null;
 }) {
   const [hidden, setHidden] = React.useState(false);
   const router = useRouter();
@@ -79,6 +81,12 @@ export function OpportunityCard({
           className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", cat.dotBg)}
         />
         <div className="min-w-0 flex-1">
+          {matchReason && (
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-primary">
+              <Sparkles className="size-3" />
+              <span className="line-clamp-1">{matchReason}</span>
+            </div>
+          )}
           <h3 className="line-clamp-2 text-[14.5px] font-medium leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
             {opportunity.title}
           </h3>

@@ -387,6 +387,7 @@ export function FilteredFeed({
                   opportunity={opp}
                   isSaved={effectiveSavedSet.has(opp.id)}
                   applicationStatus={effectiveAppliedMap[opp.id]}
+                  matchReason={effectiveScoreMap[opp.id]?.why}
                 />
               </div>
             ))}
