@@ -19,6 +19,7 @@ import {
   DASHBOARD_SCORE_FLOOR,
   isFeedEligible,
 } from "@/lib/scoring/eligibility";
+import { cn } from "@/lib/utils";
 import type {
   ApplicationStatus,
   Opportunity,
@@ -288,6 +289,68 @@ export function FilteredFeed({
   const SEARCH_DISPLAY_LIMIT = 50;
   const displayed = inSearchMode ? sorted.slice(0, SEARCH_DISPLAY_LIMIT) : sorted;
 
+  // Smart Grouping for Relevance and Newest sorts
+  const groups = useMemo(() => {
+    if (state.sort === "relevance") {
+      return [
+        {
+          id: "top",
+          label: "Top Matches",
+          icon: "✨",
+          tone: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400",
+          items: displayed.filter((o) => (effectiveScoreMap[o.id]?.score ?? 0) >= 80),
+        },
+        {
+          id: "good",
+          label: "Good Fit",
+          icon: "👍",
+          tone: "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400",
+          items: displayed.filter((o) => {
+            const s = effectiveScoreMap[o.id]?.score ?? 0;
+            return s >= 60 && s < 80;
+          }),
+        },
+        {
+          id: "explore",
+          label: "Explore",
+          icon: "🔍",
+          tone: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400",
+          items: displayed.filter((o) => (effectiveScoreMap[o.id]?.score ?? 0) < 60),
+        },
+      ].filter((g) => g.items.length > 0);
+    } else if (state.sort === "newest") {
+      const now = Date.now();
+      return [
+        {
+          id: "today",
+          label: "Added Today",
+          icon: "🔥",
+          tone: "bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400",
+          items: displayed.filter((o) => differenceInDays(now, parseISO(o.date_added)) <= 1),
+        },
+        {
+          id: "week",
+          label: "This Week",
+          icon: "📅",
+          tone: "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400",
+          items: displayed.filter((o) => {
+            const d = differenceInDays(now, parseISO(o.date_added));
+            return d > 1 && d <= 7;
+          }),
+        },
+        {
+          id: "older",
+          label: "Older",
+          icon: "🕰️",
+          tone: "bg-muted text-muted-foreground",
+          items: displayed.filter((o) => differenceInDays(now, parseISO(o.date_added)) > 7),
+        },
+      ].filter((g) => g.items.length > 0);
+    } else {
+      return [{ id: "all", label: "", icon: "", tone: "", items: displayed }];
+    }
+  }, [displayed, state.sort, effectiveScoreMap]);
+
   // Show category stacks as the entry view when no filter / search is active.
   // The moment any filter narrows the pool, switch to expandable cards.
   const hasActiveFilter =
@@ -376,19 +439,34 @@ export function FilteredFeed({
                   : `${sorted.length} matching`}
             </h2>
           </div>
-          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {displayed.map((opp, i) => (
-              <div
-                key={opp.id}
-                className="animate-fade-up"
-                style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
-              >
-                <OpportunityCard
-                  opportunity={opp}
-                  isSaved={effectiveSavedSet.has(opp.id)}
-                  applicationStatus={effectiveAppliedMap[opp.id]}
-                  matchReason={effectiveScoreMap[opp.id]?.why}
-                />
+          
+          <div className="space-y-10">
+            {groups.map((group) => (
+              <div key={group.id}>
+                {group.label && (
+                  <h3 className="mb-4 flex items-center gap-2 text-[13px] font-semibold tracking-tight text-foreground/90 uppercase">
+                    <span className={cn("flex size-6 items-center justify-center rounded-md", group.tone)}>
+                      {group.icon}
+                    </span>
+                    {group.label}
+                  </h3>
+                )}
+                <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.items.map((opp, i) => (
+                    <div
+                      key={opp.id}
+                      className="animate-fade-up"
+                      style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
+                    >
+                      <OpportunityCard
+                        opportunity={opp}
+                        isSaved={effectiveSavedSet.has(opp.id)}
+                        applicationStatus={effectiveAppliedMap[opp.id]}
+                        matchReason={effectiveScoreMap[opp.id]?.why}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

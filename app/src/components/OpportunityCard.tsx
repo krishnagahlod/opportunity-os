@@ -52,7 +52,7 @@ export function OpportunityCard({
   const apply = opportunity.apply_url;
 
   const detailHref = `/opportunity/${opportunity.id}`;
-  const openDetail = () => router.push(detailHref);
+  const openDetail = () => router.push(detailHref, { scroll: false });
 
   if (hidden) return null;
 
