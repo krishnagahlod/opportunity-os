@@ -46,6 +46,7 @@ export function ResumeQuickStart({
   onParsed: (extraction: ResumeExtraction) => ParseResultStats;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
+  const [parsingStep, setParsingStep] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ParseResultStats | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -80,10 +81,16 @@ export function ResumeQuickStart({
     }
 
     setPhase("parsing");
+    setParsingStep(0);
+    const intervalId = setInterval(() => {
+      setParsingStep((s) => Math.min(s + 1, 2));
+    }, 2500);
+
     const res = await parseResume(path);
+    clearInterval(intervalId);
+    
     if ("error" in res) {
       setError(res.error);
-      // Don't leave an orphan PDF in storage if parse failed.
       await supabase.storage.from("resumes").remove([path]).catch(() => {});
       setPhase("idle");
       return;
@@ -115,6 +122,12 @@ export function ResumeQuickStart({
       setError(null);
     }} />;
   }
+
+  const parsingMessages = [
+    "Analyzing your profile...",
+    "Mapping skills to domains...",
+    "Finding exact matches...",
+  ];
 
   /* ============ Active states ================================ */
   return (
@@ -153,10 +166,10 @@ export function ResumeQuickStart({
         {(phase === "uploading" || phase === "parsing") ? (
           <div className="mt-5 flex items-center gap-3 rounded-2xl border border-primary/20 bg-background/80 px-4 py-3.5 backdrop-blur-sm">
             <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm font-medium text-foreground animate-pulse">
               {phase === "uploading"
-                ? "Uploading…"
-                : "Reading resume with AI — about 10–20 seconds…"}
+                ? "Uploading..."
+                : parsingMessages[parsingStep]}
             </span>
           </div>
         ) : (

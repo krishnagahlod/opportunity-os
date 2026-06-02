@@ -20,6 +20,7 @@ import {
   GOAL_OPTIONS,
   AVOID_OPTIONS
 } from "@/lib/onboarding-options";
+import { DOMAINS } from "@/lib/domains";
 import { saveOnboarding } from "./actions";
 import { ResumeQuickStart, type ParseResultStats } from "./ResumeQuickStart";
 import type { ResumeExtraction } from "@/lib/ai/prompts";
@@ -52,6 +53,48 @@ function Chips({
           >
             {active && <Check className="size-3" />}
             {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DomainCards({
+  selected,
+  onToggle,
+}: {
+  selected: Set<string>;
+  onToggle: (v: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {DOMAINS.map(({ style }) => {
+        const active = selected.has(style.label);
+        const Icon = style.Icon;
+        return (
+          <button
+            type="button"
+            key={style.label}
+            onClick={() => onToggle(style.label)}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-3 rounded-2xl border p-4 text-center transition-all",
+              active
+                ? "border-primary/50 bg-primary/5 shadow-md shadow-primary/10"
+                : "border-border bg-background/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:bg-muted/50"
+            )}
+          >
+            {active && (
+              <div className="absolute right-3 top-3 rounded-full bg-primary p-0.5 text-primary-foreground">
+                <Check className="size-3" />
+              </div>
+            )}
+            <div className={cn("flex size-10 items-center justify-center rounded-xl", style.bg, style.text)}>
+              <Icon className="size-5" />
+            </div>
+            <span className={cn("text-xs font-medium", active ? "text-primary" : "text-muted-foreground")}>
+              {style.label}
+            </span>
           </button>
         );
       })}
@@ -222,8 +265,7 @@ export function OnboardingForm({
                 title="What tracks are you hunting for?"
                 hint="Pick every area you're genuinely curious about. We rank matches against these."
               />
-              <Chips
-                options={INTEREST_OPTIONS}
+              <DomainCards
                 selected={interests}
                 onToggle={toggleSet(setInterests)}
               />
@@ -280,6 +322,37 @@ export function OnboardingForm({
                   label="Preferred location"
                   placeholder="Bangalore, Mumbai, anywhere…"
                 />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="min_compensation" className="text-xs">
+                      Min Compensation Target
+                    </Label>
+                    <span className="text-xs font-semibold text-primary">
+                      {typeof document !== "undefined" && (document.getElementById("min_compensation") as HTMLInputElement)?.value 
+                        ? `$${(document.getElementById("min_compensation") as HTMLInputElement).value}/yr`
+                        : "$0+"}
+                    </span>
+                  </div>
+                  <input
+                    id="min_compensation"
+                    name="min_compensation"
+                    type="range"
+                    min="0"
+                    max="200000"
+                    step="5000"
+                    defaultValue="0"
+                    className="w-full accent-primary"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = e.target.parentElement?.querySelector('span');
+                      if (display) {
+                        display.textContent = val === "0" ? "Any amount" : `$${parseInt(val).toLocaleString()}/yr`;
+                      }
+                    }}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Adjust to filter out low-paying or unpaid roles.</p>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="remote_preference" className="text-xs">
                     Remote preference

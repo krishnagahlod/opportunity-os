@@ -29,7 +29,7 @@ export type DomainStyle = {
   text: string;
 };
 
-const DOMAINS: { keywords: string[]; style: DomainStyle }[] = [
+export const DOMAINS: { keywords: string[]; style: DomainStyle }[] = [
   {
     keywords: ["ai", "artificial intelligence", "machine learning", "ml", "deep learning", "nlp", "llm", "generative ai", "computer vision"],
     style: { label: "AI / ML", Icon: BrainCircuit, bg: "bg-violet-100 dark:bg-violet-500/15", text: "text-violet-600 dark:text-violet-400" },
