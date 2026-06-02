@@ -297,6 +297,7 @@ export function FilteredFeed({
           id: "top",
           label: "Top Matches",
           icon: "✨",
+          description: "Best fit for your profile, skills, and goals",
           tone: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400",
           items: displayed.filter((o) => (effectiveScoreMap[o.id]?.score ?? 0) >= 80),
         },
@@ -304,6 +305,7 @@ export function FilteredFeed({
           id: "good",
           label: "Good Fit",
           icon: "👍",
+          description: "Strong matches worth exploring",
           tone: "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400",
           items: displayed.filter((o) => {
             const s = effectiveScoreMap[o.id]?.score ?? 0;
@@ -314,6 +316,7 @@ export function FilteredFeed({
           id: "explore",
           label: "Explore",
           icon: "🔍",
+          description: "Broaden your horizons — less obvious, but could surprise you",
           tone: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400",
           items: displayed.filter((o) => (effectiveScoreMap[o.id]?.score ?? 0) < 60),
         },
@@ -323,8 +326,9 @@ export function FilteredFeed({
       return [
         {
           id: "today",
-          label: "Added Today",
+          label: "Fresh Today",
           icon: "🔥",
+          description: "Just added — be among the first to apply",
           tone: "bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400",
           items: displayed.filter((o) => differenceInDays(now, parseISO(o.date_added)) <= 1),
         },
@@ -332,6 +336,7 @@ export function FilteredFeed({
           id: "week",
           label: "This Week",
           icon: "📅",
+          description: "Added in the last 7 days",
           tone: "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400",
           items: displayed.filter((o) => {
             const d = differenceInDays(now, parseISO(o.date_added));
@@ -342,12 +347,13 @@ export function FilteredFeed({
           id: "older",
           label: "Older",
           icon: "🕰️",
+          description: "Still active — many still accepting applications",
           tone: "bg-muted text-muted-foreground",
           items: displayed.filter((o) => differenceInDays(now, parseISO(o.date_added)) > 7),
         },
       ].filter((g) => g.items.length > 0);
     } else {
-      return [{ id: "all", label: "", icon: "", tone: "", items: displayed }];
+      return [{ id: "all", label: "", icon: "", description: "", tone: "", items: displayed }];
     }
   }, [displayed, state.sort, effectiveScoreMap]);
 
@@ -440,16 +446,33 @@ export function FilteredFeed({
             </h2>
           </div>
           
-          <div className="space-y-10">
-            {groups.map((group) => (
+          <div className="space-y-8">
+            {groups.map((group, gi) => (
               <div key={group.id}>
                 {group.label && (
-                  <h3 className="mb-4 flex items-center gap-2 text-[13px] font-semibold tracking-tight text-foreground/90 uppercase">
-                    <span className={cn("flex size-6 items-center justify-center rounded-md", group.tone)}>
-                      {group.icon}
-                    </span>
-                    {group.label}
-                  </h3>
+                  <>
+                    {gi > 0 && (
+                      <hr className="mb-6 border-border/40" />
+                    )}
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className={cn("flex size-8 items-center justify-center rounded-lg text-sm", group.tone)}>
+                        {group.icon}
+                      </span>
+                      <div>
+                        <h3 className="text-[14px] font-semibold tracking-tight text-foreground">
+                          {group.label}
+                          <span className="ml-2 text-[12px] font-normal text-muted-foreground">
+                            ({group.items.length})
+                          </span>
+                        </h3>
+                        {group.description && (
+                          <p className="text-[11.5px] text-muted-foreground/80">
+                            {group.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
                 <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {group.items.map((opp, i) => (
@@ -462,7 +485,6 @@ export function FilteredFeed({
                         opportunity={opp}
                         isSaved={effectiveSavedSet.has(opp.id)}
                         applicationStatus={effectiveAppliedMap[opp.id]}
-                        matchReason={effectiveScoreMap[opp.id]?.why}
                       />
                     </div>
                   ))}

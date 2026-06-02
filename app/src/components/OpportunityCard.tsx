@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
 import { HideButton } from "./HideButton";
 import { recordPendingApply } from "./ApplyNudge";
 import { getCategoryStyle } from "@/lib/categories";
+import { inferDomain } from "@/lib/domains";
 import { shouldWarnLowConfidence } from "@/lib/scoring/eligibility";
 import { cn, stripHtml } from "@/lib/utils";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
@@ -34,16 +35,16 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
-  matchReason,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
-  matchReason?: string | null;
 }) {
   const [hidden, setHidden] = React.useState(false);
   const router = useRouter();
   const cat = getCategoryStyle(opportunity.category);
+  const domain = inferDomain(opportunity.tags, opportunity.title, opportunity.organization);
+  const DomainIcon = domain.Icon;
   const deadline = formatDeadline(opportunity.deadline);
   const compensation = stripHtml(opportunity.compensation);
   const location = opportunity.is_remote
@@ -76,14 +77,18 @@ export function OpportunityCard({
     >
       {/* Header — title + org + deadline */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <CompanyLogo name={opportunity.organization} />
-        <div className="min-w-0 flex-1">
-          {matchReason && (
-            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-primary">
-              <Sparkles className="size-3" />
-              <span className="line-clamp-1">{matchReason}</span>
-            </div>
+        {/* Domain Icon */}
+        <div
+          className={cn(
+            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm",
+            domain.bg,
+            domain.text,
           )}
+          title={domain.label}
+        >
+          <DomainIcon className="size-4.5" />
+        </div>
+        <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 text-[14.5px] font-medium leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
             {opportunity.title}
           </h3>
@@ -117,6 +122,18 @@ export function OpportunityCard({
                 </span>
               </>
             )}
+          </div>
+          {/* Domain label chip */}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                domain.bg,
+                domain.text,
+              )}
+            >
+              {domain.label}
+            </span>
           </div>
         </div>
       </div>
@@ -222,26 +239,4 @@ function formatDeadline(
   const distance = formatDistanceToNowStrict(date, { addSuffix: false });
   const days = (date.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   return { text: `${distance} left`, urgent: days <= 7 };
-}
-
-function CompanyLogo({ name }: { name: string }) {
-  const [failed, setFailed] = React.useState(false);
-  const domain = name.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
-
-  if (failed) {
-    return (
-      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/50 text-xs font-bold text-muted-foreground uppercase shadow-sm">
-        {name.slice(0, 2)}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={`${name} logo`}
-      className="mt-0.5 size-9 shrink-0 rounded-lg border border-border/60 bg-white object-cover shadow-sm"
-      onError={() => setFailed(true)}
-    />
-  );
 }
