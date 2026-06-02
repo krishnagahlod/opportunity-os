@@ -1,33 +1,32 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 /**
- * Side-panel Drawer that slides in from the right WITHOUT blurring or hiding
- * the feed behind it. The feed remains fully visible and scrollable.
- * Clicking outside (on the feed) or pressing Escape closes the panel.
+ * Side-panel Drawer that pushes the main content to the left.
+ * Opens instantly. The feed grid shrinks to make room — no overlay, no blur.
+ * Clicking X or pressing Escape closes the panel and restores the full-width feed.
  */
 export function Drawer({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
 
+  // On mount: signal the layout to shrink the main content area.
+  // On unmount: restore full-width layout.
   useEffect(() => {
-    // Trigger the slide-in animation after mount
-    const raf = requestAnimationFrame(() => setOpen(true));
-    return () => cancelAnimationFrame(raf);
+    document.documentElement.classList.add("drawer-open");
+    return () => {
+      document.documentElement.classList.remove("drawer-open");
+    };
   }, []);
 
   const close = useCallback(() => {
-    setOpen(false);
-    setTimeout(() => {
-      router.back();
-    }, 250);
+    document.documentElement.classList.remove("drawer-open");
+    router.back();
   }, [router]);
 
-  // Listen for Escape key
+  // Escape key closes
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
@@ -37,40 +36,20 @@ export function Drawer({ children }: { children: React.ReactNode }) {
   }, [close]);
 
   return (
-    <>
-      {/* Thin click-catcher on the left side — no blur, no dimming.
-          Just catches clicks so tapping on the feed area closes the panel. */}
-      <div
-        className={cn(
-          "fixed inset-0 z-40 transition-opacity duration-250",
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={close}
-        aria-hidden="true"
-      />
-
-      {/* Sliding Panel — sits on the right side, no full-screen overlay */}
-      <div
-        role="dialog"
-        aria-modal="false"
-        className={cn(
-          "fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto border-l border-border bg-background shadow-2xl transition-transform duration-250 ease-out",
-          open ? "translate-x-0" : "translate-x-full"
-        )}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-end px-4 pt-4">
-          <button
-            onClick={close}
-            aria-label="Close panel"
-            className="flex size-8 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="relative">
-          {children}
-        </div>
+    <aside
+      role="complementary"
+      className="fixed inset-y-0 right-0 z-40 w-[min(540px,100vw)] overflow-y-auto border-l border-border bg-background shadow-xl"
+    >
+      <div className="sticky top-0 z-10 flex items-center justify-end px-4 pt-3 pb-1">
+        <button
+          onClick={close}
+          aria-label="Close panel"
+          className="flex size-7 items-center justify-center rounded-full border border-border/60 bg-card text-foreground shadow-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <X className="size-3.5" />
+        </button>
       </div>
-    </>
+      {children}
+    </aside>
   );
 }

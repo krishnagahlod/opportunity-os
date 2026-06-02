@@ -233,3 +233,20 @@
     mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   }
 }
+
+/* ============================================================
+   Drawer layout — pushes main content left when detail panel is open.
+   The transition is fast (150ms) so it feels instant.
+   ============================================================ */
+html.drawer-open body > *:not(aside) {
+  margin-right: min(540px, 100vw);
+  transition: margin-right 150ms ease-out;
+}
+
+@media (max-width: 768px) {
+  /* On mobile, the drawer takes full width — no margin shift needed,
+     the drawer simply covers the content. */
+  html.drawer-open body > *:not(aside) {
+    margin-right: 0;
+  }
+}
