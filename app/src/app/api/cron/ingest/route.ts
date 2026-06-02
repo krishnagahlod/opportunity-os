@@ -5,6 +5,8 @@ import { fetchLinkedIn } from "@/lib/ingestion/connectors/linkedin";
 import { fetchDevpost } from "@/lib/ingestion/connectors/devpost";
 import { fetchGreenhouse } from "@/lib/ingestion/connectors/greenhouse";
 import { fetchLever } from "@/lib/ingestion/connectors/lever";
+import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
+import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion } from "@/lib/ingestion/logs";
 
@@ -65,6 +67,8 @@ export async function GET(req: NextRequest) {
     { name: "Devpost", promise: fetchDevpost({ maxPages: 2 }) },
     { name: "Greenhouse: Canonical", promise: fetchGreenhouse({ boards: [{ slug: "canonical", displayName: "Canonical" }] }) },
     { name: "Lever: Netflix", promise: fetchLever({ companies: [{ slug: "netflix", displayName: "Netflix" }] }) },
+    { name: "Internshala", promise: fetchInternshala({ maxPages: 2 }) },
+    { name: "Hacker News: Who is hiring", promise: fetchHackerNews({ maxItems: 30 }) },
   ];
 
   // 1. Fetch from all sources

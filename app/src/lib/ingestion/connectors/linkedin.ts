@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import { type SourceListing } from "../types";
 
 export interface LinkedInConfig {
@@ -8,7 +9,7 @@ export interface LinkedInConfig {
 
 /**
  * Scrapes public LinkedIn job postings using the jobs-guest API.
- * This is a completely free approach that fetches the HTML cards.
+ * Uses Cheerio for robust HTML parsing instead of fragile regex.
  */
 export async function fetchLinkedIn(config: LinkedInConfig): Promise<SourceListing[]> {
   const { keywords, location, maxPages = 1 } = config;
@@ -34,43 +35,35 @@ export async function fetchLinkedIn(config: LinkedInConfig): Promise<SourceListi
       }
       
       const html = await res.text();
+      const $ = cheerio.load(html);
       
-      // Simple regex extraction since we can't reliably install cheerio
-      const liMatches = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
-      
-      for (const li of liMatches) {
-        const titleMatch = li.match(/<h3[^>]*base-search-card__title[^>]*>\s*([\s\S]*?)\s*<\/h3>/i);
-        const orgMatch = li.match(/<h4[^>]*base-search-card__subtitle[^>]*>\s*(?:<a[^>]*>)?\s*([\s\S]*?)\s*(?:<\/a>)?\s*<\/h4>/i);
-        const linkMatch = li.match(/<a[^>]*base-card__full-link[^>]*href="([^"]+)"/i);
-        const locMatch = li.match(/<span[^>]*job-search-card__location[^>]*>\s*([\s\S]*?)\s*<\/span>/i);
-        const dateMatch = li.match(/<time[^>]*datetime="([^"]+)"/i);
+      $("li").each((_, el) => {
+        const title = $(el).find("h3.base-search-card__title").text().trim();
+        const organization = $(el).find("h4.base-search-card__subtitle").text().trim();
+        const jobUrl = $(el).find("a.base-card__full-link").attr("href")?.split("?")[0] || "";
+        const jobLocation = $(el).find("span.job-search-card__location").text().trim() || "Unknown";
+        const dateAdded = $(el).find("time").attr("datetime") || new Date().toISOString();
         
-        if (titleMatch && orgMatch && linkMatch) {
-          const title = titleMatch[1].trim();
-          const organization = orgMatch[1].trim();
-          const jobUrl = linkMatch[1].split("?")[0] || "";
-          const jobLocation = locMatch ? locMatch[1].trim() : "Unknown";
-          const dateAdded = dateMatch ? dateMatch[1] : new Date().toISOString();
-
+        if (title && organization && jobUrl) {
           listings.push({
             sourceUrl: jobUrl,
             title,
             organization,
-            rawText: li, 
+            rawText: $(el).html() || "", 
             structured: {
               title,
               organization,
               location: jobLocation,
               apply_url: jobUrl,
               date_added: dateAdded,
-              category: "fulltime", 
+              category: "fulltime", // ML will refine this
             },
             sourceSpecific: {
               source: "linkedin_public",
             },
           });
         }
-      }
+      });
     } catch (e) {
       console.error("Error fetching LinkedIn page", e);
       break;
