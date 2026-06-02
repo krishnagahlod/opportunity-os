@@ -136,23 +136,48 @@ function ItemRow({ item, appUrl }: { item: DigestItem; appUrl: string }) {
   const deadlineText = o.deadline
     ? `Due ${format(parseISO(o.deadline), "MMM d")}`
     : "Rolling";
-  const applyHref = o.apply_url ?? `${appUrl}/`;
+  const appHref = `${appUrl}/opportunity/${o.id}?action=plan`;
+  const compText = o.compensation ? o.compensation : null;
 
   return (
     <Section style={itemStyle}>
-      <Text style={itemTitleStyle}>
-        <Link href={applyHref} style={titleLinkStyle}>
-          {o.title}
-        </Link>{" "}
-        <span style={scoreStyle}>· {score}</span>
-      </Text>
-      <Text style={itemMetaStyle}>
-        {o.organization}
-        {o.location ? ` · ${o.is_remote ? "Remote" : o.location}` : ""}
-        {" · "}
-        {deadlineText}
-      </Text>
-      {why && <Text style={whyStyle}>{why}</Text>}
+      <table width="100%" cellPadding="0" cellSpacing="0" border={0}>
+        <tr>
+          <td valign="top" style={{ paddingRight: "16px" }}>
+            <Text style={itemTitleStyle}>
+              <Link href={appHref} style={titleLinkStyle}>
+                {o.title}
+              </Link>{" "}
+              <span style={scoreBadgeStyle(score)}>{score}% Match</span>
+            </Text>
+            
+            <Text style={itemMetaStyle}>
+              <strong>{o.organization}</strong>
+              {o.location ? ` · ${o.is_remote ? "Remote" : o.location}` : ""}
+              {" · "}
+              {deadlineText}
+              {compText ? ` · ${compText}` : ""}
+            </Text>
+            
+            {o.summary && (
+              <Text style={summaryStyle}>
+                {o.summary.length > 150 ? o.summary.substring(0, 150) + "..." : o.summary}
+              </Text>
+            )}
+
+            {why && (
+              <Text style={whyStyle}>
+                💡 <strong>Why it matches:</strong> {why}
+              </Text>
+            )}
+          </td>
+          <td valign="top" width="120" style={{ paddingTop: "4px" }}>
+            <Link href={appHref} style={actionPlanBtnStyle}>
+              Action Plan ⚡
+            </Link>
+          </td>
+        </tr>
+      </table>
     </Section>
   );
 }
@@ -160,7 +185,7 @@ function ItemRow({ item, appUrl }: { item: DigestItem; appUrl: string }) {
 /* ============ Inline styles (email clients ignore most CSS) ============ */
 
 const bodyStyle: React.CSSProperties = {
-  backgroundColor: "#fafaf9",
+  backgroundColor: "#f4f4f5",
   fontFamily:
     "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   margin: 0,
@@ -168,9 +193,13 @@ const bodyStyle: React.CSSProperties = {
 };
 
 const containerStyle: React.CSSProperties = {
-  margin: "0 auto",
-  maxWidth: "560px",
+  margin: "40px auto",
+  maxWidth: "600px",
   padding: "32px 24px",
+  backgroundColor: "#ffffff",
+  borderRadius: "16px",
+  border: "1px solid #e4e4e7",
+  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.04)",
 };
 
 const headerStyle: React.CSSProperties = {
@@ -182,47 +211,48 @@ const headerStyle: React.CSSProperties = {
 
 const brandStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "16px",
-  fontWeight: 600,
+  fontSize: "18px",
+  fontWeight: 700,
   letterSpacing: "-0.01em",
   color: "#18181b",
 };
 
 const dateStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "12px",
+  fontSize: "13px",
+  fontWeight: 500,
   color: "#71717a",
 };
 
 const greetingStyle: React.CSSProperties = {
-  margin: "16px 0 4px",
-  fontSize: "22px",
+  margin: "24px 0 8px",
+  fontSize: "24px",
   fontWeight: 600,
   letterSpacing: "-0.02em",
   color: "#18181b",
 };
 
 const paragraphStyle: React.CSSProperties = {
-  margin: "0 0 24px",
-  fontSize: "14px",
+  margin: "0 0 32px",
+  fontSize: "15px",
   color: "#52525b",
 };
 
 const sectionStyle: React.CSSProperties = {
-  marginBottom: "20px",
+  marginBottom: "28px",
 };
 
 const urgentSectionStyle: React.CSSProperties = {
-  marginBottom: "24px",
-  padding: "16px",
+  marginBottom: "28px",
+  padding: "20px",
   borderRadius: "12px",
   border: "1px solid #fcd34d",
   backgroundColor: "#fffbeb",
 };
 
 const recapSectionStyle: React.CSSProperties = {
-  marginBottom: "24px",
-  padding: "16px",
+  marginBottom: "28px",
+  padding: "20px",
   borderRadius: "12px",
   border: "1px solid #c7d2fe",
   backgroundColor: "#eef2ff",
@@ -232,47 +262,51 @@ const recapH2Style: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 700,
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
+  letterSpacing: "0.08em",
   color: "#3730a3",
   margin: "0 0 8px",
 };
 
 const recapStatLine: React.CSSProperties = {
-  fontSize: "14px",
-  lineHeight: "22px",
+  fontSize: "15px",
+  lineHeight: "24px",
   color: "#312e81",
   margin: 0,
 };
 
 const h2Style: React.CSSProperties = {
   fontSize: "13px",
-  fontWeight: 600,
+  fontWeight: 700,
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
+  letterSpacing: "0.08em",
   color: "#71717a",
-  margin: "0 0 8px",
+  margin: "0 0 12px",
+  borderBottom: "1px solid #f4f4f5",
+  paddingBottom: "8px",
 };
 
 const urgentH2Style: React.CSSProperties = {
   fontSize: "13px",
   fontWeight: 700,
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
+  letterSpacing: "0.08em",
   color: "#92400e",
-  margin: "0 0 8px",
+  margin: "0 0 12px",
+  borderBottom: "1px solid #fde68a",
+  paddingBottom: "8px",
 };
 
 const itemStyle: React.CSSProperties = {
-  borderTop: "1px solid #e4e4e7",
-  padding: "12px 0",
+  padding: "16px 0",
+  borderBottom: "1px solid #f4f4f5",
 };
 
 const itemTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "15px",
+  fontSize: "16px",
   fontWeight: 600,
   color: "#18181b",
-  lineHeight: 1.35,
+  lineHeight: 1.4,
 };
 
 const titleLinkStyle: React.CSSProperties = {
@@ -280,45 +314,88 @@ const titleLinkStyle: React.CSSProperties = {
   textDecoration: "none",
 };
 
-const scoreStyle: React.CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "#6366f1",
-};
+function scoreBadgeStyle(score: number): React.CSSProperties {
+  let bg = "#eef2ff";
+  let color = "#4f46e5";
+  
+  if (score >= 90) {
+    bg = "#dcfce7";
+    color = "#16a34a";
+  } else if (score >= 70) {
+    bg = "#f3e8ff";
+    color = "#9333ea";
+  }
+
+  return {
+    fontSize: "11px",
+    fontWeight: 700,
+    color,
+    backgroundColor: bg,
+    padding: "2px 6px",
+    borderRadius: "6px",
+    marginLeft: "8px",
+    verticalAlign: "middle",
+  };
+}
 
 const itemMetaStyle: React.CSSProperties = {
-  margin: "4px 0 0",
-  fontSize: "12.5px",
-  color: "#71717a",
+  margin: "6px 0 0",
+  fontSize: "13px",
+  color: "#52525b",
+};
+
+const summaryStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: "13px",
+  color: "#3f3f46",
+  lineHeight: 1.5,
 };
 
 const whyStyle: React.CSSProperties = {
-  margin: "6px 0 0",
+  margin: "8px 0 0",
+  fontSize: "12.5px",
+  color: "#4f46e5",
+  backgroundColor: "#eef2ff",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  lineHeight: 1.4,
+};
+
+const actionPlanBtnStyle: React.CSSProperties = {
+  display: "inline-block",
+  backgroundColor: "#18181b",
+  color: "#ffffff",
+  textDecoration: "none",
   fontSize: "12px",
-  color: "#6366f1",
-  fontStyle: "italic",
+  fontWeight: 600,
+  padding: "8px 12px",
+  borderRadius: "8px",
+  textAlign: "center" as const,
+  width: "100%",
+  boxSizing: "border-box" as const,
 };
 
 const hrStyle: React.CSSProperties = {
   border: "none",
   borderTop: "1px solid #e4e4e7",
-  margin: "32px 0 16px",
+  margin: "40px 0 24px",
 };
 
 const footerStyle: React.CSSProperties = {
-  fontSize: "12.5px",
+  fontSize: "13px",
   color: "#52525b",
   textAlign: "center" as const,
 };
 
 const footerLinkStyle: React.CSSProperties = {
-  color: "#6366f1",
+  color: "#4f46e5",
   textDecoration: "none",
+  fontWeight: 500,
 };
 
 const mutedFooterStyle: React.CSSProperties = {
-  fontSize: "11px",
+  fontSize: "12px",
   color: "#a1a1aa",
   textAlign: "center" as const,
-  marginTop: "8px",
+  marginTop: "12px",
 };
