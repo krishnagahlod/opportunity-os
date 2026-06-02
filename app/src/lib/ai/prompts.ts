@@ -280,3 +280,53 @@ export function buildEnrichPrompt(
 }`
   ].join("\n");
 }
+
+/* ============ Action Plan (Personalized) ============ */
+
+export const ActionPlanSchema = z.object({
+  resume_tweaks: z.array(z.string()).max(4),
+  interview_prep: z.array(z.string()).max(4),
+  cold_outreach_draft: z.string(),
+});
+
+export type ActionPlan = z.infer<typeof ActionPlanSchema>;
+
+export const ACTION_PLAN_SYSTEM_INSTRUCTION = `You act as an elite career coach. You read a candidate's resume summary and a specific opportunity listing, then generate a highly personalized action plan for them to win this role. Output ONE complete JSON object — no prose, no fences.`;
+
+export function buildActionPlanPrompt(
+  title: string,
+  organization: string,
+  description: string | null,
+  resumeText: string | null,
+  userSkills: string[],
+): string {
+  const cleanDesc = (description || "").slice(0, 3000);
+  const cleanResume = (resumeText || "").slice(0, 3000);
+
+  return [
+    "Generate a personalized action plan to help this candidate land this specific opportunity.",
+    "",
+    "--- OPPORTUNITY ---",
+    `Title: ${title}`,
+    `Organization: ${organization}`,
+    "Description:",
+    cleanDesc,
+    "",
+    "--- CANDIDATE ---",
+    `Known Skills: ${userSkills.join(", ")}`,
+    "Resume Summary / Text:",
+    cleanResume || "No resume provided.",
+    "",
+    "--- REQUIREMENTS ---",
+    "1. resume_tweaks: 2-3 highly specific bullet points on how they should tailor their resume for THIS exact role based on their background.",
+    "2. interview_prep: 2-3 specific topics, algorithms, or behavioral themes they must study for this role.",
+    "3. cold_outreach_draft: A 3-5 sentence cold email they can send to a recruiter or hiring manager at this company.",
+    "",
+    "Expected JSON format:",
+    `{
+  "resume_tweaks": string[],
+  "interview_prep": string[],
+  "cold_outreach_draft": string
+}`
+  ].join("\n");
+}

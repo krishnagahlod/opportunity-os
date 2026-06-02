@@ -25,6 +25,7 @@ import { NavBar } from "@/components/NavBar";
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
+import { ActionPlanButton } from "@/components/ActionPlanButton";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import {
@@ -47,10 +48,13 @@ type Params = { id: string };
 
 export default async function OpportunityDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<Params>;
+  searchParams: Promise<{ action?: string }>;
 }) {
   const { id } = await params;
+  const { action } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -194,6 +198,7 @@ export default async function OpportunityDetailPage({
             opportunityId={opp.id}
             currentStatus={applicationStatus}
           />
+          <ActionPlanButton opportunityId={opp.id} defaultOpen={action === "plan"} />
           {opp.apply_url && (
             <ExternalApplyLink
               href={opp.apply_url}
