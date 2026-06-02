@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { OpportunityCard } from "@/components/OpportunityCard";
+import { OpportunityDrawer } from "@/components/OpportunityDrawer";
 import { CategoryStacks } from "@/components/CategoryStacks";
 import { FeaturedRow } from "@/components/FeaturedRow";
 import { CATEGORY_META } from "@/lib/categories";
@@ -63,6 +64,9 @@ export function FilteredFeed({
     // We intentionally only listen to the searchParams identity changing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Track selected opportunity for the client-side side-panel drawer.
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
 
   // Wrap setState so any change writes to URL too.
   const setState = useCallback(
@@ -405,6 +409,7 @@ export function FilteredFeed({
             scoreMap={scoreMap}
             savedSet={effectiveSavedSet}
             appliedMap={appliedMap}
+            onSelect={setSelectedOpp}
           />
           <CategoryStacks
             opportunities={opportunities}
@@ -485,6 +490,7 @@ export function FilteredFeed({
                         opportunity={opp}
                         isSaved={effectiveSavedSet.has(opp.id)}
                         applicationStatus={effectiveAppliedMap[opp.id]}
+                        onSelect={setSelectedOpp}
                       />
                     </div>
                   ))}
@@ -516,6 +522,18 @@ export function FilteredFeed({
             </div>
           )}
         </section>
+      )}
+
+      {selectedOpp && (
+        <OpportunityDrawer
+          opportunity={selectedOpp}
+          isSaved={effectiveSavedSet.has(selectedOpp.id)}
+          applicationStatus={effectiveAppliedMap[selectedOpp.id]}
+          score={effectiveScoreMap[selectedOpp.id]?.score ?? 0}
+          why={effectiveScoreMap[selectedOpp.id]?.why ?? null}
+          sourceName={effectiveSourceMap[selectedOpp.id]}
+          onClose={() => setSelectedOpp(null)}
+        />
       )}
     </div>
   );

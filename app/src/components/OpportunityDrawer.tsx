@@ -1,7 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Building2,
   Clock,
@@ -20,94 +20,39 @@ import {
   isPast,
   parseISO,
 } from "date-fns";
-import { createClient } from "@/lib/supabase/server";
-import { Drawer } from "@/components/Drawer";
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
+import { Drawer } from "@/components/Drawer";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
-import {
-  computeScore,
-  findMatchedTerms,
-  findMissingRequirements,
-} from "@/lib/scoring/score";
-import { fetchBehavioralSignal } from "@/lib/scoring/refresh";
-import { MissingSkillChip } from "@/components/MissingSkillChip";
+import { inferDomain } from "@/lib/domains";
 import { cn, stripHtml } from "@/lib/utils";
-import type {
-  ApplicationStatus,
-  Opportunity,
-  Profile,
-} from "@/types/db";
+import type { ApplicationStatus, Opportunity } from "@/types/db";
 
-export const dynamic = "force-dynamic";
-
-type Params = { id: string };
-
-export default async function ModalOpportunityDetailPage({
-  params,
+/**
+ * Client-side opportunity detail drawer. Renders instantly from in-memory data
+ * passed directly from the feed — no server roundtrip.
+ */
+export function OpportunityDrawer({
+  opportunity: opp,
+  isSaved,
+  applicationStatus,
+  score,
+  why,
+  sourceName,
+  onClose,
 }: {
-  params: Promise<Params>;
+  opportunity: Opportunity;
+  isSaved: boolean;
+  applicationStatus?: ApplicationStatus;
+  score: number;
+  why: string | null;
+  sourceName?: string;
+  onClose: () => void;
 }) {
-  const { id } = await params;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/opportunity/${id}`)}`);
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.onboarded) redirect("/onboarding");
-
-  const [oppRes, savedRes, appRes] = await Promise.all([
-    supabase.from("opportunities").select("*").eq("id", id).maybeSingle(),
-    supabase
-      .from("saved_opportunities")
-      .select("opportunity_id")
-      .eq("user_id", user.id)
-      .eq("opportunity_id", id)
-      .maybeSingle(),
-    supabase
-      .from("applications")
-      .select("status")
-      .eq("user_id", user.id)
-      .eq("opportunity_id", id)
-      .maybeSingle(),
-  ]);
-
-  const opp = oppRes.data as Opportunity | null;
-  if (!opp || opp.status === "spam") notFound();
-
-  let sourceName: string | null = null;
-  if (opp.source_id) {
-    const { data } = await supabase
-      .from("sources")
-      .select("name")
-      .eq("id", opp.source_id)
-      .maybeSingle();
-    sourceName = (data?.name as string) ?? null;
-  }
-
-  const isSaved = !!savedRes.data;
-  const applicationStatus = (appRes.data?.status ?? undefined) as
-    | ApplicationStatus
-    | undefined;
-
-  const behavioralSignal = await fetchBehavioralSignal(user.id);
-  const { score, why } = computeScore(
-    profile as Profile,
-    opp,
-    behavioralSignal,
-  );
-  const matchedTerms = findMatchedTerms(profile as Profile, opp);
-  const missingSkills = findMissingRequirements(profile as Profile, opp);
-
   const cat = getCategoryStyle(opp.category);
+  const domain = inferDomain(opp.tags, opp.title, opp.organization);
+  const DomainIcon = domain.Icon;
   const description = stripHtml(opp.description);
   const summary = stripHtml(opp.summary);
   const compensation = stripHtml(opp.compensation);
@@ -126,8 +71,9 @@ export default async function ModalOpportunityDetailPage({
   const isExpired = opp.status === "expired";
 
   return (
-    <Drawer>
-      <div className="px-5 py-6 sm:px-8 sm:py-10">
+    <Drawer onClose={onClose}>
+      <div className="px-5 pb-8 sm:px-6">
+        {/* Category + Domain badge */}
         <header>
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em]">
             <span
@@ -135,6 +81,16 @@ export default async function ModalOpportunityDetailPage({
               className={cn("size-1.5 rounded-full", cat.dotBg)}
             />
             <span className={cat.badgeText}>{cat.label}</span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                domain.bg,
+                domain.text,
+              )}
+            >
+              <DomainIcon className="size-3" />
+              {domain.label}
+            </span>
             {isExpired && (
               <span className="ml-2 rounded-md bg-slate-500/10 px-2 py-0.5 text-[10px] tracking-normal text-muted-foreground">
                 Closed
@@ -142,7 +98,7 @@ export default async function ModalOpportunityDetailPage({
             )}
           </div>
 
-          <h1 className="mt-2 pr-6 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+          <h1 className="mt-2 pr-2 text-xl font-semibold tracking-tight text-foreground">
             {opp.title}
           </h1>
 
@@ -167,7 +123,8 @@ export default async function ModalOpportunityDetailPage({
           </div>
         </header>
 
-        <div className="mt-6 flex flex-wrap items-center gap-2">
+        {/* Action bar */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           <SaveButton opportunityId={opp.id} isSaved={isSaved} />
           <ApplyButton
             opportunityId={opp.id}
@@ -181,7 +138,7 @@ export default async function ModalOpportunityDetailPage({
                 title: opp.title,
                 organization: opp.organization,
               }}
-              className="w-full justify-center sm:ml-auto sm:w-auto"
+              className="ml-auto inline-flex items-center justify-center"
             >
               Apply
               <ArrowUpRight className="size-4" />
@@ -189,7 +146,8 @@ export default async function ModalOpportunityDetailPage({
           )}
         </div>
 
-        <section className="mt-8 grid gap-3 sm:grid-cols-2">
+        {/* Quick facts */}
+        <section className="mt-6 grid gap-2 grid-cols-2">
           <Fact
             icon={<Clock className="size-3.5" />}
             label="Deadline"
@@ -204,7 +162,7 @@ export default async function ModalOpportunityDetailPage({
               >
                 {deadlineDate ? format(deadlineDate, "EEE, MMM d") : "Rolling"}
                 {deadlineDate && (
-                  <span className="ml-1.5 text-[11px] text-muted-foreground/80">
+                  <span className="ml-1 text-[10px] text-muted-foreground/80">
                     ({deadlineRel})
                   </span>
                 )}
@@ -232,79 +190,51 @@ export default async function ModalOpportunityDetailPage({
               value={sourceName}
             />
           )}
-          {opp.upside_score !== null && opp.upside_score !== undefined && (
+          {opp.upside_score != null && (
             <Fact
               icon={<TrendingUp className="size-3.5" />}
               label="Career Upside"
               value={`${opp.upside_score}/100`}
             />
           )}
-          {opp.effort_score !== null && opp.effort_score !== undefined && (
+          {opp.effort_score != null && (
             <Fact
               icon={<Activity className="size-3.5" />}
-              label="Application Effort"
+              label="Effort"
               value={`${opp.effort_score}/100`}
             />
           )}
         </section>
 
-        {(why || matchedTerms.length > 0 || missingSkills.length > 0) && (
-          <section className="mt-8">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+        {/* Why for you */}
+        {why && (
+          <section className="mt-6">
+            <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Why this is for you
             </h2>
             <div className="rounded-xl border-l-2 border-primary/50 bg-primary/[0.04] px-4 py-3 dark:bg-primary/[0.06]">
-              {why && (
-                <p className="text-[14px] italic leading-relaxed text-primary/90">
-                  {why}
-                </p>
-              )}
-              {matchedTerms.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    Matches your profile
-                  </span>
-                  {matchedTerms.map((t) => (
-                    <span
-                      key={t}
-                      className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-[11.5px] font-medium text-primary"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {missingSkills.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-primary/15 pt-3">
-                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    What you&apos;re missing
-                  </span>
-                  {missingSkills.map((t) => (
-                    <MissingSkillChip key={t} skill={t} />
-                  ))}
-                  <span className="text-[10.5px] text-muted-foreground/70">
-                    Tap to add to your skills
-                  </span>
-                </div>
-              )}
+              <p className="text-[13.5px] italic leading-relaxed text-primary/90">
+                {why}
+              </p>
             </div>
           </section>
         )}
 
+        {/* Intelligence */}
         {(opp.action_plan || (opp.red_flags && opp.red_flags.length > 0)) && (
-          <section className="mt-8">
-            <h2 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          <section className="mt-6">
+            <h2 className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               <Sparkles className="size-3" />
               Intelligence
             </h2>
-            <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
+            <div className="rounded-xl border border-border/60 bg-card/40 p-3.5 space-y-3">
               {opp.red_flags && opp.red_flags.length > 0 && (
                 <div>
-                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
                     <ShieldAlert className="size-3.5" />
                     Red Flags
                   </h3>
-                  <ul className="space-y-1 text-[13.5px] text-muted-foreground">
+                  <ul className="space-y-0.5 text-[13px] text-muted-foreground">
                     {opp.red_flags.map((flag) => (
                       <li key={flag} className="flex gap-2">
                         <span className="text-destructive/50">•</span>
@@ -316,11 +246,11 @@ export default async function ModalOpportunityDetailPage({
               )}
               {opp.action_plan && (
                 <div>
-                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-[12px] font-medium text-foreground">
                     <CheckCircle className="size-3.5 text-emerald-500" />
                     Action Plan
                   </h3>
-                  <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
                     {opp.action_plan}
                   </p>
                 </div>
@@ -329,23 +259,25 @@ export default async function ModalOpportunityDetailPage({
           </section>
         )}
 
+        {/* Summary */}
         {summary && summary.length > 0 && summary !== description && (
-          <section className="mt-8">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          <section className="mt-6">
+            <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Summary
             </h2>
-            <p className="text-[14px] leading-relaxed text-foreground/85">
+            <p className="text-[13.5px] leading-relaxed text-foreground/85">
               {summary}
             </p>
           </section>
         )}
 
+        {/* Description */}
         {description && (
-          <section className="mt-8">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          <section className="mt-6">
+            <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Details
             </h2>
-            <div className="space-y-3 text-[14px] leading-relaxed text-foreground/85">
+            <div className="space-y-2.5 text-[13.5px] leading-relaxed text-foreground/85">
               {description.split(/\n\s*\n/).map((para, i) => (
                 <p key={i}>{para}</p>
               ))}
@@ -353,20 +285,22 @@ export default async function ModalOpportunityDetailPage({
           </section>
         )}
 
+        {/* Eligibility */}
         {eligibility && (
-          <section className="mt-8">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          <section className="mt-6">
+            <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Eligibility
             </h2>
-            <p className="text-[14px] leading-relaxed text-foreground/85">
+            <p className="text-[13.5px] leading-relaxed text-foreground/85">
               {eligibility}
             </p>
           </section>
         )}
 
+        {/* Tags */}
         {opp.tags && opp.tags.length > 0 && (
-          <section className="mt-8">
-            <h2 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          <section className="mt-6">
+            <h2 className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               <Tag className="size-3" />
               Tags
             </h2>
@@ -374,7 +308,7 @@ export default async function ModalOpportunityDetailPage({
               {opp.tags.map((t) => (
                 <span
                   key={t}
-                  className="rounded-md border border-border/60 bg-background px-2 py-0.5 text-[11.5px] text-muted-foreground"
+                  className="rounded-md border border-border/60 bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
                 >
                   {t}
                 </span>
@@ -382,7 +316,7 @@ export default async function ModalOpportunityDetailPage({
               {opp.eligibility_tags?.map((t) => (
                 <span
                   key={t}
-                  className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11.5px] text-blue-600 dark:text-blue-400"
+                  className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-600 dark:text-blue-400"
                 >
                   {t}
                 </span>
@@ -391,7 +325,8 @@ export default async function ModalOpportunityDetailPage({
           </section>
         )}
 
-        <footer className="mt-12 border-t border-border/40 pb-12 pt-6 text-[11.5px] text-muted-foreground/80 sm:pb-6">
+        {/* Footer */}
+        <footer className="mt-8 border-t border-border/40 pt-4 text-[11.5px] text-muted-foreground/80">
           <div className="flex flex-wrap items-center gap-3">
             <span>
               Added{" "}
@@ -399,31 +334,32 @@ export default async function ModalOpportunityDetailPage({
                 addSuffix: true,
               })}
             </span>
-            {opp.extraction_confidence !== null &&
-              opp.extraction_confidence !== undefined &&
-              opp.extraction_confidence < 0.7 && (
-                <span className="rounded-full bg-amber-100/60 px-2 py-0.5 text-[10.5px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                  Lower-confidence extraction (
-                  {Math.round(opp.extraction_confidence * 100)}%)
-                </span>
-              )}
-            {opp.source_url && (
-              <Link
-                href={opp.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
-              >
-                View source
-                <ArrowUpRight className="size-3" />
-              </Link>
-            )}
+            <Link
+              href={`/opportunity/${opp.id}`}
+              className="ml-auto inline-flex items-center gap-1 text-primary transition hover:text-primary/80"
+            >
+              Full page view
+              <ArrowUpRight className="size-3" />
+            </Link>
           </div>
+          {opp.source_url && (
+            <Link
+              href={opp.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
+            >
+              View source
+              <ArrowUpRight className="size-3" />
+            </Link>
+          )}
         </footer>
       </div>
     </Drawer>
   );
 }
+
+/* ============ Internals ============ */
 
 function ScoreBadge({ score }: { score: number }) {
   const tone =
@@ -458,15 +394,15 @@ function Fact({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-      <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+    <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5">
+      <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
           {label}
         </p>
-        <p className="mt-0.5 text-[13.5px] font-medium text-foreground/90">
+        <p className="mt-0.5 text-[13px] font-medium text-foreground/90">
           {value}
         </p>
       </div>

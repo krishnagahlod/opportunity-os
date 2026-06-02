@@ -35,10 +35,12 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
+  onSelect,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
+  onSelect?: (opp: Opportunity) => void;
 }) {
   const [hidden, setHidden] = React.useState(false);
   const router = useRouter();
@@ -52,8 +54,13 @@ export function OpportunityCard({
     : opportunity.location || null;
   const apply = opportunity.apply_url;
 
-  const detailHref = `/opportunity/${opportunity.id}`;
-  const openDetail = () => router.push(detailHref, { scroll: false });
+  const openDetail = () => {
+    if (onSelect) {
+      onSelect(opportunity);
+    } else {
+      router.push(`/opportunity/${opportunity.id}`, { scroll: false });
+    }
+  };
 
   if (hidden) return null;
 

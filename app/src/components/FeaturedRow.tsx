@@ -18,12 +18,14 @@ export function FeaturedRow({
   scoreMap,
   savedSet,
   appliedMap,
+  onSelect,
   count = 3,
 }: {
   opportunities: Opportunity[];
   scoreMap: Record<string, { score: number; why: string | null }>;
   savedSet: Set<string>;
   appliedMap: Record<string, ApplicationStatus>;
+  onSelect?: (opp: Opportunity) => void;
   count?: number;
 }) {
   // Build candidates with valid scores, then diversify so the top row
@@ -60,6 +62,7 @@ export function FeaturedRow({
             opportunity={opp}
             isSaved={savedSet.has(opp.id)}
             applicationStatus={appliedMap[opp.id]}
+            onSelect={onSelect}
           />
         ))}
       </div>

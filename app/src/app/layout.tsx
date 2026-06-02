@@ -21,10 +21,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-  modal,
 }: Readonly<{
   children: React.ReactNode;
-  modal: React.ReactNode;
 }>) {
   return (
     <html
@@ -42,7 +40,6 @@ export default function RootLayout({
           Skip to content
         </a>
         {children}
-        {modal}
         {/* Global "did you finish applying?" toast — null-renders when no
             pending-apply flag is set in localStorage, so it's free for
             logged-out marketing pages too. */}
