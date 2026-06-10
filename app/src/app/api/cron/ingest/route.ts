@@ -8,7 +8,13 @@ import { fetchLever } from "@/lib/ingestion/connectors/lever";
 import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
 import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { type SourceListing } from "@/lib/ingestion/types";
-import { logIngestion } from "@/lib/ingestion/logs";
+import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
+import { callLLM } from "@/lib/ai/fallover";
+import { 
+  buildCategoryRefinementPrompt, 
+  CategoryRefinementSchema, 
+  CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION 
+} from "@/lib/ai/prompts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Max allowed for hobby plan
@@ -61,6 +67,42 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
   const start = Date.now();
+
+  // Re-enable sweep: auto-disabled sources that have recovered (at least
+  // 1 success in their last 3 logs) get re-enabled automatically so they
+  // don't require manual admin intervention for transient failures.
+  try {
+    const { data: disabledSources } = await supabase
+      .from("sources")
+      .select("id, name")
+      .eq("enabled", false)
+      .like("last_error", "auto-disabled%");
+
+    if (disabledSources && disabledSources.length > 0) {
+      for (const src of disabledSources as { id: string; name: string }[]) {
+        const { data: recentLogs } = await supabase
+          .from("ingestion_logs")
+          .select("status")
+          .eq("source_id", src.id)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        const hasRecent = (recentLogs ?? []).some(
+          (l: { status: string }) =>
+            l.status === "upserted" || l.status === "extracted" || l.status === "skipped_duplicate",
+        );
+        if (hasRecent) {
+          await supabase
+            .from("sources")
+            .update({ enabled: true, last_error: "auto-re-enabled after recovery" })
+            .eq("id", src.id);
+          console.log(`[ingest] Auto re-enabled source: ${src.name}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[ingest] Re-enable sweep failed:", e);
+  }
+
   
   const sourcesConfig = [
     { name: "LinkedIn Jobs", promise: fetchLinkedIn({ keywords: "software engineer intern", location: "India", maxPages: 2 }) },
@@ -99,10 +141,37 @@ export async function GET(req: NextRequest) {
         const title = opp.title || "Unknown Title";
         const source_url = listing.sourceUrl || opp.apply_url || hashUrl(title, organization);
         
+        let finalCategory = opp.category;
+        
+        // AI Category Refinement Pass
+        try {
+          const refinementResult = await callLLM({
+            prompt: buildCategoryRefinementPrompt(title, organization, opp.description || listing.rawText || "", finalCategory || "unknown"),
+            schema: CategoryRefinementSchema,
+            systemInstruction: CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION
+          });
+          
+          if (refinementResult.data.confidence >= 0.7) {
+            finalCategory = refinementResult.data.category;
+          }
+          
+          void logIngestion({
+            status: "extracted",
+            source_url,
+            source_name: sourceName,
+            source_id: sourceId,
+            provider: refinementResult.provider,
+            tokens_used: estimateTokens(refinementResult.raw),
+            duration_ms: Date.now() - start,
+          });
+        } catch (e) {
+          console.error(`[ingest] Category refinement failed for ${title}:`, e);
+        }
+        
         const row = {
           title,
           organization,
-          category: opp.category,
+          category: finalCategory,
           description: opp.description || null,
           summary: opp.summary || null,
           location: opp.location || null,

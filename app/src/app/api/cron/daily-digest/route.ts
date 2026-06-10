@@ -43,6 +43,8 @@ export const maxDuration = 60;
  * Best-effort delivery: failures on one user don't stop the rest.
  */
 
+import { verifyActiveLinks } from "@/lib/ingestion/link-checker";
+
 export async function GET(req: NextRequest) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
@@ -52,7 +54,18 @@ export async function GET(req: NextRequest) {
 
   // Sweep expired opportunities first so today's digest doesn't surface
   // anything whose deadline already passed.
-  const expired = await markExpiredOpportunities();
+  const expiredDb = await markExpiredOpportunities();
+  
+  // Also verify a batch of active links that might have closed quietly
+  const linkCheck = await verifyActiveLinks(20);
+  
+  const expired = {
+    count: expiredDb.count + linkCheck.expired,
+    dated: expiredDb.dated,
+    rolling: expiredDb.rolling,
+    linkCheckChecked: linkCheck.checked,
+    linkCheckExpired: linkCheck.expired
+  };
 
   // Pipeline-health + admin-review check. Combined alert fires daily when
   // EITHER ingestion is dead (no logs in 24h) OR there are items in the

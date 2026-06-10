@@ -27,12 +27,7 @@ export async function fetchLever(config: LeverConfig): Promise<SourceListing[]> 
         const title = job.text || "";
         // Basic filtering for early career / student roles
         const titleLower = title.toLowerCase();
-        const isStudentFriendly = 
-          titleLower.includes("intern") || 
-          titleLower.includes("graduate") ||
-          titleLower.includes("university") ||
-          titleLower.includes("associate");
-          
+        
         const isTooSenior = 
           titleLower.includes("senior") || 
           titleLower.includes("staff") || 
@@ -42,6 +37,16 @@ export async function fetchLever(config: LeverConfig): Promise<SourceListing[]> 
           
         if (isTooSenior) continue;
         
+        const isInternship = 
+          titleLower.includes("intern") || 
+          titleLower.includes("graduate") ||
+          titleLower.includes("university") ||
+          titleLower.includes("co-op") ||
+          titleLower.includes("apprentice");
+          
+        const isFellowship = titleLower.includes("fellow");
+        const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
+
         listings.push({
           sourceUrl: job.applyUrl || job.hostedUrl,
           title,
@@ -54,7 +59,7 @@ export async function fetchLever(config: LeverConfig): Promise<SourceListing[]> 
             apply_url: job.applyUrl || job.hostedUrl,
             description: job.descriptionPlain || job.description || "",
             date_added: new Date(job.createdAt).toISOString(),
-            category: isStudentFriendly ? "internship" : "fulltime",
+            category,
           },
           sourceSpecific: {
             source: "lever",

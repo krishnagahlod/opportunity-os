@@ -74,15 +74,15 @@ export type ExtractedOpportunity = z.infer<typeof ExtractedOpportunitySchema>;
  * complete CV parse.
  */
 export const ResumeExtractionSchema = z.object({
-  /** Lowercase, deduped, normalized skill keywords (e.g. "react", "sql", "figma"). */
   skills: z.array(z.string().min(1).max(40)).max(25).default([]),
-  /** Loose interest/role buckets the resume implies (e.g. "Software Engineering", "Data Science"). */
   roles_of_interest: z.array(z.string().min(1).max(60)).max(6).default([]),
+  estimated_seniority: z.enum(["student", "intern", "entry_level", "early_career", "mid_level", "senior", "lead", "unknown"]).default("unknown"),
+  key_achievements: z.array(z.string()).max(3).default([]),
 });
 
 export type ResumeExtraction = z.infer<typeof ResumeExtractionSchema>;
 
-export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output ONE complete JSON object — no prose, no fences, no truncation. Close every array and object. Be conservative: only extract what's explicitly demonstrated. Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest must be picked from the predefined bucket list provided in the user prompt — do NOT invent new role names. Skills should prefer the predefined chip list when applicable; otherwise return lowercase keywords. Hard caps: max 25 skills, max 6 roles. Cut aggressively if the candidate has more.`;
+export const RESUME_SYSTEM_INSTRUCTION = `You read resumes and output ONE complete JSON object — no prose, no fences, no truncation. Close every array and object. Be conservative: only extract what's explicitly demonstrated. Don't invent skills from coursework names alone — only include a skill if there's evidence of actual use (project, role, or specific competency claim). Roles_of_interest must be picked from the predefined bucket list provided in the user prompt — do NOT invent new role names. Skills should prefer the predefined chip list when applicable; otherwise return lowercase keywords. Hard caps: max 25 skills, max 6 roles. Cut aggressively if the candidate has more. Identify 1-3 key achievements.`;
 
 /**
  * Build the resume-extraction prompt with the candidate's PDF text inlined.
@@ -115,7 +115,9 @@ export function buildResumePrompt(
     "Expected JSON shape (output ONE complete object — close every bracket):",
     "{",
     '  "skills": string[],              // mix of chip names + lowercase keywords; MAX 25',
-    '  "roles_of_interest": string[]    // ONLY values from the role list above; MAX 6',
+    '  "roles_of_interest": string[],   // ONLY values from the role list above; MAX 6',
+    '  "estimated_seniority": "student" | "intern" | "entry_level" | "early_career" | "mid_level" | "senior" | "lead" | "unknown",',
+    '  "key_achievements": string[]     // 1-3 most impressive bullet points/achievements',
     "}",
     "",
     "Output JSON only — no prose, no fences. Make sure both arrays are closed.",
@@ -146,7 +148,7 @@ export function buildExtractPrompt({
   parts.push(`{
   "title": string,
   "organization": string,
-  "category": one of ${CATEGORIES.map((c) => `"${c}"`).join(" | ")},
+  "category": one of ${CATEGORIES.map((c) => `"${c}"`).join(" | ")}. (Note: internship = typically unpaid or stipend-based, aimed at students/recent grads, duration 1-6 months. fulltime = salaried, permanent employment. When the title contains 'intern' or 'internship', ALWAYS set category to 'internship'),
   "description": string | null,
   "summary": string (1-2 sentences) | null,
   "tags": string[] (3-6 lowercase),
@@ -163,7 +165,7 @@ export function buildExtractPrompt({
 }`);
   parts.push("");
   parts.push("--- Raw text ---");
-  parts.push(rawText.slice(0, 1500)); // cap input for free-tier token budget
+  parts.push(rawText.slice(0, 2500)); // cap input for token budget
   parts.push("--- End raw text ---");
   return parts.join("\n");
 }
@@ -284,6 +286,7 @@ export function buildEnrichPrompt(
 /* ============ Action Plan (Personalized) ============ */
 
 export const ActionPlanSchema = z.object({
+  gap_analysis: z.array(z.string()).max(4),
   resume_tweaks: z.array(z.string()).max(4),
   interview_prep: z.array(z.string()).max(4),
   cold_outreach_draft: z.string(),
@@ -291,7 +294,9 @@ export const ActionPlanSchema = z.object({
 
 export type ActionPlan = z.infer<typeof ActionPlanSchema>;
 
-export const ACTION_PLAN_SYSTEM_INSTRUCTION = `You act as an elite career coach. You read a candidate's resume summary and a specific opportunity listing, then generate a highly personalized action plan for them to win this role. Output ONE complete JSON object — no prose, no fences.`;
+export const ACTION_PLAN_SYSTEM_INSTRUCTION = `You act as an elite career coach. You read a candidate's resume summary, goals, and a specific opportunity listing, then generate a highly personalized action plan for them to win this role. 
+Cross-reference the candidate's exact background with the job requirements.
+Output ONE complete JSON object — no prose, no fences.`;
 
 export function buildActionPlanPrompt(
   title: string,
@@ -299,12 +304,13 @@ export function buildActionPlanPrompt(
   description: string | null,
   resumeText: string | null,
   userSkills: string[],
+  userGoals: string[],
 ): string {
   const cleanDesc = (description || "").slice(0, 3000);
   const cleanResume = (resumeText || "").slice(0, 3000);
 
   return [
-    "Generate a personalized action plan to help this candidate land this specific opportunity.",
+    "Generate a highly personalized action plan to help this candidate land this specific opportunity.",
     "",
     "--- OPPORTUNITY ---",
     `Title: ${title}`,
@@ -313,20 +319,64 @@ export function buildActionPlanPrompt(
     cleanDesc,
     "",
     "--- CANDIDATE ---",
+    `Goals: ${userGoals.join(", ")}`,
     `Known Skills: ${userSkills.join(", ")}`,
     "Resume Summary / Text:",
     cleanResume || "No resume provided.",
     "",
     "--- REQUIREMENTS ---",
-    "1. resume_tweaks: 2-3 highly specific bullet points on how they should tailor their resume for THIS exact role based on their background.",
-    "2. interview_prep: 2-3 specific topics, algorithms, or behavioral themes they must study for this role.",
-    "3. cold_outreach_draft: A 3-5 sentence cold email they can send to a recruiter or hiring manager at this company.",
+    "1. gap_analysis: 2-3 specific bullet points highlighting exact skills or experiences the candidate is missing compared to the job description, and how to mitigate them.",
+    "2. resume_tweaks: 2-3 highly specific bullet points on how they should tailor their resume for THIS exact role based on their background.",
+    "3. interview_prep: 2-3 specific topics, algorithms, or behavioral themes they must study for this role.",
+    "4. cold_outreach_draft: A 3-sentence cold email they can send to a recruiter or hiring manager at this company. Explicitly mention one of the user's past experiences and map it to a core requirement of the role.",
     "",
     "Expected JSON format:",
     `{
+  "gap_analysis": string[],
   "resume_tweaks": string[],
   "interview_prep": string[],
   "cold_outreach_draft": string
+}`
+  ].join("\n");
+}
+
+/* ============ Category Refinement ============ */
+
+export const CategoryRefinementSchema = z.object({
+  category: z.enum(CATEGORIES),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().max(200).optional(),
+});
+
+export type CategoryRefinement = z.infer<typeof CategoryRefinementSchema>;
+
+export const CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION = `You verify and potentially correct the categorization of a job opportunity. Output ONE complete JSON object — no prose, no fences.
+You will be given the original category chosen by the connector, and the job details.
+If the original category is correct, return it with high confidence (e.g. 0.9).
+If it is wrong (e.g. it says fulltime but it is an internship), return the corrected category with high confidence.
+Note: internship = typically unpaid or stipend-based, aimed at students/recent grads, duration 1-6 months. fulltime = salaried, permanent employment.`;
+
+export function buildCategoryRefinementPrompt(
+  title: string,
+  organization: string,
+  description: string | null,
+  originalCategory: string
+): string {
+  const cleanDesc = (description || "").slice(0, 800);
+  return [
+    "Verify the category for this opportunity.",
+    "",
+    `Title: ${title}`,
+    `Organization: ${organization}`,
+    `Original Category: ${originalCategory}`,
+    "Description:",
+    cleanDesc,
+    "",
+    "Expected JSON shape:",
+    `{
+  "category": one of ${CATEGORIES.map((c) => `"${c}"`).join(" | ")},
+  "confidence": number 0..1,
+  "reasoning": string
 }`
   ].join("\n");
 }

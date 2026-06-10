@@ -83,6 +83,8 @@ function normalize(input: ResumeExtraction): ResumeExtraction {
   return {
     skills: cleanSkills,
     roles_of_interest: cleanRoles,
+    estimated_seniority: input.estimated_seniority,
+    key_achievements: input.key_achievements.slice(0, 3),
   };
 }
 

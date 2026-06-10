@@ -5,12 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NavBar } from "@/components/NavBar";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
   setOpportunityStatus,
   toggleFeatured,
   toggleSourceEnabled,
 } from "./actions";
 import { AdminActionButton } from "./AdminActionButton";
+import { AdminQuickActions } from "./AdminQuickActions";
 import {
   NeedsReviewSection,
   type ReviewRow,
@@ -39,7 +41,11 @@ const STATUS_TONE: Record<LogStatus, string> = {
     "bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300",
 };
 
-export default async function AdminPage() {
+export default async function AdminPage(props: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const searchParams = await props.searchParams;
+  const logStatusFilter = typeof searchParams?.logStatus === "string" ? searchParams.logStatus : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -55,6 +61,18 @@ export default async function AdminPage() {
 
   const admin = createAdminClient();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  let logsQuery = admin
+    .from("ingestion_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (logStatusFilter && logStatusFilter !== "All") {
+    logsQuery = logsQuery.eq("status", logStatusFilter);
+  }
 
   // Run everything in parallel
   const [
@@ -66,16 +84,15 @@ export default async function AdminPage() {
     last24OppsRes,
     lowConfRes,
     needsReviewRes,
+    last7LogsRes,
+    tokens30LogsRes,
+    allActiveOppsRes
   ] = await Promise.all([
     admin
       .from("sources")
       .select("*")
       .order("created_at", { ascending: true }),
-    admin
-      .from("ingestion_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50),
+    logsQuery,
     admin
       .from("opportunities")
       .select("*")
@@ -97,8 +114,6 @@ export default async function AdminPage() {
       .from("opportunities")
       .select("id", { count: "exact", head: true })
       .lt("extraction_confidence", 0.7),
-    // Needs-review queue: pending submissions + low-confidence extractions
-    // (< 0.5) that the feed hides. Limit to 100 to keep payload light.
     admin
       .from("opportunities")
       .select("*")
@@ -106,6 +121,20 @@ export default async function AdminPage() {
       .neq("status", "spam")
       .order("date_added", { ascending: false })
       .limit(100),
+    admin
+      .from("ingestion_logs")
+      .select("status, created_at, source_id")
+      .gte("created_at", since7d)
+      .limit(3000), // Increased limit for full 7-day stats
+    admin
+      .from("ingestion_logs")
+      .select("tokens_used, provider, created_at")
+      .gte("created_at", since30d)
+      .not("tokens_used", "is", null),
+    admin
+      .from("opportunities")
+      .select("category")
+      .eq("status", "active")
   ]);
 
   const sources = sourcesRes.data ?? [];
@@ -145,6 +174,56 @@ export default async function AdminPage() {
         )
       : null;
 
+  // Compute 7-day token stats
+  const tokens30Logs = tokens30LogsRes.data ?? [];
+  let tokens7d = 0;
+  let tokens30d = 0;
+  const nowTime = Date.now();
+  for (const l of tokens30Logs) {
+    if (!l.tokens_used) continue;
+    tokens30d += Number(l.tokens_used);
+    const logTime = new Date(l.created_at).getTime();
+    if (nowTime - logTime <= 7 * 24 * 60 * 60 * 1000) {
+      tokens7d += Number(l.tokens_used);
+    }
+  }
+
+  // Compute Category Distribution
+  const activeOpps = allActiveOppsRes.data ?? [];
+  const categoryCounts: Record<string, number> = {};
+  for (const o of activeOpps) {
+    categoryCounts[o.category] = (categoryCounts[o.category] || 0) + 1;
+  }
+  const categoryEntries = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+
+  // Compute 7-day ingestion trend by day
+  const last7Logs = last7LogsRes.data ?? [];
+  const trendDays: Record<string, { upserted: number, failed: number, skipped: number, total: number }> = {};
+  // Initialize last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(nowTime - i * 24 * 60 * 60 * 1000);
+    trendDays[d.toISOString().split("T")[0]] = { upserted: 0, failed: 0, skipped: 0, total: 0 };
+  }
+  
+  // Per-source analytics
+  const sourceStats: Record<string, { total7d: number, failed7d: number }> = {};
+  
+  for (const l of last7Logs) {
+    const dayStr = l.created_at.split("T")[0];
+    if (trendDays[dayStr]) {
+      trendDays[dayStr].total++;
+      if (l.status === "upserted") trendDays[dayStr].upserted++;
+      else if (l.status === "failed") trendDays[dayStr].failed++;
+      else trendDays[dayStr].skipped++;
+    }
+    
+    if (l.source_id) {
+      if (!sourceStats[l.source_id]) sourceStats[l.source_id] = { total7d: 0, failed7d: 0 };
+      sourceStats[l.source_id].total7d++;
+      if (l.status === "failed") sourceStats[l.source_id].failed7d++;
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin />
@@ -161,6 +240,8 @@ export default async function AdminPage() {
             controls.
           </p>
         </header>
+
+        <AdminQuickActions />
 
         {/* Needs-review queue (low-confidence + pending submissions) */}
         <NeedsReviewSection rows={needsReview} />
@@ -185,7 +266,7 @@ export default async function AdminPage() {
         )}
 
         {/* KPIs */}
-        <section className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-6">
           <Kpi
             label="Active opportunities"
             value={activeOppsRes.count ?? 0}
@@ -215,6 +296,63 @@ export default async function AdminPage() {
             icon={<AlertTriangle className="size-4" />}
             tint="bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300"
           />
+          <Kpi
+            label="7-Day Tokens"
+            value={(tokens7d / 1000).toFixed(1) + "k"}
+            icon={<Activity className="size-4" />}
+            tint="bg-blue-500/10 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300"
+          />
+          <Kpi
+            label="30-Day Tokens"
+            value={(tokens30d / 1000).toFixed(1) + "k"}
+            icon={<Database className="size-4" />}
+            tint="bg-purple-500/10 text-purple-600 dark:bg-purple-400/15 dark:text-purple-300"
+          />
+        </section>
+
+        {/* 7-Day Trend */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-semibold tracking-tight">7-Day Ingestion Trend</h2>
+          <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-4">
+            {Object.entries(trendDays).map(([day, stats]) => {
+              const maxVal = Math.max(...Object.values(trendDays).map(s => s.total || 1));
+              const upsertPct = stats.total > 0 ? (stats.upserted / maxVal) * 100 : 0;
+              const skipPct = stats.total > 0 ? (stats.skipped / maxVal) * 100 : 0;
+              const failPct = stats.total > 0 ? (stats.failed / maxVal) * 100 : 0;
+              
+              return (
+                <div key={day} className="flex items-center gap-3">
+                  <div className="w-24 text-xs text-muted-foreground">{day.slice(5)}</div>
+                  <div className="flex h-4 flex-1 overflow-hidden rounded-full bg-muted/50">
+                    <div style={{ width: `${upsertPct}%` }} className="bg-emerald-500 dark:bg-emerald-600" title={`Upserted: ${stats.upserted}`} />
+                    <div style={{ width: `${skipPct}%` }} className="bg-amber-500 dark:bg-amber-600" title={`Skipped: ${stats.skipped}`} />
+                    <div style={{ width: `${failPct}%` }} className="bg-rose-500 dark:bg-rose-600" title={`Failed: ${stats.failed}`} />
+                  </div>
+                  <div className="w-12 text-right text-xs tabular-nums text-muted-foreground">{stats.total}</div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Category Distribution */}
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-semibold tracking-tight">Category Distribution (Active)</h2>
+          <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-4">
+            {categoryEntries.map(([cat, count]) => {
+              const maxCount = categoryEntries[0]?.[1] || 1;
+              const isDominant = (count / activeOpps.length) > 0.8;
+              return (
+                <div key={cat} className="flex items-center gap-3">
+                  <div className="w-32 truncate text-xs text-muted-foreground">{cat}</div>
+                  <div className="flex h-4 flex-1 overflow-hidden rounded-full bg-muted/50">
+                    <div style={{ width: `${(count / maxCount) * 100}%` }} className={cn("bg-indigo-500 dark:bg-indigo-600", isDominant && "bg-rose-500")} />
+                  </div>
+                  <div className="w-12 text-right text-xs tabular-nums text-muted-foreground">{count}</div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         {/* Sources */}
@@ -226,6 +364,7 @@ export default async function AdminPage() {
                 <tr>
                   <Th>Name</Th>
                   <Th>Kind</Th>
+                  <Th>7d Health</Th>
                   <Th>Last run</Th>
                   <Th>Last status</Th>
                   <Th>Last error</Th>
@@ -235,18 +374,37 @@ export default async function AdminPage() {
               <tbody className="divide-y divide-border/60">
                 {sources.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-xs text-muted-foreground">
+                    <td colSpan={7} className="p-6 text-center text-xs text-muted-foreground">
                       No sources yet.
                     </td>
                   </tr>
                 ) : (
-                  sources.map((s) => (
+                  sources.map((s) => {
+                    const stats = sourceStats[s.id] || { total7d: 0, failed7d: 0 };
+                    const successPct = stats.total7d > 0 ? Math.round(((stats.total7d - stats.failed7d) / stats.total7d) * 100) : 0;
+                    return (
                     <tr key={s.id} className="hover:bg-muted/20">
                       <Td>
                         <span className="font-medium">{s.name}</span>
                       </Td>
                       <Td>
                         <Pill>{s.kind}</Pill>
+                      </Td>
+                      <Td>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("text-xs font-medium", 
+                            stats.total7d === 0 ? "text-muted-foreground" :
+                            successPct >= 80 ? "text-emerald-600" :
+                            successPct >= 50 ? "text-amber-600" : "text-rose-600"
+                          )}>
+                            {stats.total7d === 0 ? "No data" : `${successPct}%`}
+                          </div>
+                          {stats.total7d > 0 && (
+                            <div className="text-[10px] text-muted-foreground/70">
+                              ({stats.total7d - stats.failed7d}/{stats.total7d})
+                            </div>
+                          )}
+                        </div>
                       </Td>
                       <Td className="tabular-nums text-muted-foreground">
                         {s.last_run_at ? relTime(s.last_run_at) : "Never"}
@@ -282,7 +440,8 @@ export default async function AdminPage() {
                         />
                       </Td>
                     </tr>
-                  ))
+                  )
+                  })
                 )}
               </tbody>
             </table>
@@ -295,7 +454,15 @@ export default async function AdminPage() {
             <h2 className="text-sm font-semibold tracking-tight">
               Recent ingestion activity
             </h2>
-            <p className="text-[11px] text-muted-foreground/70">Last 50 events</p>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-muted-foreground/70">Filter:</span>
+              <div className="flex items-center gap-2">
+                <Link href="/admin?logStatus=All" className={cn("text-[11px] hover:underline", (!logStatusFilter || logStatusFilter === "All") ? "font-semibold text-foreground" : "text-muted-foreground/70")}>All</Link>
+                <Link href="/admin?logStatus=upserted" className={cn("text-[11px] text-emerald-600 hover:underline", logStatusFilter === "upserted" && "font-semibold")}>Upserted</Link>
+                <Link href="/admin?logStatus=failed" className={cn("text-[11px] text-rose-600 hover:underline", logStatusFilter === "failed" && "font-semibold")}>Failed</Link>
+                <Link href="/admin?logStatus=skipped_duplicate" className={cn("text-[11px] text-slate-500 hover:underline", logStatusFilter === "skipped_duplicate" && "font-semibold")}>Skipped</Link>
+              </div>
+            </div>
           </div>
           <div className="overflow-hidden rounded-2xl border border-border/70">
             <table className="w-full text-sm">

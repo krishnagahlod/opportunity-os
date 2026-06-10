@@ -88,14 +88,25 @@ export async function checkPipelineHealth(): Promise<PipelineHealth> {
 }
 
 /** Threshold: a source with this many consecutive `failed` logs (no
- * successful upserted/extracted row between them) gets auto-disabled. */
-const CONSECUTIVE_FAILURE_THRESHOLD = 5;
+ * successful row between them) within the recent window gets auto-disabled.
+ * Raised from 5 → 10 to reduce false positives on transient errors. */
+const CONSECUTIVE_FAILURE_THRESHOLD = 10;
+
+/** Only consider logs from the last 48 hours when computing failure streaks.
+ * Old failures from dormant sources shouldn't trigger disabling. */
+const FAILURE_WINDOW_HOURS = 48;
 
 /**
  * Scan enabled sources for consecutive-failure streaks. For each that
  * crossed the threshold, set `enabled=false` and return its summary so the
  * pipeline-alert can mention it. Best-effort: errors on a single source
  * don't fail the whole check.
+ *
+ * Compared to the original implementation:
+ * - `skipped_duplicate` now counts as a success (the source fetched real
+ *   data, it was just a duplicate — the pipeline is working)
+ * - Only logs from the last 48h are considered
+ * - Threshold raised from 5 → 10
  */
 async function autoDisableFailingSources(
   supabase: ReturnType<typeof createAdminClient>,
@@ -108,16 +119,19 @@ async function autoDisableFailingSources(
     .eq("enabled", true);
   if (error || !sources) return disabled;
 
+  const windowCutoff = new Date(
+    Date.now() - FAILURE_WINDOW_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+
   for (const src of sources as { id: string; name: string }[]) {
-    // Get the last N=10 logs for this source, newest first. We need the
-    // most recent successful row to bound the streak — anything before it
-    // is irrelevant.
+    // Get the last N=15 logs for this source within the 48h window.
     const { data: logs } = await supabase
       .from("ingestion_logs")
       .select("status")
       .eq("source_id", src.id)
+      .gte("created_at", windowCutoff)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(15);
     if (!logs || logs.length < CONSECUTIVE_FAILURE_THRESHOLD) continue;
 
     let streak = 0;
@@ -125,11 +139,17 @@ async function autoDisableFailingSources(
       if (log.status === "failed") {
         streak++;
         if (streak >= CONSECUTIVE_FAILURE_THRESHOLD) break;
-      } else if (log.status === "upserted" || log.status === "extracted") {
-        // Hit a success — streak broken.
+      } else if (
+        log.status === "upserted" ||
+        log.status === "extracted" ||
+        log.status === "skipped_duplicate"
+      ) {
+        // Hit a success — streak broken. skipped_duplicate means the
+        // source fetched real data (just nothing new), so the pipeline
+        // is healthy for this source.
         break;
       }
-      // Other statuses (skipped_*) neither extend nor break the streak.
+      // skipped_filtered neither extends nor breaks the streak.
     }
 
     if (streak >= CONSECUTIVE_FAILURE_THRESHOLD) {
@@ -203,7 +223,7 @@ export function renderPipelineAlertForTelegram(
   if (health.autoDisabledSources.length > 0) {
     lines.push("<b>⚠️ Auto-disabled sources</b>");
     lines.push(
-      `${health.autoDisabledSources.length} source${health.autoDisabledSources.length === 1 ? "" : "s"} hit 5+ consecutive failures and were auto-disabled:`,
+      `${health.autoDisabledSources.length} source${health.autoDisabledSources.length === 1 ? "" : "s"} hit 10+ consecutive failures and were auto-disabled:`,
     );
     for (const s of health.autoDisabledSources) {
       lines.push(`• ${escapeHtml(s.name)} (${s.failureCount} fails)`);

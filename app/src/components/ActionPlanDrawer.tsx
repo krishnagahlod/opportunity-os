@@ -122,11 +122,29 @@ export function ActionPlanDrawer({ opportunityId, isOpen, onClose }: Props) {
 
             {plan && !loading && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Gap Analysis */}
+                <section>
+                  <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
+                    <div className="flex size-6 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                      1
+                    </div>
+                    Gap Analysis
+                  </h3>
+                  <ul className="space-y-3">
+                    {plan.gap_analysis && plan.gap_analysis.map((gap, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ChevronRight className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <span>{gap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
                 {/* Resume Tweaks */}
                 <section>
                   <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
                     <div className="flex size-6 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
-                      1
+                      2
                     </div>
                     Resume Tweaks
                   </h3>
@@ -144,7 +162,7 @@ export function ActionPlanDrawer({ opportunityId, isOpen, onClose }: Props) {
                 <section>
                   <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
                     <div className="flex size-6 items-center justify-center rounded-full bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/20 dark:text-fuchsia-400">
-                      2
+                      3
                     </div>
                     Interview Prep
                   </h3>
@@ -162,7 +180,7 @@ export function ActionPlanDrawer({ opportunityId, isOpen, onClose }: Props) {
                 <section>
                   <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
                     <div className="flex size-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
-                      3
+                      4
                     </div>
                     Cold Outreach Draft
                   </h3>

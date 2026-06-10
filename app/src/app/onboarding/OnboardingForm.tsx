@@ -139,6 +139,10 @@ export function OnboardingForm({
   const [skills, setSkills] = useState<Set<string>>(new Set());
   const [goals, setGoals] = useState<Set<string>>(new Set());
   const [avoids, setAvoids] = useState<Set<string>>(new Set());
+  
+  // Extra Fields
+  const [stage, setStage] = useState<string>("");
+  const [achievements, setAchievements] = useState<string[]>([]);
 
   const toggleSet = (setFunc: React.Dispatch<React.SetStateAction<Set<string>>>) => (v: string) =>
     setFunc((s) => {
@@ -163,6 +167,34 @@ export function OnboardingForm({
     setSkills((prev) => new Set([...prev, ...matchedSkills]));
     setInterests((prev) => new Set([...prev, ...matchedInterests]));
 
+    if (extraction.key_achievements && extraction.key_achievements.length > 0) {
+      setAchievements(extraction.key_achievements);
+    }
+
+    let autoGoals = new Set<string>();
+    let autoStage = "";
+    switch (extraction.estimated_seniority) {
+      case "student":
+        autoStage = "Pre-final Year";
+        autoGoals.add("Internships");
+        break;
+      case "intern":
+      case "entry_level":
+        autoStage = "Graduate";
+        autoGoals.add("Full-time roles");
+        break;
+      case "early_career":
+      case "mid_level":
+      case "senior":
+      case "lead":
+        autoStage = "Early Professional";
+        autoGoals.add("Full-time roles");
+        break;
+    }
+    
+    if (autoStage && !stage) setStage(autoStage);
+    if (autoGoals.size > 0) setGoals((prev) => new Set([...prev, ...autoGoals]));
+
     return {
       matchedSkills: matchedSkills.length,
       matchedInterests: matchedInterests.length,
@@ -176,6 +208,13 @@ export function OnboardingForm({
     formData.set("skills", JSON.stringify([...skills]));
     formData.set("opportunity_goals", JSON.stringify([...goals]));
     formData.set("avoid_tags", JSON.stringify([...avoids]));
+    
+    const targetCompaniesRaw = String(formData.get("target_companies") ?? "");
+    const targetCompaniesArray = targetCompaniesRaw
+      .split(",")
+      .map(c => c.trim())
+      .filter(c => c.length > 0);
+    formData.set("target_companies", JSON.stringify(targetCompaniesArray));
     
     startTransition(async () => {
       const res = await saveOnboarding(formData);
@@ -207,6 +246,18 @@ export function OnboardingForm({
         {step === 1 && (
           <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
             <ResumeQuickStart userId={userId} onParsed={applyResumeExtraction} />
+            
+            {achievements.length > 0 && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm animate-in fade-in slide-in-from-bottom-2">
+                <p className="mb-2 font-medium text-primary">✨ Key achievements found:</p>
+                <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                  {achievements.map((ach, i) => (
+                    <li key={i}>{ach}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
             <section>
               <SectionLabel title="About you" />
               <div className="grid gap-6 sm:grid-cols-2">
@@ -242,7 +293,7 @@ export function OnboardingForm({
                 />
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="stage" className="text-xs">Current Stage</Label>
-                  <Select name="stage">
+                  <Select name="stage" value={stage} onValueChange={(val) => setStage(val || "")}>
                     <SelectTrigger className="bg-background/60 backdrop-blur-sm">
                       <SelectValue placeholder="Select your current stage" />
                     </SelectTrigger>
@@ -279,6 +330,18 @@ export function OnboardingForm({
                 options={SKILL_OPTIONS}
                 selected={skills}
                 onToggle={toggleSet(setSkills)}
+              />
+            </section>
+            <section>
+              <SectionLabel
+                title="Target Companies / Dream Roles"
+                hint="Are there specific companies you want to keep an eye on? (e.g. Google, Stripe)"
+              />
+              <Field
+                id="target_companies"
+                name="target_companies"
+                label="Target Companies"
+                placeholder="Google, Stripe, OpenAI..."
               />
             </section>
           </div>

@@ -275,21 +275,48 @@ export async function markExpiredOpportunities(): Promise<{
   }
   const dated = datedRows?.length ?? 0;
 
-  // Pass 2: rolling deadlines (deadline IS NULL) older than the cutoff
-  const { data: rollingRows, error: rollingErr } = await supabase
+  // Pass 2: rolling deadlines (deadline IS NULL)
+  // Find all active rolling opportunities with their source names
+  const { data: rollingActive, error: activeErr } = await supabase
     .from("opportunities")
-    .update({ status: "expired" })
+    .select(`
+      id,
+      date_added,
+      source:sources(name)
+    `)
     .eq("status", "active")
-    .is("deadline", null)
-    .lt("date_added", rollingCutoff)
-    .select("id");
-  if (rollingErr) {
-    console.error(
-      "[markExpiredOpportunities] rolling pass failed:",
-      rollingErr.message,
-    );
+    .is("deadline", null);
+
+  if (activeErr) {
+    console.error("[markExpiredOpportunities] Failed to fetch active rolling opps:", activeErr.message);
   }
-  const rolling = rollingRows?.length ?? 0;
+
+  const idsToExpire: string[] = [];
+  const now = Date.now();
+  
+  for (const row of (rollingActive || [])) {
+    const isLinkedIn = (row.source as unknown as { name: string })?.name?.toLowerCase().includes("linkedin");
+    const maxAgeDays = isLinkedIn ? 14 : ROLLING_EXPIRY_DAYS;
+    const addedTime = new Date(row.date_added).getTime();
+    
+    if (now - addedTime > maxAgeDays * 24 * 60 * 60 * 1000) {
+      idsToExpire.push(row.id);
+    }
+  }
+
+  let rolling = 0;
+  if (idsToExpire.length > 0) {
+    const { data: updatedRolling, error: rollingErr } = await supabase
+      .from("opportunities")
+      .update({ status: "expired" })
+      .in("id", idsToExpire)
+      .select("id");
+      
+    if (rollingErr) {
+      console.error("[markExpiredOpportunities] rolling pass update failed:", rollingErr.message);
+    }
+    rolling = updatedRolling?.length ?? 0;
+  }
 
   return { count: dated + rolling, dated, rolling };
 }

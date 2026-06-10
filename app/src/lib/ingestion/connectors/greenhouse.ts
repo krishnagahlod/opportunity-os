@@ -28,13 +28,7 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
         const title = job.title || "";
         // Basic filtering for early career / student roles
         const titleLower = title.toLowerCase();
-        const isStudentFriendly = 
-          titleLower.includes("intern") || 
-          titleLower.includes("graduate") ||
-          titleLower.includes("university") ||
-          titleLower.includes("associate") ||
-          titleLower.includes("co-op");
-          
+        
         const isTooSenior = 
           titleLower.includes("senior") || 
           titleLower.includes("staff") || 
@@ -44,6 +38,16 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
           titleLower.includes("head");
           
         if (isTooSenior) continue;
+
+        const isInternship = 
+          titleLower.includes("intern") || 
+          titleLower.includes("graduate") ||
+          titleLower.includes("university") ||
+          titleLower.includes("co-op") ||
+          titleLower.includes("apprentice");
+          
+        const isFellowship = titleLower.includes("fellow");
+        const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
 
         // Decode HTML content to plain text if needed
         let descriptionPlain = "";
@@ -63,7 +67,7 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
             apply_url: job.absolute_url,
             description: descriptionPlain,
             date_added: job.updated_at ? new Date(job.updated_at).toISOString() : new Date().toISOString(),
-            category: isStudentFriendly ? "internship" : "fulltime",
+            category,
           },
           sourceSpecific: {
             source: "greenhouse",

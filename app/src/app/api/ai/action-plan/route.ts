@@ -33,10 +33,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
     }
 
-    // Fetch user profile (to get resume_text and skills)
+    // Fetch user profile (to get resume_text, skills, and goals)
     const { data: profile, error: profErr } = await supabase
       .from("profiles")
-      .select("resume_text, skills")
+      .select("resume_text, skills, goals")
       .eq("id", user.id)
       .single();
 
@@ -49,14 +49,15 @@ export async function POST(req: Request) {
       opp.organization || "the organization",
       opp.description,
       profile.resume_text,
-      profile.skills || []
+      profile.skills || [],
+      profile.goals || []
     );
 
     const { data: actionPlan, provider } = await callLLM({
       prompt,
       schema: ActionPlanSchema,
       systemInstruction: ACTION_PLAN_SYSTEM_INSTRUCTION,
-      maxTokens: 1500,
+      maxTokens: 2500,
     });
 
     return NextResponse.json({ success: true, provider, actionPlan });

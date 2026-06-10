@@ -147,17 +147,22 @@ function ItemRow({ item, appUrl }: { item: DigestItem; appUrl: string }) {
             <Text style={itemTitleStyle}>
               <Link href={appHref} style={titleLinkStyle}>
                 {o.title}
-              </Link>{" "}
-              <span style={scoreBadgeStyle(score)}>{score}% Match</span>
+              </Link>
             </Text>
             
             <Text style={itemMetaStyle}>
-              <strong>{o.organization}</strong>
+              <strong style={{ color: "#18181b" }}>{o.organization}</strong>
               {o.location ? ` · ${o.is_remote ? "Remote" : o.location}` : ""}
               {" · "}
               {deadlineText}
-              {compText ? ` · ${compText}` : ""}
+              <span style={scoreBadgeStyle(score)}>{score}% Match</span>
             </Text>
+
+            {compText && (
+              <Text style={compStyle}>
+                💵 {compText}
+              </Text>
+            )}
             
             {o.summary && (
               <Text style={summaryStyle}>
@@ -167,13 +172,13 @@ function ItemRow({ item, appUrl }: { item: DigestItem; appUrl: string }) {
 
             {why && (
               <Text style={whyStyle}>
-                💡 <strong>Why it matches:</strong> {why}
+                🎯 <strong>Match:</strong> {why}
               </Text>
             )}
           </td>
-          <td valign="top" width="120" style={{ paddingTop: "4px" }}>
+          <td valign="top" width="100" style={{ paddingTop: "8px", textAlign: "right" }}>
             <Link href={appHref} style={actionPlanBtnStyle}>
-              Action Plan ⚡
+              Action Plan
             </Link>
           </td>
         </tr>
@@ -185,11 +190,12 @@ function ItemRow({ item, appUrl }: { item: DigestItem; appUrl: string }) {
 /* ============ Inline styles (email clients ignore most CSS) ============ */
 
 const bodyStyle: React.CSSProperties = {
-  backgroundColor: "#f4f4f5",
+  backgroundColor: "#fafafa",
   fontFamily:
-    "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   margin: 0,
   padding: 0,
+  WebkitFontSmoothing: "antialiased",
 };
 
 const containerStyle: React.CSSProperties = {
@@ -199,7 +205,7 @@ const containerStyle: React.CSSProperties = {
   backgroundColor: "#ffffff",
   borderRadius: "16px",
   border: "1px solid #e4e4e7",
-  boxShadow: "0 4px 24px rgba(0, 0, 0, 0.04)",
+  boxShadow: "0 10px 40px -10px rgba(0,0,0,0.04)",
 };
 
 const headerStyle: React.CSSProperties = {
@@ -340,37 +346,52 @@ function scoreBadgeStyle(score: number): React.CSSProperties {
 
 const itemMetaStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  fontSize: "13px",
+  fontSize: "14px",
   color: "#52525b",
+  display: "flex",
+  alignItems: "center",
+};
+
+const compStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: "13px",
+  color: "#166534",
+  backgroundColor: "#dcfce7",
+  padding: "4px 8px",
+  borderRadius: "4px",
+  display: "inline-block",
+  fontWeight: 500,
 };
 
 const summaryStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: "13px",
+  margin: "12px 0 0",
+  fontSize: "14px",
   color: "#3f3f46",
-  lineHeight: 1.5,
+  lineHeight: 1.6,
 };
 
 const whyStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: "12.5px",
-  color: "#4f46e5",
+  margin: "12px 0 0",
+  fontSize: "13px",
+  color: "#4338ca",
   backgroundColor: "#eef2ff",
-  padding: "6px 10px",
+  padding: "8px 12px",
   borderRadius: "6px",
   lineHeight: 1.4,
+  border: "1px solid #e0e7ff",
 };
 
 const actionPlanBtnStyle: React.CSSProperties = {
   display: "inline-block",
+  padding: "8px 14px",
   backgroundColor: "#18181b",
   color: "#ffffff",
+  fontSize: "13px",
+  fontWeight: 500,
   textDecoration: "none",
-  fontSize: "12px",
-  fontWeight: 600,
-  padding: "8px 12px",
   borderRadius: "8px",
   textAlign: "center" as const,
+  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
   width: "100%",
   boxSizing: "border-box" as const,
 };

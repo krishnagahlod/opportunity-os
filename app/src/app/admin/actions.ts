@@ -132,3 +132,93 @@ export async function deleteOpportunity(
   revalidatePath("/");
   return { ok: true };
 }
+
+/**
+ * Re-enable every source whose last_error starts with 'auto-disabled'.
+ * Clears the error so the next cron run picks it up normally.
+ */
+export async function reEnableAllAutoDisabled(): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("sources")
+    .update({ enabled: true, last_error: null })
+    .like("last_error", "auto-disabled%");
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/**
+ * Expire active opportunities that have no deadline set and were added more
+ * than `maxAgeDays` days ago. Prevents the feed from showing stale listings
+ * forever.
+ */
+export async function expireStaleOpportunities(
+  maxAgeDays: number,
+): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (maxAgeDays < 1 || maxAgeDays > 365) {
+    return { error: "maxAgeDays must be between 1 and 365" };
+  }
+
+  const cutoff = new Date(
+    Date.now() - maxAgeDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("opportunities")
+    .update({ status: "expired" as const })
+    .eq("status", "active")
+    .is("deadline", null)
+    .lt("date_added", cutoff);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/**
+ * Trigger a cron endpoint from the admin panel. Useful for manually kicking
+ * off an ingestion cycle or daily digest without touching the terminal.
+ */
+export async function triggerCronEndpoint(
+  endpoint: "ingest" | "daily-digest",
+): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return { error: "CRON_SECRET not configured on server" };
+
+  // Build absolute URL — works in both Vercel and local dev.
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.VERCEL_URL ??
+    "http://localhost:3000";
+  const url = `${base.replace(/\/$/, "")}/api/cron/${endpoint}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${secret}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { error: `Cron ${endpoint} returned ${res.status}: ${text}` };
+    }
+    // Success — revalidate so the admin sees fresh logs.
+    revalidatePath("/admin");
+    return { ok: true };
+  } catch (err) {
+    return { error: `Fetch failed: ${(err as Error).message}` };
+  }
+}

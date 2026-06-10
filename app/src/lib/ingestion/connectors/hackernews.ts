@@ -63,17 +63,32 @@ export async function fetchHackerNews(config: HackerNewsConfig): Promise<SourceL
         
         const jobUrl = `https://news.ycombinator.com/item?id=${comment.objectID}`;
 
+        const roleLower = role.toLowerCase();
+        const titleLower = titleLine.toLowerCase();
+        const combinedLower = `${roleLower} ${titleLower}`;
+        
+        const isInternship = 
+          combinedLower.includes("intern") || 
+          combinedLower.includes("trainee") ||
+          combinedLower.includes("apprentice") ||
+          combinedLower.includes("co-op") ||
+          combinedLower.includes("working student");
+        const isFellowship = combinedLower.includes("fellow");
+        const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
+
+        const plainText = comment.text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
         listings.push({
           sourceUrl: jobUrl,
           title: role,
           organization: company,
-          rawText: comment.text,
+          rawText: plainText,
           structured: {
             title: role,
             organization: company,
             location: "Flexible / Check post",
             apply_url: jobUrl,
-            category: "fulltime", // ML will adjust if it's an internship
+            category, // Refined based on title
           },
           sourceSpecific: {
             source: "hackernews",

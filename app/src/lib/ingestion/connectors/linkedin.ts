@@ -45,18 +45,31 @@ export async function fetchLinkedIn(config: LinkedInConfig): Promise<SourceListi
         const dateAdded = $(el).find("time").attr("datetime") || new Date().toISOString();
         
         if (title && organization && jobUrl) {
+          const titleLower = title.toLowerCase();
+          const isInternship = 
+            titleLower.includes("intern") || 
+            titleLower.includes("trainee") ||
+            titleLower.includes("apprentice") ||
+            titleLower.includes("co-op") ||
+            titleLower.includes("working student");
+          const isFellowship = titleLower.includes("fellow");
+          const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
+
+          const rawHtml = $(el).html() || "";
+          const plainText = $(el).text().replace(/\s+/g, " ").trim();
+
           listings.push({
             sourceUrl: jobUrl,
             title,
             organization,
-            rawText: $(el).html() || "", 
+            rawText: plainText, 
             structured: {
               title,
               organization,
               location: jobLocation,
               apply_url: jobUrl,
               date_added: dateAdded,
-              category: "fulltime", // ML will refine this
+              category, // Refined based on title
             },
             sourceSpecific: {
               source: "linkedin_public",
