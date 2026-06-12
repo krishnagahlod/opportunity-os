@@ -38,6 +38,7 @@ export async function callLLM<T>({
   // Groq was previously truncating at 600 on items with longer summaries/why text.
   maxTokens = 1000,
   groqModel = DEFAULT_GROQ_MODEL,
+  primaryProvider = "gemini",
 }: {
   prompt: string;
   schema: ZodSchema<T>;
