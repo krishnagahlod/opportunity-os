@@ -1,12 +1,20 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+async function getAppUrl() {
+  const headersList = await headers();
+  // Get host (includes port, e.g. localhost:3000 or opportunity-os.vercel.app)
+  const host = headersList.get("host") ?? "localhost:3000";
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}`;
+}
+
 export async function signInWithGoogle(next?: string) {
   const supabase = await createClient();
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = await getAppUrl();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -34,7 +42,7 @@ export async function sendMagicLink(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = await getAppUrl();
 
   const { error } = await supabase.auth.signInWithOtp({
     email,

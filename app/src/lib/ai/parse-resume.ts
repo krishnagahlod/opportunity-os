@@ -54,6 +54,7 @@ export async function parseResumePdf(
     // model handles structured output more reliably. Slower but it's a
     // one-time per-user call so the latency hit is fine.
     groqModel: "llama-3.3-70b-versatile",
+    primaryProvider: "groq",
   });
 
   return normalize(result.data);

@@ -222,7 +222,22 @@ export function OnboardingForm({
     });
   }
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 4));
+  const nextStep = () => {
+    if (step === 1) {
+      const form = document.querySelector("form");
+      if (form) {
+        const fn = (form.elements.namedItem("full_name") as HTMLInputElement)?.value?.trim();
+        const col = (form.elements.namedItem("college") as HTMLInputElement)?.value?.trim();
+        const gy = (form.elements.namedItem("graduation_year") as HTMLInputElement)?.value?.trim();
+        if (!fn || !col || !gy) {
+          setError("Please fill out your full name, college, and graduation year before continuing.");
+          return;
+        }
+      }
+    }
+    setError(null);
+    setStep((s) => Math.min(s + 1, 4));
+  };
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   return (
@@ -243,9 +258,8 @@ export function OnboardingForm({
       </div>
 
       <form action={onSubmit} className="space-y-8">
-        {step === 1 && (
-          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
-            <ResumeQuickStart userId={userId} onParsed={applyResumeExtraction} />
+        <div className={cn("space-y-12 animate-in fade-in slide-in-from-right-4 duration-300", step !== 1 && "hidden")}>
+          <ResumeQuickStart userId={userId} onParsed={applyResumeExtraction} />
             
             {achievements.length > 0 && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm animate-in fade-in slide-in-from-bottom-2">
@@ -306,11 +320,9 @@ export function OnboardingForm({
                 </div>
               </div>
             </section>
-          </div>
-        )}
+        </div>
 
-        {step === 2 && (
-          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className={cn("space-y-12 animate-in fade-in slide-in-from-right-4 duration-300", step !== 2 && "hidden")}>
             <section>
               <SectionLabel
                 title="What tracks are you hunting for?"
@@ -344,11 +356,9 @@ export function OnboardingForm({
                 placeholder="Google, Stripe, OpenAI..."
               />
             </section>
-          </div>
-        )}
+        </div>
 
-        {step === 3 && (
-          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className={cn("space-y-12 animate-in fade-in slide-in-from-right-4 duration-300", step !== 3 && "hidden")}>
             <section>
               <SectionLabel
                 title="What are your goals?"
@@ -371,11 +381,9 @@ export function OnboardingForm({
                 onToggle={toggleSet(setAvoids)}
               />
             </section>
-          </div>
-        )}
+        </div>
 
-        {step === 4 && (
-          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className={cn("space-y-12 animate-in fade-in slide-in-from-right-4 duration-300", step !== 4 && "hidden")}>
             <section>
               <SectionLabel title="Preferences & Targets" />
               <div className="grid gap-6 sm:grid-cols-2">
@@ -466,8 +474,7 @@ export function OnboardingForm({
                 </div>
               </div>
             </section>
-          </div>
-        )}
+        </div>
 
         {error && (
           <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
