@@ -7,6 +7,7 @@ import { fetchGreenhouse } from "@/lib/ingestion/connectors/greenhouse";
 import { fetchLever } from "@/lib/ingestion/connectors/lever";
 import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
 import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
+import { fetchRss } from "@/lib/ingestion/connectors/rss";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -107,10 +108,38 @@ export async function GET(req: NextRequest) {
   const sourcesConfig = [
     { name: "LinkedIn Jobs", promise: fetchLinkedIn({ keywords: "software engineer intern", location: "India", maxPages: 2 }) },
     { name: "Devpost", promise: fetchDevpost({ maxPages: 2 }) },
-    { name: "Greenhouse: Canonical", promise: fetchGreenhouse({ boards: [{ slug: "canonical", displayName: "Canonical" }] }) },
-    { name: "Lever: Netflix", promise: fetchLever({ companies: [{ slug: "netflix", displayName: "Netflix" }] }) },
+    { 
+      name: "Greenhouse", 
+      promise: fetchGreenhouse({ 
+        boards: [
+          { slug: "canonical", displayName: "Canonical" },
+          { slug: "anthropic", displayName: "Anthropic" },
+          { slug: "figma", displayName: "Figma" },
+          { slug: "vercel", displayName: "Vercel" },
+          { slug: "discord", displayName: "Discord" },
+          { slug: "airbnb", displayName: "Airbnb" },
+          { slug: "postman", displayName: "Postman" }
+        ] 
+      }) 
+    },
+    { 
+      name: "Lever", 
+      promise: fetchLever({ 
+        companies: [
+          { slug: "netflix", displayName: "Netflix" },
+          { slug: "cred", displayName: "CRED" },
+          { slug: "meesho", displayName: "Meesho" }
+        ] 
+      }) 
+    },
     { name: "Internshala", promise: fetchInternshala({ maxPages: 2 }) },
     { name: "Hacker News: Who is hiring", promise: fetchHackerNews({ maxItems: 30 }) },
+    { name: "HN Jobs RSS", promise: fetchRss({ url: "https://hnrss.org/whoishiring", sourceName: "HN Jobs RSS", categoryHint: "fulltime" }) },
+    { name: "Lenny's Newsletter", promise: fetchRss({ url: "https://www.lennysnewsletter.com/feed", sourceName: "Lenny's Newsletter" }) },
+    { name: "WeWorkRemotely", promise: fetchRss({ url: "https://weworkremotely.com/remote-jobs.rss", sourceName: "WeWorkRemotely" }) },
+    { name: "Unstop", promise: fetchRss({ url: "https://unstop.com/api/public/opportunities/rss", sourceName: "Unstop" }) },
+    { name: "Unstop Competitions", promise: fetchRss({ url: "https://unstop.com/api/public/competitions/rss", sourceName: "Unstop Competitions" }) },
+    { name: "Unstop Internships", promise: fetchRss({ url: "https://unstop.com/api/public/internships/rss", sourceName: "Unstop Internships", categoryHint: "internship" }) },
   ];
 
   // 1. Fetch from all sources
