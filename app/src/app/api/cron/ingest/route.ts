@@ -9,6 +9,7 @@ import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
 import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { fetchRss } from "@/lib/ingestion/connectors/rss";
 import { fetchAshbyConnector } from "@/lib/ingestion/connectors/ashby";
+import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -129,7 +130,15 @@ export async function GET(req: NextRequest) {
           { slug: "uber", displayName: "Uber" },
           { slug: "lyft", displayName: "Lyft" },
           { slug: "pinterest", displayName: "Pinterest" },
-          { slug: "dropbox", displayName: "Dropbox" }
+          { slug: "dropbox", displayName: "Dropbox" },
+          { slug: "coinbase", displayName: "Coinbase" },
+          { slug: "reddit", displayName: "Reddit" },
+          { slug: "duolingo", displayName: "Duolingo" },
+          { slug: "canva", displayName: "Canva" },
+          { slug: "twitch", displayName: "Twitch" },
+          { slug: "brex", displayName: "Brex" },
+          { slug: "glossier", displayName: "Glossier" },
+          { slug: "gusto", displayName: "Gusto" }
         ] 
       }) 
     },
@@ -144,7 +153,9 @@ export async function GET(req: NextRequest) {
           { slug: "yelp", displayName: "Yelp" },
           { slug: "palantir", displayName: "Palantir" },
           { slug: "atlassian", displayName: "Atlassian" },
-          { slug: "shopify", displayName: "Shopify" }
+          { slug: "shopify", displayName: "Shopify" },
+          { slug: "retool", displayName: "Retool" },
+          { slug: "figma", displayName: "Figma" }
         ] 
       }) 
     },
@@ -158,12 +169,15 @@ export async function GET(req: NextRequest) {
           { slug: "vanta", displayName: "Vanta" },
           { slug: "deel", displayName: "Deel" },
           { slug: "notion", displayName: "Notion" },
-          { slug: "loom", displayName: "Loom" }
+          { slug: "loom", displayName: "Loom" },
+          { slug: "zapier", displayName: "Zapier" },
+          { slug: "vercel", displayName: "Vercel" }
         ]
       })
     },
     { name: "Internshala", promise: fetchInternshala({ maxPages: 2 }) },
     { name: "Hacker News: Who is hiring", promise: fetchHackerNews({ maxItems: 30 }) },
+    { name: "RemoteOK", promise: fetchRemoteOK() },
     { name: "HN Jobs RSS", promise: fetchRss({ url: "https://hnrss.org/whoishiring", sourceName: "HN Jobs RSS", categoryHint: "fulltime" }) },
     { name: "Lenny's Newsletter", promise: fetchRss({ url: "https://www.lennysnewsletter.com/feed", sourceName: "Lenny's Newsletter" }) },
     { name: "WeWorkRemotely", promise: fetchRss({ url: "https://weworkremotely.com/remote-jobs.rss", sourceName: "WeWorkRemotely" }) },
