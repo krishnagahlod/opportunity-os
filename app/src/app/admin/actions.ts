@@ -190,7 +190,7 @@ export async function expireStaleOpportunities(
  * off an ingestion cycle or daily digest without touching the terminal.
  */
 export async function triggerCronEndpoint(
-  endpoint: "ingest" | "daily-digest",
+  endpoint: "ingest" | "daily-digest" | "cleanup" | "source-quality",
 ): Promise<AdminActionResult> {
   const denied = await requireAdmin();
   if (denied) return denied;

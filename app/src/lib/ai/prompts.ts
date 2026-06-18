@@ -294,9 +294,8 @@ export const ActionPlanSchema = z.object({
 
 export type ActionPlan = z.infer<typeof ActionPlanSchema>;
 
-export const ACTION_PLAN_SYSTEM_INSTRUCTION = `You act as an elite career coach. You read a candidate's resume summary, goals, and a specific opportunity listing, then generate a highly personalized action plan for them to win this role. 
-Cross-reference the candidate's exact background with the job requirements.
-Output ONE complete JSON object — no prose, no fences.`;
+export const ACTION_PLAN_SYSTEM_INSTRUCTION = `You are a career advisor helping a candidate apply to an opportunity. Your job is to output a JSON object containing a concrete, structured action plan.
+Do NOT invent information that isn't provided. Be concise, actionable, and encouraging. Focus heavily on practical next steps. Output ONLY a valid JSON object.`;
 
 export function buildActionPlanPrompt(
   title: string,
@@ -378,5 +377,51 @@ export function buildCategoryRefinementPrompt(
   "confidence": number 0..1,
   "reasoning": string
 }`
+  ].join("\n");
+}
+
+/* ============ Deep Resume Match ============ */
+
+export const AI_MATCH_SYSTEM_INSTRUCTION = `You are an expert technical recruiter and career coach. Your job is to evaluate a candidate's resume against a specific opportunity description and provide an objective match score (0-100) along with concrete strengths and weaknesses.
+Output ONLY a JSON object. Ensure the format is strictly adhered to.`;
+
+export const ResumeMatchSchema = z.object({
+  match_score: z.number().int().min(0).max(100),
+  strengths: z.array(z.string()).max(3),
+  weaknesses: z.array(z.string()).max(3),
+});
+
+export type ResumeMatchResult = z.infer<typeof ResumeMatchSchema>;
+
+export function buildMatchPrompt(
+  resumeText: string,
+  oppTitle: string,
+  oppOrganization: string,
+  oppDescription: string | null,
+  oppRequiredSkills: string[]
+): string {
+  const cappedResume = resumeText.slice(0, 15000);
+  const cappedDesc = (oppDescription || "").slice(0, 5000);
+  
+  return [
+    `Evaluate the fit between the candidate's resume and the target opportunity.`,
+    ``,
+    `Target Opportunity:`,
+    `- Title: ${oppTitle}`,
+    `- Organization: ${oppOrganization}`,
+    `- Required Skills: ${oppRequiredSkills.join(", ") || "None specified"}`,
+    `- Description: ${cappedDesc}`,
+    ``,
+    `Candidate Resume:`,
+    `---`,
+    cappedResume,
+    `---`,
+    ``,
+    `Expected JSON shape:`,
+    `{`,
+    `  "match_score": integer // 0 to 100. Be realistic. 90+ means near-perfect fit. 50-70 means some overlap but missing key requirements. <50 means poor fit.`,
+    `  "strengths": string[] // Up to 3 short, specific bullet points on why they are a strong fit (max 15 words each).`,
+    `  "weaknesses": string[] // Up to 3 short, specific bullet points on what they lack or areas for concern (max 15 words each).`,
+    `}`,
   ].join("\n");
 }

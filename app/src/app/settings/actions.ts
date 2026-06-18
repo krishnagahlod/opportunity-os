@@ -240,7 +240,7 @@ export async function parseResume(
 
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  let extraction: ResumeExtraction;
+  let extraction: import("@/lib/ai/parse-resume").ResumeExtractionResult;
   try {
     extraction = await parseResumePdf(bytes);
   } catch (e) {
@@ -249,16 +249,18 @@ export async function parseResume(
   }
 
   // Save the suggested skills alongside the resume URL. The `skills` array
-  // (user-confirmed) stays untouched until they explicitly click "+ Add".
-  const { error: updErr } = await supabase
+  // (confirmed) is untouched until the user explicitly merges them via
+  // applyResumeSkill().
+  const { error: updateErr } = await admin
     .from("profiles")
     .update({
       resume_url: storagePath,
       resume_skills: extraction.skills,
+      resume_text: extraction.raw_text,
       resume_uploaded_at: new Date().toISOString(),
     })
     .eq("id", user.id);
-  if (updErr) return { error: updErr.message };
+  if (updateErr) return { error: updateErr.message };
 
   // Resume skills feed scoring → invalidate any cached scores so the next
   // dashboard load reflects the boost.

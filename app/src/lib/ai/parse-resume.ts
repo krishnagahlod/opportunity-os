@@ -33,9 +33,11 @@ import {
  *   When it does happen we surface a clear error rather than silently
  *   returning empty skills.
  */
+export type ResumeExtractionResult = ResumeExtraction & { raw_text: string };
+
 export async function parseResumePdf(
   pdfBytes: Uint8Array,
-): Promise<ResumeExtraction> {
+): Promise<ResumeExtractionResult> {
   const text = await extractPdfText(pdfBytes);
 
   if (text.trim().length < 80) {
@@ -49,15 +51,11 @@ export async function parseResumePdf(
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
     maxTokens: 2500,
-    // Llama 3.1 8B Instant occasionally stops generating mid-array on
-    // json_object mode for richer schemas like resume parsing — the 70B
-    // model handles structured output more reliably. Slower but it's a
-    // one-time per-user call so the latency hit is fine.
     groqModel: "llama-3.3-70b-versatile",
     primaryProvider: "groq",
   });
 
-  return normalize(result.data);
+  return { ...normalize(result.data), raw_text: text };
 }
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {

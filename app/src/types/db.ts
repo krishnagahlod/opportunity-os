@@ -45,6 +45,8 @@ export type Profile = {
   /** AI-extracted skill candidates from the resume. User confirms which to merge into `skills`. */
   resume_skills: string[];
   resume_uploaded_at: string | null;
+  /** Full extracted text from the resume, used for deep AI matching. */
+  resume_text?: string | null;
   telegram_chat_id: string | null;
   /** Minimum 0..100 score required for an opportunity to appear in this user's
    * Telegram digest. Email digest ignores this. Default 70. */
@@ -60,6 +62,15 @@ export type Profile = {
   min_compensation?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ResumeMatch = {
+  user_id: string;
+  opportunity_id: string;
+  match_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  analyzed_at: string;
 };
 
 export type Opportunity = {

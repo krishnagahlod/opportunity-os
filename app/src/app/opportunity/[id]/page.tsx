@@ -42,6 +42,8 @@ import type {
   Profile,
 } from "@/types/db";
 
+import { ResumeMatchScore } from "@/components/ResumeMatchScore";
+
 export const dynamic = "force-dynamic";
 
 type Params = { id: string };
@@ -69,6 +71,9 @@ export default async function OpportunityDetailPage({
     .eq("id", user.id)
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
+
+  // Determine if user has a resume uploaded for the Deep AI Match
+  const hasResume = !!profile.resume_url;
 
   // Fetch opportunity + user state in parallel
   const [oppRes, savedRes, appRes] = await Promise.all([
@@ -214,6 +219,8 @@ export default async function OpportunityDetailPage({
             </ExternalApplyLink>
           )}
         </div>
+
+        <ResumeMatchScore opportunityId={opp.id} hasResume={hasResume} />
 
         {/* Quick facts strip */}
         <section className="mt-8 grid gap-3 sm:grid-cols-2">

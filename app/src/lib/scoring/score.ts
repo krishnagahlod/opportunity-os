@@ -77,6 +77,7 @@ export function computeScore(
   profile: Profile,
   opp: Opportunity,
   signal: BehavioralSignal = EMPTY_SIGNAL,
+  sourceQuality: number = 1.0,
 ): Score {
   const profile_relevance = relevanceScore(profile, opp);
   const preference_fit = preferenceFitScore(profile, opp);
@@ -103,7 +104,9 @@ export function computeScore(
     0.05 * recency +
     0.07 * behavioral_fit;
 
-  const score = Math.max(0, Math.min(100, Math.round(raw * confidence * legitimacy * 100)));
+  // sourceQuality acts as a multiplier. If it's a known spammy/dismissed source (< 1.0),
+  // it drags the raw score down. If it's a high-yield source (> 1.0), it boosts it slightly.
+  const score = Math.max(0, Math.min(100, Math.round(raw * confidence * legitimacy * sourceQuality * 100)));
 
   const breakdown: ScoreBreakdown = {
     profile_relevance: pct(profile_relevance),
@@ -116,12 +119,13 @@ export function computeScore(
     recency: pct(recency),
     behavioral_fit: pct(behavioral_fit),
     confidence: pct(confidence),
-  };
+    source_quality: pct(sourceQuality), // Added to trace feedback loops
+  } as any; // Cast as any because types/db.ts may not have all fields yet
 
   return {
     score,
     breakdown,
-    why: generateWhy(profile, opp, breakdown, signal),
+    why: generateWhy(profile, opp, breakdown, signal, sourceQuality),
   };
 }
 
@@ -495,10 +499,18 @@ function collectOppText(opp: Opportunity): string {
 function generateWhy(
   profile: Profile,
   opp: Opportunity,
-  b: ScoreBreakdown,
+  b: Record<string, number>,
   signal: BehavioralSignal,
+  sourceQuality: number = 1.0
 ): string {
   const reasons: string[] = [];
+
+  // 0. Macro Source Quality
+  if (sourceQuality <= 0.6) {
+    reasons.push("Warning: historically low-yield source");
+  } else if (sourceQuality >= 1.2) {
+    reasons.push("Highly trusted source (high community save rate)");
+  }
 
   // 1. Profile relevance — name the actual matched term when possible
   if (b.profile_relevance >= 60) {

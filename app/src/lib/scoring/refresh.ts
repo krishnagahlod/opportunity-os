@@ -67,6 +67,19 @@ export async function refreshScores(
   // by `behavioralFitScore` to boost opps similar to past saves.
   const signal = await fetchBehavioralSignal(profile.id);
 
+  // Fetch quality_score for the sources of opportunities we need to compute
+  const sourceIds = Array.from(new Set(toCompute.map(o => o.source_id).filter(Boolean)));
+  const sourceQualityMap: Record<string, number> = {};
+  if (sourceIds.length > 0) {
+    const { data: sources } = await supabase
+      .from("sources")
+      .select("id, quality_score")
+      .in("id", sourceIds as string[]);
+    for (const s of sources || []) {
+      sourceQualityMap[s.id] = s.quality_score ?? 1.0;
+    }
+  }
+
   const newRows: Array<{
     user_id: string;
     opportunity_id: string;
@@ -77,7 +90,8 @@ export async function refreshScores(
   }> = [];
 
   for (const opp of toCompute) {
-    const s = computeScore(profile, opp, signal);
+    const quality = opp.source_id ? (sourceQualityMap[opp.source_id] ?? 1.0) : 1.0;
+    const s = computeScore(profile, opp, signal, quality);
     result.set(opp.id, s);
     newRows.push({
       user_id: profile.id,

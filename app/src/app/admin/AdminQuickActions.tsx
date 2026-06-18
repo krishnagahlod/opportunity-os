@@ -30,6 +30,11 @@ export function AdminQuickActions() {
         label="Trigger Digest" 
         onAction={async () => triggerCronEndpoint("daily-digest")} 
       />
+
+      <AdminActionButton 
+        label="Recalc Source Quality" 
+        onAction={async () => triggerCronEndpoint("source-quality")} 
+      />
     </div>
   );
 }
