@@ -43,6 +43,7 @@ import type {
 } from "@/types/db";
 
 import { ResumeMatchScore } from "@/components/ResumeMatchScore";
+import { EnrichmentInsights } from "@/components/EnrichmentInsights";
 
 export const dynamic = "force-dynamic";
 
@@ -221,6 +222,10 @@ export default async function OpportunityDetailPage({
         </div>
 
         <ResumeMatchScore opportunityId={opp.id} hasResume={hasResume} />
+        
+        <div className="mt-6">
+          <EnrichmentInsights opportunity={opp} />
+        </div>
 
         {/* Quick facts strip */}
         <section className="mt-8 grid gap-3 sm:grid-cols-2">

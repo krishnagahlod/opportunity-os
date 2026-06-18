@@ -35,11 +35,13 @@ export function OpportunityCard({
   opportunity,
   isSaved,
   applicationStatus,
+  matchScore,
   onSelect,
 }: {
   opportunity: Opportunity;
   isSaved: boolean;
   applicationStatus?: ApplicationStatus;
+  matchScore?: number;
   onSelect?: (opp: Opportunity) => void;
 }) {
   const [hidden, setHidden] = React.useState(false);
@@ -143,6 +145,9 @@ export function OpportunityCard({
             </span>
           </div>
         </div>
+
+        {/* Match Ring */}
+        {matchScore !== undefined && <MatchRing score={matchScore} />}
       </div>
 
       {/* Body — actions visible on mobile (no hover possible on touch),
@@ -246,4 +251,44 @@ function formatDeadline(
   const distance = formatDistanceToNowStrict(date, { addSuffix: false });
   const days = (date.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   return { text: `${distance} left`, urgent: days <= 7 };
+}
+
+function MatchRing({ score }: { score: number }) {
+  const radius = 14;
+  const circumference = 2 * Math.PI * radius;
+  // Score is 0-100, clamped just in case
+  const safeScore = Math.max(0, Math.min(100, score));
+  const strokeDashoffset = circumference - (safeScore / 100) * circumference;
+  
+  const color = safeScore >= 80 ? "text-emerald-500" : safeScore >= 60 ? "text-amber-500" : "text-muted-foreground/50";
+  const bg = safeScore >= 80 ? "text-emerald-500/20" : safeScore >= 60 ? "text-amber-500/20" : "text-muted-foreground/20";
+
+  return (
+    <div className="relative flex items-center justify-center shrink-0 mt-0.5" title={`Match Score: ${Math.round(safeScore)}%`}>
+      <svg className="size-[34px] transform -rotate-90">
+        <circle
+          cx="17"
+          cy="17"
+          r={radius}
+          className={cn("stroke-current", bg)}
+          strokeWidth="3"
+          fill="transparent"
+        />
+        <circle
+          cx="17"
+          cy="17"
+          r={radius}
+          className={cn("stroke-current transition-all duration-1000 ease-out", color)}
+          strokeWidth="3"
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className={cn("absolute text-[9px] font-bold tracking-tighter", color)}>
+        {Math.round(safeScore)}
+      </span>
+    </div>
+  );
 }

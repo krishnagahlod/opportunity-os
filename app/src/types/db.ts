@@ -99,7 +99,8 @@ export type Opportunity = {
   date_added: string;
   featured: boolean;
   status: OpportunityStatus;
-  // Enrichment fields (Phase 2)
+
+  // Enrichment fields (Populated on-demand via /api/ai/enrich)
   role_seniority?: string | null;
   eligibility_tags?: string[];
   effort_score?: number | null;

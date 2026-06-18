@@ -62,6 +62,7 @@ export function FeaturedRow({
             opportunity={opp}
             isSaved={savedSet.has(opp.id)}
             applicationStatus={appliedMap[opp.id]}
+            matchScore={scoreMap[opp.id]?.score}
             onSelect={onSelect}
           />
         ))}

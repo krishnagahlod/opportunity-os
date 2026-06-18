@@ -490,6 +490,7 @@ export function FilteredFeed({
                         opportunity={opp}
                         isSaved={effectiveSavedSet.has(opp.id)}
                         applicationStatus={effectiveAppliedMap[opp.id]}
+                        matchScore={scoreMap[opp.id]?.score}
                         onSelect={setSelectedOpp}
                       />
                     </div>

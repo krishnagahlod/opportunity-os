@@ -148,7 +148,7 @@ export function buildExtractPrompt({
   parts.push(`{
   "title": string,
   "organization": string,
-  "category": one of ${CATEGORIES.map((c) => `"${c}"`).join(" | ")}. (Note: internship = typically unpaid or stipend-based, aimed at students/recent grads, duration 1-6 months. fulltime = salaried, permanent employment. When the title contains 'intern' or 'internship', ALWAYS set category to 'internship'),
+  "category": one of ${CATEGORIES.map((c) => `"${c}"`).join(" | ")}. (Note: internship = short-term for students/grads. fulltime = permanent employment. fellowship = immersive stipend-based cohort program. scholarship = educational funding. When title contains 'intern', use 'internship'. When title contains 'fellowship', use 'fellowship'),
   "description": string | null,
   "summary": string (1-2 sentences) | null,
   "tags": string[] (3-6 lowercase),

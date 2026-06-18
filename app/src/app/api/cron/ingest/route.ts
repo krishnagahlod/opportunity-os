@@ -10,6 +10,7 @@ import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { fetchRss } from "@/lib/ingestion/connectors/rss";
 import { fetchAshbyConnector } from "@/lib/ingestion/connectors/ashby";
 import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
+import { fetchStaticPages } from "@/lib/ingestion/connectors/static";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -184,6 +185,19 @@ export async function GET(req: NextRequest) {
     { name: "Unstop", promise: fetchRss({ url: "https://unstop.com/api/public/opportunities/rss", sourceName: "Unstop" }) },
     { name: "Unstop Competitions", promise: fetchRss({ url: "https://unstop.com/api/public/competitions/rss", sourceName: "Unstop Competitions" }) },
     { name: "Unstop Internships", promise: fetchRss({ url: "https://unstop.com/api/public/internships/rss", sourceName: "Unstop Internships", categoryHint: "internship" }) },
+    { 
+      name: "Top Fellowships", 
+      promise: fetchStaticPages({
+        pages: [
+          { url: "https://www.teachforindia.org/fellowship", sourceName: "Teach For India", categoryHint: "fellowship" },
+          { url: "https://thielfellowship.org/", sourceName: "Thiel Fellowship", categoryHint: "fellowship" },
+          { url: "https://schmidtsciencefellows.org/", sourceName: "Schmidt Science Fellows", categoryHint: "fellowship" },
+          { url: "https://www.schwarzmanscholars.org/", sourceName: "Schwarzman Scholars", categoryHint: "fellowship" },
+          { url: "https://knight-hennessy.stanford.edu/", sourceName: "Knight-Hennessy Scholars", categoryHint: "fellowship" },
+          { url: "https://www.mercatus.org/emergent-ventures", sourceName: "Emergent Ventures", categoryHint: "fellowship" }
+        ]
+      }) 
+    },
   ];
 
   // 1. Fetch from all sources
