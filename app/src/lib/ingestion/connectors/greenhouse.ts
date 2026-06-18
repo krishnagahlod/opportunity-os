@@ -11,22 +11,22 @@ export interface GreenhouseConfig {
 export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceListing[]> {
   const listings: SourceListing[] = [];
   
-  for (const board of config.boards) {
+  const fetchPromises = config.boards.map(async (board) => {
     const url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board.slug)}/jobs?content=true`;
     
     try {
       const res = await fetch(url);
       if (!res.ok) {
         console.error(`Greenhouse fetch failed for ${board.slug}: ${res.status}`);
-        continue;
+        return [];
       }
       
       const data = await res.json();
       const jobs = data.jobs || [];
+      const boardListings: SourceListing[] = [];
       
       for (const job of jobs) {
         const title = job.title || "";
-        // Basic filtering for early career / student roles
         const titleLower = title.toLowerCase();
         
         const isTooSenior = 
@@ -35,7 +35,11 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
           titleLower.includes("lead") ||
           titleLower.includes("manager") ||
           titleLower.includes("director") ||
-          titleLower.includes("head");
+          titleLower.includes("head") ||
+          titleLower.includes("principal") ||
+          titleLower.includes("architect") ||
+          titleLower.includes("vp ") ||
+          titleLower.includes("president");
           
         if (isTooSenior) continue;
 
@@ -55,7 +59,7 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
             descriptionPlain = job.content.replace(/<[^>]*>?/gm, '').replace(/\s+/g, " ").trim();
         }
         
-        listings.push({
+        boardListings.push({
           sourceUrl: job.absolute_url,
           title,
           organization: board.displayName,
@@ -76,8 +80,18 @@ export async function fetchGreenhouse(config: GreenhouseConfig): Promise<SourceL
           },
         });
       }
+      return boardListings;
     } catch (e) {
       console.error(`Error fetching Greenhouse for ${board.slug}`, e);
+      return [];
+    }
+  });
+
+  const results = await Promise.allSettled(fetchPromises);
+  
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      listings.push(...result.value);
     }
   }
 

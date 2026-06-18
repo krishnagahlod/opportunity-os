@@ -8,6 +8,7 @@ import { fetchLever } from "@/lib/ingestion/connectors/lever";
 import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
 import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { fetchRss } from "@/lib/ingestion/connectors/rss";
+import { fetchAshbyConnector } from "@/lib/ingestion/connectors/ashby";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -118,7 +119,17 @@ export async function GET(req: NextRequest) {
           { slug: "vercel", displayName: "Vercel" },
           { slug: "discord", displayName: "Discord" },
           { slug: "airbnb", displayName: "Airbnb" },
-          { slug: "postman", displayName: "Postman" }
+          { slug: "postman", displayName: "Postman" },
+          { slug: "stripe", displayName: "Stripe" },
+          { slug: "openai", displayName: "OpenAI" },
+          { slug: "databricks", displayName: "Databricks" },
+          { slug: "snowflake", displayName: "Snowflake" },
+          { slug: "plaid", displayName: "Plaid" },
+          { slug: "robinhood", displayName: "Robinhood" },
+          { slug: "uber", displayName: "Uber" },
+          { slug: "lyft", displayName: "Lyft" },
+          { slug: "pinterest", displayName: "Pinterest" },
+          { slug: "dropbox", displayName: "Dropbox" }
         ] 
       }) 
     },
@@ -128,9 +139,28 @@ export async function GET(req: NextRequest) {
         companies: [
           { slug: "netflix", displayName: "Netflix" },
           { slug: "cred", displayName: "CRED" },
-          { slug: "meesho", displayName: "Meesho" }
+          { slug: "meesho", displayName: "Meesho" },
+          { slug: "spotify", displayName: "Spotify" },
+          { slug: "yelp", displayName: "Yelp" },
+          { slug: "palantir", displayName: "Palantir" },
+          { slug: "atlassian", displayName: "Atlassian" },
+          { slug: "shopify", displayName: "Shopify" }
         ] 
       }) 
+    },
+    {
+      name: "Ashby",
+      promise: fetchAshbyConnector({
+        includeCompensation: true,
+        companies: [
+          { slug: "ramp", displayName: "Ramp" },
+          { slug: "linear", displayName: "Linear" },
+          { slug: "vanta", displayName: "Vanta" },
+          { slug: "deel", displayName: "Deel" },
+          { slug: "notion", displayName: "Notion" },
+          { slug: "loom", displayName: "Loom" }
+        ]
+      })
     },
     { name: "Internshala", promise: fetchInternshala({ maxPages: 2 }) },
     { name: "Hacker News: Who is hiring", promise: fetchHackerNews({ maxItems: 30 }) },

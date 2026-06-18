@@ -21,27 +21,39 @@ type AshbyPosting = {
 export async function fetchAshbyConnector(config: AshbyConfig): Promise<SourceListing[]> {
   const listings: SourceListing[] = [];
   
-  for (const company of config.companies) {
+  const fetchPromises = config.companies.map(async (company) => {
     try {
       const url = `https://api.ashbyhq.com/posting-api/job-board/${company.slug}?includeCompensation=${config.includeCompensation}`;
       const response = await fetch(url);
       
       if (!response.ok) {
         console.error(`Failed to fetch Ashby jobs for ${company.slug}: ${response.status}`);
-        continue;
+        return [];
       }
       
       const data = await response.json();
       if (!data.jobs || !Array.isArray(data.jobs)) {
-        continue;
+        return [];
       }
       
+      const companyListings: SourceListing[] = [];
+
       for (const job of data.jobs as AshbyPosting[]) {
-        // Filter for early career roles (basic heuristic)
         const titleLower = job.title.toLowerCase();
-        if (titleLower.includes("senior") || titleLower.includes("staff") || titleLower.includes("principal") || titleLower.includes("lead")) {
-          continue; // Skip senior roles
-        }
+        
+        const isTooSenior = 
+          titleLower.includes("senior") || 
+          titleLower.includes("staff") || 
+          titleLower.includes("lead") ||
+          titleLower.includes("manager") ||
+          titleLower.includes("director") ||
+          titleLower.includes("head") ||
+          titleLower.includes("principal") ||
+          titleLower.includes("architect") ||
+          titleLower.includes("vp ") ||
+          titleLower.includes("president");
+          
+        if (isTooSenior) continue;
         
         let category: any = "fulltime";
         if (titleLower.includes("intern") || titleLower.includes("internship")) {
@@ -51,7 +63,7 @@ export async function fetchAshbyConnector(config: AshbyConfig): Promise<SourceLi
         // Strip HTML for basic summary/text
         const rawText = job.descriptionHtml.replace(/<[^>]*>?/gm, '');
         
-        listings.push({
+        companyListings.push({
           sourceUrl: job.jobUrl,
           title: job.title,
           organization: company.displayName,
@@ -60,25 +72,34 @@ export async function fetchAshbyConnector(config: AshbyConfig): Promise<SourceLi
             title: job.title,
             organization: company.displayName,
             location: job.locationName,
-            category,
-            is_remote: job.isRemote || job.locationName?.toLowerCase().includes("remote") || false,
-            compensation: job.compensationTierSummary || null,
-            description: job.descriptionHtml,
             apply_url: job.jobUrl,
-            status: "active",
-            extraction_confidence: 0.95, // High confidence as it's from structured API
-            source_url: job.jobUrl,
+            description: rawText.substring(0, 500) + '...',
+            category,
           },
           sourceSpecific: {
+            source: 'ashby',
+            ashby_id: job.id,
             department: job.departmentName,
-            employmentType: job.employmentType,
+            employment_type: job.employmentType,
+            compensation_tier: job.compensationTierSummary,
+            is_remote: job.isRemote
           }
         });
       }
+      return companyListings;
     } catch (e) {
-      console.error(`Error processing Ashby company ${company.slug}:`, e);
+      console.error(`Error fetching Ashby for ${company.slug}`, e);
+      return [];
+    }
+  });
+
+  const results = await Promise.allSettled(fetchPromises);
+  
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      listings.push(...result.value);
     }
   }
-  
+
   return listings;
 }
