@@ -56,15 +56,12 @@ export async function GET(req: NextRequest) {
   // anything whose deadline already passed.
   const expiredDb = await markExpiredOpportunities();
   
-  // Also verify a batch of active links that might have closed quietly
-  const linkCheck = await verifyActiveLinks(20);
-  
   const expired = {
-    count: expiredDb.count + linkCheck.expired,
+    count: expiredDb.count,
     dated: expiredDb.dated,
     rolling: expiredDb.rolling,
-    linkCheckChecked: linkCheck.checked,
-    linkCheckExpired: linkCheck.expired
+    linkCheckChecked: 0,
+    linkCheckExpired: 0
   };
 
   // Pipeline-health + admin-review check. Combined alert fires daily when
