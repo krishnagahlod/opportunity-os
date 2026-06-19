@@ -222,84 +222,108 @@ export async function GET(req: NextRequest) {
     } else {
       const listings: SourceListing[] = result.value;
       
-      for (const listing of listings) {
-        const opp = listing.structured;
-        const organization = opp.organization || "Unknown";
-        const title = opp.title || "Unknown Title";
-        const source_url = listing.sourceUrl || opp.apply_url || hashUrl(title, organization);
-        
-        let finalCategory = opp.category;
-        
-        // AI Category Refinement Pass
-        try {
-          const refinementResult = await callLLM({
-            prompt: buildCategoryRefinementPrompt(title, organization, opp.description || listing.rawText || "", finalCategory || "unknown"),
-            schema: CategoryRefinementSchema,
-            systemInstruction: CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION
-          });
+      // Batch processing for concurrency
+      const batchSize = 10;
+      for (let j = 0; j < listings.length; j += batchSize) {
+        const batch = listings.slice(j, j + batchSize);
+
+        await Promise.all(batch.map(async (listing) => {
+          const opp = listing.structured;
+          const organization = opp.organization || "Unknown";
+          const title = opp.title || "Unknown Title";
+          const source_url = listing.sourceUrl || opp.apply_url || hashUrl(title, organization);
           
-          if (refinementResult.data.confidence >= 0.7) {
-            finalCategory = refinementResult.data.category;
+          let finalCategory = opp.category;
+          const t = title.toLowerCase();
+          
+          // 1. Fast Regex Bypass
+          if (!finalCategory || finalCategory === "other") {
+            if (t.includes("intern") || t.includes("co-op")) finalCategory = "internship";
+            else if (t.includes("fellowship")) finalCategory = "fellowship";
+            else if (t.includes("scholarship")) finalCategory = "scholarship";
+            else if (t.includes("hackathon")) finalCategory = "hackathon";
+            else if (t.includes("conference")) finalCategory = "conference";
+            else if (t.includes("bootcamp")) finalCategory = "bootcamp";
+            else if (t.includes("workshop")) finalCategory = "workshop";
           }
           
-          void logIngestion({
-            status: "extracted",
-            source_url,
-            source_name: sourceName,
-            source_id: sourceId,
-            provider: refinementResult.provider,
-            tokens_used: estimateTokens(refinementResult.raw),
-            duration_ms: Date.now() - start,
-          });
-        } catch (e) {
-          console.error(`[ingest] Category refinement failed for ${title}:`, e);
-        }
-        
-        const row = {
-          title,
-          organization,
-          category: finalCategory,
-          description: opp.description || null,
-          summary: opp.summary || null,
-          location: opp.location || null,
-          compensation: opp.compensation || null,
-          is_remote: opp.is_remote ?? false,
-          apply_url: opp.apply_url || null,
-          source_url,
-          source_id: sourceId,
-          status: "active" as const,
-          tags: [],
-          required_skills: [],
-        };
-
-        const { data, error } = await supabase
-          .from("opportunities")
-          .upsert(row, { onConflict: "source_url", ignoreDuplicates: true })
-          .select("id")
-          .single();
+          // 2. Graceful Timeout Bailout
+          const timeElapsed = Date.now() - start;
+          const nearTimeout = timeElapsed > 45000;
           
-        if (error) {
-          console.error("Failed to upsert:", error);
-          totalErrors++;
-          void logIngestion({
-            status: "failed",
+          // Only use AI refinement if we couldn't guess securely and we have time
+          if (!nearTimeout && (!finalCategory || finalCategory === "other")) {
+            try {
+              const refinementResult = await callLLM({
+                prompt: buildCategoryRefinementPrompt(title, organization, opp.description || listing.rawText || "", finalCategory || "unknown"),
+                schema: CategoryRefinementSchema,
+                systemInstruction: CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION
+              });
+              
+              if (refinementResult.data.confidence >= 0.7) {
+                finalCategory = refinementResult.data.category;
+              }
+              
+              void logIngestion({
+                status: "extracted",
+                source_url,
+                source_name: sourceName,
+                source_id: sourceId,
+                provider: refinementResult.provider,
+                tokens_used: estimateTokens(refinementResult.raw),
+                duration_ms: Date.now() - start,
+              });
+            } catch (e) {
+              console.error(`[ingest] Category refinement failed for ${title}:`, e);
+            }
+          }
+          
+          const row = {
+            title,
+            organization,
+            category: finalCategory || "other",
+            description: opp.description || null,
+            summary: opp.summary || null,
+            location: opp.location || null,
+            compensation: opp.compensation || null,
+            is_remote: opp.is_remote ?? false,
+            apply_url: opp.apply_url || null,
             source_url,
-            source_name: sourceName,
             source_id: sourceId,
-            reason: `upsert: ${error.message}`,
-            duration_ms: Date.now() - start,
-          });
-        } else if (data) {
-          totalUpserted++;
-          void logIngestion({
-            status: "upserted",
-            source_url,
-            source_name: sourceName,
-            source_id: sourceId,
-            opportunity_id: data.id,
-            duration_ms: Date.now() - start,
-          });
-        }
+            status: "active" as const,
+            tags: [],
+            required_skills: [],
+          };
+
+          const { data, error } = await supabase
+            .from("opportunities")
+            .upsert(row, { onConflict: "source_url", ignoreDuplicates: true })
+            .select("id")
+            .single();
+            
+          if (error) {
+            console.error("Failed to upsert:", error);
+            totalErrors++;
+            void logIngestion({
+              status: "failed",
+              source_url,
+              source_name: sourceName,
+              source_id: sourceId,
+              reason: `upsert: ${error.message}`,
+              duration_ms: Date.now() - start,
+            });
+          } else if (data) {
+            totalUpserted++;
+            void logIngestion({
+              status: "upserted",
+              source_url,
+              source_name: sourceName,
+              source_id: sourceId,
+              opportunity_id: data.id,
+              duration_ms: Date.now() - start,
+            });
+          }
+        }));
       }
     }
 
