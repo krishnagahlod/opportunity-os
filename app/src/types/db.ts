@@ -166,3 +166,14 @@ export type Score = {
   why: string | null;
   computed_at: string;
 };
+
+export type RawOpportunity = {
+  id: string;
+  source_id: string;
+  source_url: string;
+  raw_data: any; // The JSON representing the unstructured listing
+  status: "pending" | "processed" | "failed" | "duplicate";
+  created_at: string;
+  processed_at?: string;
+};
+

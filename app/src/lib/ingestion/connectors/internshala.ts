@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { type SourceListing } from "../types";
+import { buildProxiedUrl } from "../proxy";
 
 export interface InternshalaConfig {
   maxPages?: number; 
@@ -17,7 +18,7 @@ export async function fetchInternshala(config: InternshalaConfig): Promise<Sourc
     const url = `https://internshala.com/internships/page-${page}/`;
     
     try {
-      const res = await fetch(url, {
+      const res = await fetch(buildProxiedUrl(url), {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           "Accept-Language": "en-US,en;q=0.9",
