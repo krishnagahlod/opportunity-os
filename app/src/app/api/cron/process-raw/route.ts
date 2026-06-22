@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // 1. Fetch up to 25 pending raw opportunities
+  // 1. Fetch up to 75 pending raw opportunities
   const { data: rawRows, error: fetchError } = await supabase
     .from("raw_opportunities")
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(25);
+    .limit(75);
 
   if (fetchError) {
     console.error("Failed to fetch raw_opportunities", fetchError);

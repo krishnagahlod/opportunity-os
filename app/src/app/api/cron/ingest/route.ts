@@ -182,9 +182,6 @@ export async function GET(req: NextRequest) {
     { name: "HN Jobs RSS", promise: fetchRss({ url: "https://hnrss.org/whoishiring", sourceName: "HN Jobs RSS", categoryHint: "fulltime" }) },
     { name: "Lenny's Newsletter", promise: fetchRss({ url: "https://www.lennysnewsletter.com/feed", sourceName: "Lenny's Newsletter" }) },
     { name: "WeWorkRemotely", promise: fetchRss({ url: "https://weworkremotely.com/remote-jobs.rss", sourceName: "WeWorkRemotely" }) },
-    { name: "Unstop", promise: fetchRss({ url: "https://unstop.com/api/public/opportunities/rss", sourceName: "Unstop" }) },
-    { name: "Unstop Competitions", promise: fetchRss({ url: "https://unstop.com/api/public/competitions/rss", sourceName: "Unstop Competitions" }) },
-    { name: "Unstop Internships", promise: fetchRss({ url: "https://unstop.com/api/public/internships/rss", sourceName: "Unstop Internships", categoryHint: "internship" }) },
     { 
       name: "Top Fellowships", 
       promise: fetchStaticPages({

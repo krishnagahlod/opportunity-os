@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/process-raw",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/cleanup",

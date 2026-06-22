@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { SourceListing } from "../types";
+import { buildProxiedUrl } from "../proxy";
 
 export interface RssConfig {
   url: string;
@@ -11,7 +12,8 @@ export async function fetchRss(config: RssConfig): Promise<SourceListing[]> {
   const listings: SourceListing[] = [];
   
   try {
-    const res = await fetch(config.url, {
+    const proxiedUrl = buildProxiedUrl(config.url);
+    const res = await fetch(proxiedUrl, {
       headers: {
         "User-Agent": "Opportunity-OS-Bot/1.0",
       },
