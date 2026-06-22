@@ -133,7 +133,7 @@ export function OpportunityCard({
             )}
           </div>
           {/* Domain label chip */}
-          <div className="mt-1.5 flex items-center gap-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span
               className={cn(
                 "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
@@ -143,6 +143,11 @@ export function OpportunityCard({
             >
               {domain.label}
             </span>
+            {opportunity.estimated_value_score != null && opportunity.estimated_value_score >= 80 && (
+              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                🔥 High Value
+              </span>
+            )}
           </div>
         </div>
 

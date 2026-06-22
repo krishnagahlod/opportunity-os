@@ -18,6 +18,8 @@ export type OpportunityCategory =
   | "networking"
   | "campus_ambassador"
   | "remote_gig"
+  | "freebie"
+  | "certification"
   | "other";
 
 export type OpportunityStatus = "active" | "expired" | "spam" | "pending";

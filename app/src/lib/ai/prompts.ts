@@ -20,6 +20,8 @@ export const CATEGORIES = [
   "networking",
   "campus_ambassador",
   "remote_gig",
+  "freebie",
+  "certification",
   "other",
 ] as const;
 

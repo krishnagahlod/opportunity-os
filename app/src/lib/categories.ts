@@ -11,6 +11,8 @@ import {
   Users,
   Wrench,
   Zap,
+  Gift,
+  FileBadge,
   type LucideIcon,
 } from "lucide-react";
 import type { OpportunityCategory } from "@/types/db";
@@ -133,6 +135,22 @@ const STYLES: Record<OpportunityCategory, CategoryStyle> = {
     chipText: "text-slate-600 dark:text-slate-300",
     badgeText: "text-slate-700 dark:text-slate-300",
     dotBg: "bg-slate-500",
+  },
+  freebie: {
+    label: "Freebie",
+    Icon: Gift,
+    chipBg: "bg-pink-100 dark:bg-pink-500/15",
+    chipText: "text-pink-600 dark:text-pink-300",
+    badgeText: "text-pink-700 dark:text-pink-300",
+    dotBg: "bg-pink-500",
+  },
+  certification: {
+    label: "Certification",
+    Icon: FileBadge,
+    chipBg: "bg-blue-100 dark:bg-blue-500/15",
+    chipText: "text-blue-600 dark:text-blue-300",
+    badgeText: "text-blue-700 dark:text-blue-300",
+    dotBg: "bg-blue-500",
   },
   other: DEFAULT,
 };

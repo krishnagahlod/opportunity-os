@@ -11,6 +11,8 @@ import { fetchRss } from "@/lib/ingestion/connectors/rss";
 import { fetchAshbyConnector } from "@/lib/ingestion/connectors/ashby";
 import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
 import { fetchStaticPages } from "@/lib/ingestion/connectors/static";
+import { fetchEvergreen } from "@/lib/ingestion/connectors/evergreen";
+import { fetchUnstop } from "@/lib/ingestion/connectors/unstop";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -195,6 +197,8 @@ export async function GET(req: NextRequest) {
         ]
       }) 
     },
+    { name: "Unstop", promise: fetchUnstop({ maxItems: 10 }) },
+    { name: "Evergreen Catalog", promise: fetchEvergreen() },
   ];
 
   // 1. Fetch from all sources
