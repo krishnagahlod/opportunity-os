@@ -194,6 +194,14 @@ export function FilteredFeed({
   // specific query; they want every match).
   const [showLowFit, setShowLowFit] = useState(false);
 
+  // Client-side pagination to prevent freezing the UI when there are hundreds of rows.
+  const [visibleCount, setVisibleCount] = useState(100);
+
+  // Reset pagination when filters change so we don't start midway down the new list.
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [state, inSearchMode]);
+
   // ===== local filter + sort over the active pool =====
   const filtered = useMemo(() => {
     const catSet = new Set(state.categories);
@@ -291,7 +299,7 @@ export function FilteredFeed({
   // enough to rank by personal-fit score. Render only the top 50 — the rest
   // are tail-end matches the user almost never wants to scroll to.
   const SEARCH_DISPLAY_LIMIT = 50;
-  const displayed = inSearchMode ? sorted.slice(0, SEARCH_DISPLAY_LIMIT) : sorted;
+  const displayed = sorted.slice(0, inSearchMode ? SEARCH_DISPLAY_LIMIT : visibleCount);
 
   // Smart Grouping for Relevance and Newest sorts
   const groups = useMemo(() => {
@@ -499,15 +507,15 @@ export function FilteredFeed({
               </div>
             ))}
           </div>
-          {hiddenLowFitCount > 0 && (
+
+          {hiddenLowFitCount > 0 && !showLowFit && !inSearchMode && (
             <div className="mt-6 flex justify-center">
               <button
                 type="button"
                 onClick={() => setShowLowFit(true)}
                 className="rounded-full border border-border/60 bg-background px-4 py-1.5 text-[12px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
               >
-                Show {hiddenLowFitCount} low-fit{" "}
-                {hiddenLowFitCount === 1 ? "result" : "results"}
+                Show {hiddenLowFitCount} low-fit {hiddenLowFitCount === 1 ? "result" : "results"}
               </button>
             </div>
           )}
@@ -519,6 +527,18 @@ export function FilteredFeed({
                 className="rounded-full border border-border/60 bg-background px-4 py-1.5 text-[12px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
               >
                 Hide low-fit results
+              </button>
+            </div>
+          )}
+
+          {!inSearchMode && visibleCount < sorted.length && (
+            <div className="mt-12 flex justify-center border-t border-border/40 pt-6">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((v) => v + 100)}
+                className="rounded-full border border-border bg-card px-6 py-2 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Load {Math.min(100, sorted.length - visibleCount)} more
               </button>
             </div>
           )}

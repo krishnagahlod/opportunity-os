@@ -11,6 +11,24 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60; 
 
+function isRelevantOpportunity(title: string, category: string | null): boolean {
+  const t = title.toLowerCase();
+  
+  // Explicitly reject senior/managerial roles immediately
+  const isSenior = t.includes("senior") || t.includes("staff") || t.includes("lead ") || t.includes("manager") || t.includes("director") || t.includes("head ") || t.includes("principal") || t.includes("vp ") || t.includes("president");
+  if (isSenior) return false;
+
+  // Accept explicitly early-career formats
+  if (["internship", "fellowship", "scholarship", "hackathon", "bootcamp"].includes(category || "")) return true;
+  if (t.includes("intern") || t.includes("fellow") || t.includes("scholar") || t.includes("hackathon") || t.includes("co-op")) return true;
+
+  // If it's fulltime, only accept if it indicates entry-level
+  const isJunior = t.includes("junior") || t.includes("new grad") || t.includes("recent grad") || t.includes("entry level") || t.includes("associate") || t.includes("early career") || t.includes("trainee") || t.includes("apprentice");
+  if (category === "fulltime" && !isJunior) return false;
+
+  return true;
+}
+
 function guessCategoryFast(title: string, hint?: string): string | null {
   if (hint && hint !== "unknown" && hint !== "other") return hint;
   const t = title.toLowerCase();
@@ -83,6 +101,12 @@ export async function GET(req: NextRequest) {
       }
 
       let finalCategory = guessCategoryFast(title, opp.category);
+
+      if (!isRelevantOpportunity(title, finalCategory)) {
+        await supabase.from("raw_opportunities").update({ status: "skipped", processed_at: new Date().toISOString() }).eq("id", raw.id);
+        totalDuplicates++; // or we can repurpose this counter, but treating it as skipped
+        return;
+      }
       
       const timeElapsed = Date.now() - start;
       const nearTimeout = timeElapsed > 45000;
