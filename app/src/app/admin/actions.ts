@@ -199,10 +199,15 @@ export async function triggerCronEndpoint(
   if (!secret) return { error: "CRON_SECRET not configured on server" };
 
   // Build absolute URL — works in both Vercel and local dev.
-  const base =
+  let base =
     process.env.NEXT_PUBLIC_SITE_URL ??
     process.env.VERCEL_URL ??
     "http://localhost:3000";
+    
+  if (!base.startsWith("http")) {
+    base = `https://${base}`;
+  }
+  
   const url = `${base.replace(/\/$/, "")}/api/cron/${endpoint}`;
 
   try {
