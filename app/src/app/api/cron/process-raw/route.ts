@@ -3,9 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { callLLM } from "@/lib/ai/fallover";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { 
-  buildCategoryRefinementPrompt, 
-  CategoryRefinementSchema, 
-  CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION 
+  buildExtractPrompt, 
+  ExtractedOpportunitySchema, 
+  EXTRACT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
 
 export const runtime = "nodejs";
@@ -54,13 +54,13 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // 1. Fetch up to 75 pending raw opportunities
+  // 1. Fetch up to 30 pending raw opportunities to avoid LLM timeouts
   const { data: rawRows, error: fetchError } = await supabase
     .from("raw_opportunities")
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(75);
+    .limit(30);
 
   if (fetchError) {
     console.error("Failed to fetch raw_opportunities", fetchError);
@@ -111,16 +111,30 @@ export async function GET(req: NextRequest) {
       const timeElapsed = Date.now() - start;
       const nearTimeout = timeElapsed > 45000;
       
-      if (!nearTimeout && (!finalCategory || finalCategory === "other")) {
+      let extractedData: Partial<typeof opp> = {};
+      let extractionConfidence = null;
+      let extractionDifficulty = null;
+      let estimatedValueScore = null;
+
+      if (!nearTimeout) {
         try {
-          const refinementResult = await callLLM({
-            prompt: buildCategoryRefinementPrompt(title, organization, opp.description || opp.rawText || "", finalCategory || "unknown"),
-            schema: CategoryRefinementSchema,
-            systemInstruction: CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION
+          const rawInputText = opp.description || opp.rawText || title;
+          const extractionResult = await callLLM({
+            prompt: buildExtractPrompt({ 
+              rawText: rawInputText, 
+              sourceUrl: source_url, 
+              hint: `title: ${title}, org: ${organization}` 
+            }),
+            schema: ExtractedOpportunitySchema,
+            systemInstruction: EXTRACT_SYSTEM_INSTRUCTION
           });
           
-          if (refinementResult.data.confidence >= 0.7) {
-            finalCategory = refinementResult.data.category;
+          if (extractionResult.data.extraction_confidence >= 0.4) {
+            finalCategory = extractionResult.data.category;
+            extractedData = extractionResult.data;
+            extractionConfidence = extractionResult.data.extraction_confidence;
+            extractionDifficulty = extractionResult.data.difficulty;
+            estimatedValueScore = extractionResult.data.estimated_value_score;
           }
           
           void logIngestion({
@@ -128,30 +142,40 @@ export async function GET(req: NextRequest) {
             source_url,
             source_name: "RawProcessor",
             source_id: sourceId,
-            provider: refinementResult.provider,
-            tokens_used: estimateTokens(refinementResult.raw),
+            provider: extractionResult.provider,
+            tokens_used: estimateTokens(extractionResult.raw),
             duration_ms: Date.now() - start,
           });
         } catch (e) {
-          console.error(`[process-raw] Category refinement failed for ${title}:`, e);
+          console.error(`[process-raw] Extraction failed for ${title}:`, e);
         }
+      }
+
+      // Re-run relevance filter in case LLM categorization revealed it's irrelevant
+      if (!isRelevantOpportunity(extractedData.title || title, finalCategory)) {
+        await supabase.from("raw_opportunities").update({ status: "skipped", processed_at: new Date().toISOString() }).eq("id", raw.id);
+        totalDuplicates++; // repurpose counter
+        return;
       }
       
       const row = {
-        title,
-        organization,
+        title: extractedData.title || title,
+        organization: extractedData.organization || organization,
         category: finalCategory || "other",
-        description: opp.description || null,
-        summary: opp.summary || null,
-        location: opp.location || null,
-        compensation: opp.compensation || null,
-        is_remote: opp.is_remote ?? false,
-        apply_url: opp.apply_url || null,
+        description: extractedData.description || opp.description || null,
+        summary: extractedData.summary || opp.summary || null,
+        location: extractedData.location || opp.location || null,
+        compensation: extractedData.compensation || opp.compensation || null,
+        is_remote: extractedData.is_remote ?? opp.is_remote ?? false,
+        apply_url: extractedData.apply_url || opp.apply_url || null,
         source_url,
         source_id: sourceId,
         status: "active",
-        tags: opp.tags || [],
-        required_skills: opp.required_skills || [],
+        tags: extractedData.tags || opp.tags || [],
+        required_skills: extractedData.required_skills || opp.required_skills || [],
+        difficulty: extractionDifficulty || null,
+        estimated_value_score: estimatedValueScore || null,
+        extraction_confidence: extractionConfidence,
       };
 
       const { data, error } = await supabase
