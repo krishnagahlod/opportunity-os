@@ -176,9 +176,6 @@ export function FilteredFeed({
   const availableCategories = useMemo<OpportunityCategory[]>(() => {
     const seen = new Set<string>();
     for (const o of opportunities) seen.add(o.category);
-    // Always show Freebies and Certifications for easy visibility as requested
-    seen.add("freebie");
-    seen.add("certification");
     return CATEGORIES.filter((c) => seen.has(c));
   }, [opportunities]);
 

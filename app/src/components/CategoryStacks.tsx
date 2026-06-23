@@ -112,12 +112,12 @@ function CategoryStack({
 /* ============ helpers ============ */
 
 const PRIORITY: OpportunityCategory[] = [
-  "freebie",
-  "certification",
   "internship",
   "fulltime",
   "case_competition",
   "hackathon",
+  "freebie",
+  "certification",
   "fellowship",
   "scholarship",
   "remote_gig",
@@ -140,9 +140,8 @@ function buildStacks(opps: Opportunity[]): Stack[] {
   const stacks: Stack[] = [];
   for (const cat of PRIORITY) {
     const count = counts.get(cat) ?? 0;
-    // Always render freebie and certification for easy visibility
-    if (count === 0 && cat !== "freebie" && cat !== "certification") continue;
+    if (count === 0) continue;
     stacks.push({ category: cat, count });
   }
-  return stacks;
+  return stacks.slice(0, 9); // Max 9 categories as requested
 }
