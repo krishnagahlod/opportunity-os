@@ -43,7 +43,8 @@ export default async function HomePage() {
       // Hide low-confidence extractions (< 0.5) from the dashboard — they
       // go to the admin Needs-review queue. NULL kept (pre-Phase-2.5 rows).
       .or("extraction_confidence.is.null,extraction_confidence.gte.0.5")
-      .order("date_added", { ascending: false }),
+      .order("date_added", { ascending: false })
+      .limit(5000), // Bypass implicit 500 row max_rows config in Supabase
     supabase
       .from("saved_opportunities")
       .select("opportunity_id")
