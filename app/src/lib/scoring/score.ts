@@ -45,6 +45,9 @@ export type ScoreBreakdown = {
 
 export type Score = {
   score: number;               // 0..100 integer
+  fitScore: number;            // 0..100 integer (Profile + Preference + Behavioral)
+  valueScore: number;          // 0..100 integer (Career + Brand + Comp)
+  actionabilityScore: number;  // 0..100 integer (Ease + Urgency + Recency)
   breakdown: ScoreBreakdown;
   why: string;                 // 1-2 sentence human-readable explanation
 };
@@ -104,9 +107,17 @@ export function computeScore(
     0.05 * recency +
     0.07 * behavioral_fit;
 
-  // sourceQuality acts as a multiplier. If it's a known spammy/dismissed source (< 1.0),
-  // it drags the raw score down. If it's a high-yield source (> 1.0), it boosts it slightly.
   const score = Math.max(0, Math.min(100, Math.round(raw * confidence * legitimacy * sourceQuality * 100)));
+
+  // Outcome-aware sub-scores (0..100) based on their relative weights within their groups
+  const fitScoreRaw = (0.30 * profile_relevance + 0.10 * preference_fit + 0.07 * behavioral_fit) / 0.47;
+  const fitScore = Math.max(0, Math.min(100, Math.round(fitScoreRaw * 100)));
+
+  const valueScoreRaw = (0.20 * career_value + 0.05 * brand_value + 0.08 * compensation) / 0.33;
+  const valueScore = Math.max(0, Math.min(100, Math.round(valueScoreRaw * 100)));
+
+  const actionabilityScoreRaw = (0.05 * ease + 0.10 * urgency + 0.05 * recency) / 0.20;
+  const actionabilityScore = Math.max(0, Math.min(100, Math.round(actionabilityScoreRaw * 100)));
 
   const breakdown: ScoreBreakdown = {
     profile_relevance: pct(profile_relevance),
@@ -124,6 +135,9 @@ export function computeScore(
 
   return {
     score,
+    fitScore,
+    valueScore,
+    actionabilityScore,
     breakdown,
     why: generateWhy(profile, opp, breakdown, signal, sourceQuality),
   };

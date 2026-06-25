@@ -44,6 +44,7 @@ import type {
 
 import { ResumeMatchScore } from "@/components/ResumeMatchScore";
 import { EnrichmentInsights } from "@/components/EnrichmentInsights";
+import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -112,10 +113,9 @@ export default async function OpportunityDetailPage({
     | ApplicationStatus
     | undefined;
 
-  // Deterministic on-the-fly score, with the user's behavioral signal so
   // why-text can mention "similar to opportunities you've saved" when true.
   const behavioralSignal = await fetchBehavioralSignal(user.id);
-  const { score, why } = computeScore(
+  const { score, fitScore, valueScore, actionabilityScore, why } = computeScore(
     profile as Profile,
     opp,
     behavioralSignal,
@@ -221,10 +221,18 @@ export default async function OpportunityDetailPage({
           )}
         </div>
 
+        <div className="mt-8">
+          <ScoreBreakdown 
+            fitScore={fitScore}
+            valueScore={valueScore}
+            actionabilityScore={actionabilityScore}
+          />
+        </div>
+
         <ResumeMatchScore opportunityId={opp.id} hasResume={hasResume} />
         
         <div className="mt-6">
-          <EnrichmentInsights opportunity={opp} />
+          <EnrichmentInsights opportunity={opp} missingSkills={missingSkills} />
         </div>
 
         {/* Quick facts strip */}
@@ -271,24 +279,10 @@ export default async function OpportunityDetailPage({
               value={sourceName}
             />
           )}
-          {opp.upside_score !== null && opp.upside_score !== undefined && (
-            <Fact
-              icon={<TrendingUp className="size-3.5" />}
-              label="Career Upside"
-              value={`${opp.upside_score}/100`}
-            />
-          )}
-          {opp.effort_score !== null && opp.effort_score !== undefined && (
-            <Fact
-              icon={<Activity className="size-3.5" />}
-              label="Application Effort"
-              value={`${opp.effort_score}/100`}
-            />
-          )}
         </section>
 
         {/* Why for you */}
-        {(why || matchedTerms.length > 0 || missingSkills.length > 0) && (
+        {(why || matchedTerms.length > 0) && (
           <section className="mt-8">
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Why this is for you
@@ -312,58 +306,6 @@ export default async function OpportunityDetailPage({
                       {t}
                     </span>
                   ))}
-                </div>
-              )}
-              {missingSkills.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-primary/15 pt-3">
-                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    What you&apos;re missing
-                  </span>
-                  {missingSkills.map((t) => (
-                    <MissingSkillChip key={t} skill={t} />
-                  ))}
-                  <span className="text-[10.5px] text-muted-foreground/70">
-                    Tap to add to your skills
-                  </span>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Intelligence */}
-        {(opp.action_plan || (opp.red_flags && opp.red_flags.length > 0)) && (
-          <section className="mt-8">
-            <h2 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              <Sparkles className="size-3" />
-              Intelligence
-            </h2>
-            <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
-              {opp.red_flags && opp.red_flags.length > 0 && (
-                <div>
-                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
-                    <ShieldAlert className="size-3.5" />
-                    Red Flags
-                  </h3>
-                  <ul className="space-y-1 text-[13.5px] text-muted-foreground">
-                    {opp.red_flags.map((flag) => (
-                      <li key={flag} className="flex gap-2">
-                        <span className="text-destructive/50">•</span>
-                        <span>{flag}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {opp.action_plan && (
-                <div>
-                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-foreground">
-                    <CheckCircle className="size-3.5 text-emerald-500" />
-                    Action Plan
-                  </h3>
-                  <p className="text-[13.5px] leading-relaxed text-muted-foreground">
-                    {opp.action_plan}
-                  </p>
                 </div>
               )}
             </div>
