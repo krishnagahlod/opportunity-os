@@ -51,10 +51,18 @@ export async function refreshScores(
   const fresh = new Map<string, DbScore>();
   for (const row of (existing ?? []) as DbScore[]) {
     fresh.set(row.opportunity_id, row);
+    const b = (row.breakdown ?? {}) as Score["breakdown"];
+    const fitScore = (b.profileFit || 0) + (b.preferenceFit || 0) + (b.behavioralFit || 0);
+    const valueScore = (b.careerUpside || 0) + (b.brandValue || 0) + (b.compensationMatch || 0);
+    const actionabilityScore = (b.applicationEffort || 0) + (b.urgencyBoost || 0) + (b.sourceQuality || 0);
+    
     result.set(row.opportunity_id, {
       score: row.score,
-      breakdown: (row.breakdown ?? {}) as Score["breakdown"],
+      breakdown: b,
       why: row.why ?? "",
+      fitScore,
+      valueScore,
+      actionabilityScore,
     });
   }
 
