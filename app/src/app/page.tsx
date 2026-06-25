@@ -96,9 +96,21 @@ export default async function HomePage() {
 
   // Convert server-side Map/Set into plain JSON-serializable shapes
   // so the client component receives them through the boundary.
-  const scoreMapPlain: Record<string, { score: number; why: string | null }> = {};
+  const scoreMapPlain: Record<string, { 
+    score: number; 
+    why: string | null;
+    fitScore?: number;
+    valueScore?: number;
+    actionabilityScore?: number;
+  }> = {};
   for (const [id, s] of scoreMapInternal.entries()) {
-    scoreMapPlain[id] = { score: s.score, why: s.why };
+    scoreMapPlain[id] = { 
+      score: s.score, 
+      why: s.why,
+      fitScore: s.fitScore,
+      valueScore: s.valueScore,
+      actionabilityScore: s.actionabilityScore
+    };
   }
   const appliedMapPlain: Record<string, ApplicationStatus> = {};
   for (const [id, status] of appliedMap.entries()) {

@@ -23,6 +23,7 @@ import {
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
+import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { Drawer } from "@/components/Drawer";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import { inferDomain } from "@/lib/domains";
@@ -39,6 +40,9 @@ export function OpportunityDrawer({
   applicationStatus,
   score,
   why,
+  fitScore,
+  valueScore,
+  actionabilityScore,
   sourceName,
   onClose,
 }: {
@@ -47,6 +51,9 @@ export function OpportunityDrawer({
   applicationStatus?: ApplicationStatus;
   score: number;
   why: string | null;
+  fitScore?: number;
+  valueScore?: number;
+  actionabilityScore?: number;
   sourceName?: string;
   onClose: () => void;
 }) {
@@ -146,6 +153,17 @@ export function OpportunityDrawer({
           )}
         </div>
 
+        {/* Score Breakdown */}
+        {(fitScore != null || valueScore != null || actionabilityScore != null) && (
+          <div className="mt-8 mb-2">
+            <ScoreBreakdown 
+              fitScore={fitScore ?? 0}
+              valueScore={valueScore ?? 0}
+              actionabilityScore={actionabilityScore ?? 0}
+            />
+          </div>
+        )}
+
         {/* Quick facts */}
         <section className="mt-6 grid gap-2 grid-cols-2">
           <Fact
@@ -204,6 +222,41 @@ export function OpportunityDrawer({
               value={`${opp.effort_score}/100`}
             />
           )}
+        </section>
+
+        {/* Decision Intelligence Teaser */}
+        <section className="mt-8">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Sparkles className="size-4 text-primary" />
+                  Decision Intelligence
+                </h3>
+                <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
+                  Unlock your exact missing skills, AI-generated action plan, and hidden red flags for this opportunity.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground backdrop-blur-sm">
+                <Activity className="size-3" /> Effort Prediction
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground backdrop-blur-sm">
+                <CheckCircle className="size-3" /> Missing Skills
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-background/60 px-2 py-1.5 text-[11px] font-medium text-foreground backdrop-blur-sm">
+                <ShieldAlert className="size-3" /> Red Flags
+              </span>
+            </div>
+            <Link
+              href={`/opportunity/${opp.id}`}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md"
+            >
+              Unlock Decision Intelligence
+              <ArrowUpRight className="size-4" />
+            </Link>
+          </div>
         </section>
 
         {/* Why for you */}
@@ -334,13 +387,6 @@ export function OpportunityDrawer({
                 addSuffix: true,
               })}
             </span>
-            <Link
-              href={`/opportunity/${opp.id}`}
-              className="ml-auto inline-flex items-center gap-1 text-primary transition hover:text-primary/80"
-            >
-              Full page view
-              <ArrowUpRight className="size-3" />
-            </Link>
           </div>
           {opp.source_url && (
             <Link

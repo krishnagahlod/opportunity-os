@@ -29,7 +29,13 @@ import type {
 
 type SearchPayload = {
   opportunities: Opportunity[];
-  scoreMap: Record<string, { score: number; why: string | null }>;
+  scoreMap: Record<string, { 
+    score: number; 
+    why: string | null;
+    fitScore?: number;
+    valueScore?: number;
+    actionabilityScore?: number;
+  }>;
   sourceMap: Record<string, string>;
   savedSet: string[];
   appliedMap: Record<string, ApplicationStatus>;
@@ -44,7 +50,13 @@ export function FilteredFeed({
 }: {
   opportunities: Opportunity[];
   // Plain object for client-side serialization friendliness.
-  scoreMap: Record<string, { score: number; why: string | null }>;
+  scoreMap: Record<string, { 
+    score: number; 
+    why: string | null;
+    fitScore?: number;
+    valueScore?: number;
+    actionabilityScore?: number;
+  }>;
   savedSet: string[];
   appliedMap: Record<string, ApplicationStatus>;
   // opportunity_id -> source_name
@@ -552,6 +564,9 @@ export function FilteredFeed({
           applicationStatus={effectiveAppliedMap[selectedOpp.id]}
           score={effectiveScoreMap[selectedOpp.id]?.score ?? 0}
           why={effectiveScoreMap[selectedOpp.id]?.why ?? null}
+          fitScore={effectiveScoreMap[selectedOpp.id]?.fitScore}
+          valueScore={effectiveScoreMap[selectedOpp.id]?.valueScore}
+          actionabilityScore={effectiveScoreMap[selectedOpp.id]?.actionabilityScore}
           sourceName={effectiveSourceMap[selectedOpp.id]}
           onClose={() => setSelectedOpp(null)}
         />
@@ -648,7 +663,13 @@ function serializeFilters(s: FilterState): string {
 /* ============ Sort comparators ============ */
 
 function byScoreDesc(
-  scoreMap: Record<string, { score: number; why: string | null }>,
+  scoreMap: Record<string, { 
+    score: number; 
+    why: string | null;
+    fitScore?: number;
+    valueScore?: number;
+    actionabilityScore?: number;
+  }>,
 ) {
   return (a: Opportunity, b: Opportunity) =>
     (scoreMap[b.id]?.score ?? 0) - (scoreMap[a.id]?.score ?? 0);
