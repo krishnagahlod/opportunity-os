@@ -223,9 +223,9 @@ export default async function OpportunityDetailPage({
 
         <div className="mt-8">
           <ScoreBreakdown 
-            fitScore={fitScore}
-            valueScore={valueScore}
-            actionabilityScore={actionabilityScore}
+            fitScore={fitScore ?? 0}
+            valueScore={valueScore ?? 0}
+            actionabilityScore={actionabilityScore ?? 0}
           />
         </div>
 

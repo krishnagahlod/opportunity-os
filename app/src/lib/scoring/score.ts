@@ -45,9 +45,9 @@ export type ScoreBreakdown = {
 
 export type Score = {
   score: number;               // 0..100 integer
-  fitScore: number;            // 0..100 integer (Profile + Preference + Behavioral)
-  valueScore: number;          // 0..100 integer (Career + Brand + Comp)
-  actionabilityScore: number;  // 0..100 integer (Ease + Urgency + Recency)
+  fitScore?: number;           // 0..100 integer (Profile + Preference + Behavioral)
+  valueScore?: number;         // 0..100 integer (Career + Brand + Comp)
+  actionabilityScore?: number; // 0..100 integer (Ease + Urgency + Recency)
   breakdown: ScoreBreakdown;
   why: string;                 // 1-2 sentence human-readable explanation
 };
