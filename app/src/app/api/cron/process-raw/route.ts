@@ -75,8 +75,13 @@ export async function GET(req: NextRequest) {
   let totalErrors = 0;
   let totalDuplicates = 0;
 
-  // 2. Process concurrently
-  await Promise.all(rawRows.map(async (raw) => {
+  // 2. Process sequentially to prevent Vercel 60s cutoff and Groq rate limits
+  for (const raw of rawRows) {
+    if (Date.now() - start > 45000) {
+      console.log("Approaching Vercel 60s timeout, stopping batch early.");
+      break;
+    }
+
     try {
       const opp = raw.raw_data;
       const organization = opp.organization || "Unknown";
@@ -85,7 +90,6 @@ export async function GET(req: NextRequest) {
       const sourceId = raw.source_id;
 
       // Deduplication Check
-      // Look for active opportunities with the same organization and similar title
       const { data: existing } = await supabase
         .from("opportunities")
         .select("id")
@@ -97,26 +101,21 @@ export async function GET(req: NextRequest) {
       if (existing) {
         await supabase.from("raw_opportunities").update({ status: "duplicate", processed_at: new Date().toISOString() }).eq("id", raw.id);
         totalDuplicates++;
-        return;
+        continue;
       }
 
       let finalCategory = guessCategoryFast(title, opp.category);
 
       if (!isRelevantOpportunity(title, finalCategory)) {
         await supabase.from("raw_opportunities").update({ status: "skipped", processed_at: new Date().toISOString() }).eq("id", raw.id);
-        totalDuplicates++; // or we can repurpose this counter, but treating it as skipped
-        return;
+        totalDuplicates++; // treating as skipped
+        continue;
       }
-      
-      const timeElapsed = Date.now() - start;
-      const nearTimeout = timeElapsed > 45000;
       
       let extractedData: Partial<typeof opp> = {};
       let extractionConfidence = null;
       let extractionDifficulty = null;
       let estimatedValueScore = null;
-
-      if (!nearTimeout) {
         try {
           const rawInputText = opp.description || opp.rawText || title;
           const extractionResult = await callLLM({
@@ -149,13 +148,12 @@ export async function GET(req: NextRequest) {
         } catch (e) {
           console.error(`[process-raw] Extraction failed for ${title}:`, e);
         }
-      }
 
       // Re-run relevance filter in case LLM categorization revealed it's irrelevant
       if (!isRelevantOpportunity(extractedData.title || title, finalCategory)) {
         await supabase.from("raw_opportunities").update({ status: "skipped", processed_at: new Date().toISOString() }).eq("id", raw.id);
         totalDuplicates++; // repurpose counter
-        return;
+        continue;
       }
       
       const row = {
@@ -197,7 +195,7 @@ export async function GET(req: NextRequest) {
       totalErrors++;
       await supabase.from("raw_opportunities").update({ status: "failed", processed_at: new Date().toISOString() }).eq("id", raw.id);
     }
-  }));
+  }
 
   return NextResponse.json({
     ok: true,

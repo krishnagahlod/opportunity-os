@@ -201,8 +201,18 @@ export async function GET(req: NextRequest) {
     { name: "Evergreen Catalog", promise: fetchEvergreen() },
   ];
 
-  // 1. Fetch from all sources
-  const results = await Promise.allSettled(sourcesConfig.map(s => s.promise));
+  // 1. Fetch from all sources with a strict timeout to prevent Vercel 60s cutoff
+  const timeoutMs = 30000;
+  const withTimeout = <T>(promise: Promise<T>, ms: number, name: string): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms for ${name}`)), ms))
+    ]);
+  };
+
+  const results = await Promise.allSettled(
+    sourcesConfig.map(s => withTimeout(s.promise, timeoutMs, s.name))
+  );
 
   let totalUpserted = 0;
   let totalErrors = 0;

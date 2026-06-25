@@ -1,0 +1,19 @@
+name: Process Raw Opportunities
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Vercel Cron Endpoint
+        run: |
+          API_URL="${{ secrets.API_URL || 'https://opportunity-os.vercel.app' }}"
+          CRON_SECRET="${{ secrets.CRON_SECRET || 'itida78evol0324i' }}"
+          
+          echo "Hitting endpoint: $API_URL/api/cron/process-raw"
+          curl -f -sS -X GET "$API_URL/api/cron/process-raw" -H "Authorization: Bearer $CRON_SECRET"
