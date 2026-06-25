@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Hit Vercel Cron Endpoint
         run: |
-          API_URL="${{ secrets.API_URL || 'https://opportunity-os.vercel.app' }}"
+          API_URL="${{ secrets.API_URL || 'https://opportunity-os-eight.vercel.app' }}"
           CRON_SECRET="${{ secrets.CRON_SECRET || 'itida78evol0324i' }}"
           
           echo "Hitting endpoint: $API_URL/api/cron/process-raw"
