@@ -52,9 +52,15 @@ export async function refreshScores(
   for (const row of (existing ?? []) as DbScore[]) {
     fresh.set(row.opportunity_id, row);
     const b = (row.breakdown ?? {}) as Score["breakdown"];
-    const fitScore = (b.profileFit || 0) + (b.preferenceFit || 0) + (b.behavioralFit || 0);
-    const valueScore = (b.careerUpside || 0) + (b.brandValue || 0) + (b.compensationMatch || 0);
-    const actionabilityScore = (b.applicationEffort || 0) + (b.urgencyBoost || 0) + (b.sourceQuality || 0);
+    
+    const fitScoreRaw = (0.30 * (b.profile_relevance || 0) + 0.10 * (b.preference_fit || 0) + 0.07 * (b.behavioral_fit || 0)) / 0.47;
+    const fitScore = Math.max(0, Math.min(100, Math.round(fitScoreRaw)));
+
+    const valueScoreRaw = (0.20 * (b.career_value || 0) + 0.05 * (b.brand_value || 0) + 0.08 * (b.compensation || 0)) / 0.33;
+    const valueScore = Math.max(0, Math.min(100, Math.round(valueScoreRaw)));
+
+    const actionabilityScoreRaw = (0.05 * (b.ease || 0) + 0.10 * (b.urgency || 0) + 0.05 * (b.recency || 0)) / 0.20;
+    const actionabilityScore = Math.max(0, Math.min(100, Math.round(actionabilityScoreRaw)));
     
     result.set(row.opportunity_id, {
       score: row.score,
