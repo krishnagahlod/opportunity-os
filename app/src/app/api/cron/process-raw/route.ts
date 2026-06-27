@@ -52,21 +52,21 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // 1. Fetch up to 30 pending raw opportunities to avoid LLM timeouts
+  // 1. Fetch up to 10 pending raw opportunities to avoid LLM timeouts
   const { data: rawRows, error: fetchError } = await supabase
     .from("raw_opportunities")
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(30);
+    .limit(10); // Reduced from 30 to prevent 504 Gateway Timeout
 
   if (fetchError) {
-    console.error("Failed to fetch raw_opportunities", fetchError);
+    console.error("Failed to fetch pending raw opportunities:", fetchError);
     return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
 
   if (!rawRows || rawRows.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0, message: "No pending rows" });
+    return NextResponse.json({ ok: true, message: "No pending opportunities found." });
   }
 
   let totalUpserted = 0;
@@ -75,8 +75,8 @@ export async function GET(req: NextRequest) {
 
   // 2. Process sequentially to prevent Vercel 60s cutoff and Groq rate limits
   for (const raw of rawRows) {
-    if (Date.now() - start > 45000) {
-      console.log("Approaching Vercel 60s timeout, stopping batch early.");
+    if (Date.now() - start > 25000) { // Reduced from 45000 to ensure we exit before Vercel kills us
+      console.log("Approaching Vercel timeout, stopping batch early.");
       break;
     }
 
