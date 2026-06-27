@@ -101,16 +101,17 @@ export function OpportunityCard({
           <h3 className="line-clamp-2 text-[14.5px] font-medium leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
             {opportunity.title}
           </h3>
-          <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground">
-            <span className="truncate font-medium uppercase tracking-[0.06em] text-foreground/75">
+          <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground min-w-0">
+            <span className="truncate font-medium uppercase tracking-[0.06em] text-foreground/75 min-w-0 shrink">
               {opportunity.organization}
             </span>
             {deadline && (
               <>
-                <span className="text-muted-foreground/30">·</span>
+                <span className="text-muted-foreground/30 shrink-0">·</span>
                 <span
                   className={cn(
                     "shrink-0 inline-flex items-center gap-1 tabular-nums",
+
                     deadline.urgent && "text-amber-600 dark:text-amber-300",
                   )}
                 >
@@ -195,9 +196,9 @@ export function OpportunityCard({
         <div
           className={cn(
             // Mobile: in-flow, full padding, always visible
-            "flex items-center gap-1.5 px-3 py-3",
+            "flex flex-wrap items-center gap-1.5 px-3 py-3",
             // Desktop: layered over metadata, hover-revealed
-            "sm:absolute sm:inset-0 sm:py-0 sm:opacity-0 sm:pointer-events-none sm:transition-opacity sm:duration-150",
+            "sm:absolute sm:inset-0 sm:py-0 sm:flex-nowrap sm:opacity-0 sm:pointer-events-none sm:transition-opacity sm:duration-150",
             "sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto",
             "sm:group-focus-within:opacity-100 sm:group-focus-within:pointer-events-auto",
           )}
