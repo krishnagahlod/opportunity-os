@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { ArrowRight, ArrowLeft, Check, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -494,18 +495,23 @@ export function OnboardingForm({
           </Button>
           
           {step < 4 ? (
-            <Button type="button" onClick={nextStep}>
-              Next Step
-              <ArrowRight className="ml-2 size-4" />
+            <Button type="button" onClick={nextStep} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              Continue
+              <ArrowRight className="size-4 ml-1.5" />
             </Button>
           ) : (
-            <Button
-              type="submit"
-              className="bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white"
-              disabled={isPending}
-            >
-              {isPending ? "Saving…" : "Save & View Dashboard"}
-            </Button>
+            <div className="flex flex-col items-end gap-3 w-full sm:w-auto">
+              <Button
+                type="submit"
+                className="bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white w-full sm:w-auto"
+                disabled={isPending}
+              >
+                {isPending ? "Saving…" : "Save & View Dashboard"}
+              </Button>
+              <p className="text-[11px] text-muted-foreground max-w-[280px] text-right">
+                By continuing, you agree to our <Link href="/terms" className="underline hover:text-foreground">Terms</Link> and <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+              </p>
+            </div>
           )}
         </div>
       </form>

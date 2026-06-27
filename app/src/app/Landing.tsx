@@ -622,12 +622,18 @@ function FinalCta() {
 function Footer() {
   return (
     <footer className="bg-card/30">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 sm:flex-row">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
         <Brand />
-        <p className="text-[11px] text-muted-foreground/70">
-          © {new Date().getFullYear()} Opportunity OS · Built for the people
-          who actually apply.
-        </p>
+        <div className="flex flex-col items-center gap-2 sm:items-end">
+          <div className="flex items-center gap-4 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
+            <Link href="/terms" className="hover:underline">Terms of Service</Link>
+          </div>
+          <p className="text-[11px] text-muted-foreground/70">
+            © {new Date().getFullYear()} Opportunity OS · Built for the people
+            who actually apply.
+          </p>
+        </div>
       </div>
     </footer>
   );
