@@ -23,7 +23,6 @@ import {
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
-import { OpportunityScoreCard } from "./OpportunityScoreCard";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { Drawer } from "@/components/Drawer";
