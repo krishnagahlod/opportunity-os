@@ -124,3 +124,24 @@ export async function addSkillToProfile(
   revalidatePath("/settings");
   return { ok: true };
 }
+
+export type FeedbackType = 'not_interested' | 'bad_match' | 'already_seen' | 'ineligible' | 'low_quality' | 'broken_link' | 'great_match';
+
+export async function submitFeedback(opportunityId: string, feedback: FeedbackType) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { error } = await supabase.from("opportunity_feedback").upsert(
+    {
+      user_id: user.id,
+      opportunity_id: opportunityId,
+      feedback,
+      created_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,opportunity_id,feedback" }
+  );
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}

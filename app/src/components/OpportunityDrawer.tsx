@@ -23,6 +23,8 @@ import {
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
+import { OpportunityScoreCard } from "./OpportunityScoreCard";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { Drawer } from "@/components/Drawer";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
@@ -378,27 +380,34 @@ export function OpportunityDrawer({
           </section>
         )}
 
+
+
         {/* Footer */}
         <footer className="mt-8 border-t border-border/40 pt-4 text-[11.5px] text-muted-foreground/80">
-          <div className="flex flex-wrap items-center gap-3">
-            <span>
-              Added{" "}
-              {formatDistanceToNowStrict(parseISO(opp.date_added), {
-                addSuffix: true,
-              })}
-            </span>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span>
+                  Added{" "}
+                  {formatDistanceToNowStrict(parseISO(opp.date_added), {
+                    addSuffix: true,
+                  })}
+                </span>
+                {opp.source_url && (
+                  <Link
+                    href={opp.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
+                  >
+                    View source
+                    <ArrowUpRight className="size-3" />
+                  </Link>
+                )}
+              </div>
+              <FeedbackForm opportunityId={opp.id} />
+            </div>
           </div>
-          {opp.source_url && (
-            <Link
-              href={opp.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
-            >
-              View source
-              <ArrowUpRight className="size-3" />
-            </Link>
-          )}
         </footer>
       </div>
     </Drawer>
