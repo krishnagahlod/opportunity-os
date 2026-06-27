@@ -22,10 +22,8 @@ function isRelevantOpportunity(title: string, category: string | null): boolean 
   if (["internship", "fellowship", "scholarship", "hackathon", "bootcamp"].includes(category || "")) return true;
   if (t.includes("intern") || t.includes("fellow") || t.includes("scholar") || t.includes("hackathon") || t.includes("co-op")) return true;
 
-  // If it's fulltime, only accept if it indicates entry-level
-  const isJunior = t.includes("junior") || t.includes("new grad") || t.includes("recent grad") || t.includes("entry level") || t.includes("associate") || t.includes("early career") || t.includes("trainee") || t.includes("apprentice");
-  if (category === "fulltime" && !isJunior) return false;
-
+  // Remove the strict 'must be junior' requirement for full-time jobs
+  // If a job doesn't contain "senior" keywords, we allow it.
   return true;
 }
 
