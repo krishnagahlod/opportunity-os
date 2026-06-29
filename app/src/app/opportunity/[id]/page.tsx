@@ -395,7 +395,7 @@ export default async function OpportunityDetailPage({
                   {Math.round(opp.extraction_confidence * 100)}%)
                 </span>
               )}
-            {opp.source_url && (
+            {opp.source_url && !opp.source_url.startsWith("hash:") && (
               <Link
                 href={opp.source_url}
                 target="_blank"

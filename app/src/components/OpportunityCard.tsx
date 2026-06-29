@@ -79,7 +79,7 @@ export function OpportunityCard({
         }
       }}
       className={cn(
-        "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card outline-none transition-all",
+        "group relative flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card outline-none transition-all",
         "focus-visible:ring-2 focus-visible:ring-primary/40",
         "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
       )}

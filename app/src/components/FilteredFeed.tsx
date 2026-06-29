@@ -503,7 +503,7 @@ export function FilteredFeed({
                   {group.items.map((opp, i) => (
                     <div
                       key={opp.id}
-                      className="animate-fade-up"
+                      className="animate-fade-up min-w-0"
                       style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
                     >
                       <OpportunityCard

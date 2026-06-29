@@ -237,13 +237,17 @@ export async function GET(req: NextRequest) {
         const opp = listing.structured;
         const organization = opp.organization || "Unknown";
         const title = opp.title || "Unknown Title";
-        const source_url = listing.sourceUrl || opp.apply_url || hashUrl(title, organization);
+        
+        // Always use a deterministic hash of (title + organization) as the primary unique key
+        // to prevent identical jobs from being inserted multiple times if their sourceUrl changes.
+        const source_url = hashUrl(title, organization);
         
         return {
           source_id: sourceId,
           source_url,
           raw_data: {
             ...opp,
+            apply_url: listing.sourceUrl || opp.apply_url, // Preserve the real URL
             rawText: listing.rawText // preserve raw text if any
           },
           status: 'pending'

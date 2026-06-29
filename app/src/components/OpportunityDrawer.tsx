@@ -392,7 +392,7 @@ export function OpportunityDrawer({
                     addSuffix: true,
                   })}
                 </span>
-                {opp.source_url && (
+                {opp.source_url && !opp.source_url.startsWith("hash:") && (
                   <Link
                     href={opp.source_url}
                     target="_blank"

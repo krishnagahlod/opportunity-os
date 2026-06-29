@@ -52,13 +52,13 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // 1. Fetch up to 10 pending raw opportunities to avoid LLM timeouts
+  // 1. Fetch up to 5 pending raw opportunities to avoid LLM timeouts
   const { data: rawRows, error: fetchError } = await supabase
     .from("raw_opportunities")
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-    .limit(10); // Reduced from 30 to prevent 504 Gateway Timeout
+    .limit(5); // Reduced from 30 to prevent 504 Gateway Timeout
 
   if (fetchError) {
     console.error("Failed to fetch pending raw opportunities:", fetchError);
