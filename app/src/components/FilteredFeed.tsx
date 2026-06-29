@@ -291,7 +291,7 @@ export function FilteredFeed({
   }, [sourcePool, inSearchMode, showLowFit, effectiveScoreMap]);
 
   const sorted = useMemo(() => {
-    const arr = [...filtered];
+    let arr = [...filtered];
     switch (state.sort) {
       case "deadline":
         arr.sort(byDeadlineAsc);
@@ -304,8 +304,28 @@ export function FilteredFeed({
         arr.sort(byScoreDesc(effectiveScoreMap));
         break;
     }
+
+    // Apply diversity limit to prevent a single company from dominating the feed.
+    // If the user is actively searching (inSearchMode), we show all results.
+    if (!inSearchMode) {
+      const diversified: Opportunity[] = [];
+      const orgCounts = new Map<string, number>();
+      const ORG_LIMIT = 3; 
+
+      for (const opp of arr) {
+        const org = (opp.organization || "").toLowerCase().trim();
+        const count = orgCounts.get(org) || 0;
+        
+        if (count < ORG_LIMIT) {
+          diversified.push(opp);
+        }
+        orgCounts.set(org, count + 1);
+      }
+      arr = diversified;
+    }
+
     return arr;
-  }, [filtered, state.sort, effectiveScoreMap]);
+  }, [filtered, state.sort, effectiveScoreMap, inSearchMode]);
 
   // In search mode the server returns up to 150 candidates so the client has
   // enough to rank by personal-fit score. Render only the top 50 — the rest
