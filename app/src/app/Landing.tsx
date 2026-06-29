@@ -96,9 +96,7 @@ function Hero() {
             className="animate-fade-up mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
             style={{ animationDelay: "120ms" }}
           >
-            We watch the places that matter, score every new listing against
-            your resume, and ping you on Telegram the moment a high-fit one
-            drops.
+            We watch the places that matter, parse your resume to build a unique profile, and automatically rank every new listing so you only see what's actually relevant to you.
           </p>
 
           <div
@@ -233,9 +231,9 @@ function ShowcaseSection() {
           />
           <ShowcasePanel
             n="03"
-            icon={<Bell className="size-3.5" />}
-            title="You get pinged"
-            body="High-fit drops the moment they arrive. Morning email digest catches the rest. You click, you apply, you move on."
+            icon={<Check className="size-3.5" />}
+            title="Manage your pipeline"
+            body="Log in to see your Top Matches. Save the roles you want, apply directly, and track your active pipeline all in one place."
             visual={<TelegramVisual />}
             tone="fuchsia"
           />
@@ -259,49 +257,49 @@ function FeaturesBento() {
     tone: "primary" | "sky" | "amber" | "emerald";
   }[] = [
     {
-      eyebrow: "AI scoring",
+      eyebrow: "Decision Intelligence",
       title: "Every opportunity scored against your actual resume.",
-      body: "Not against generic interest chips. We read your projects, roles, and trajectory — then tell you why each match matters in one line you can act on.",
+      body: "We read your projects, roles, and trajectory to calculate a personalized Fit, Value, and Actionability score. See exactly why a role is a match, what skills you're missing, and any red flags before you apply.",
       bullets: [
         "0–100 personal-fit score on every card",
-        "Specific terms from your profile that matched",
-        "Updated automatically as you tweak your skills",
+        "Detailed 'Why this is a fit' analysis",
+        "Instant red flags and missing skills",
       ],
       visual: <ScoredCardVisual />,
       tone: "primary",
     },
     {
-      eyebrow: "Telegram alerts",
-      title: "Pinged on the channel you already check.",
-      body: "48-hour deadline warnings for items you've saved. Instant pings the moment a high-fit opportunity drops. The thing that makes you feel like the system is looking out for you.",
+      eyebrow: "Smart Feed Grouping",
+      title: "A feed that respects your time.",
+      body: "No more scrolling through endless lists. Your feed is automatically clustered into Top Matches, Good Fits, and Explore. We even limit employer dominance so you see a diverse set of companies.",
       bullets: [
-        "Real-time push, not next-morning summary",
-        "Direct apply link in every alert",
-        "Per-user — your saved deadlines, your inbox",
+        "Categorized by your exact match percentage",
+        "Employer diversity limits (no spam)",
+        "Seamlessly filter by role and deadline",
       ],
       visual: <FeatureNotificationVisual />,
       tone: "sky",
     },
     {
-      eyebrow: "Daily digest",
-      title: "A morning summary you'll actually open.",
-      body: "Top picks for today, items closing soon, anything you saved that's about to expire. One email at sunrise so you know whether to open the app today.",
+      eyebrow: "Resume-Driven Pipeline",
+      title: "Upload once. Discover forever.",
+      body: "Your resume is your profile. Drop your PDF in during onboarding, and our AI instantly extracts your core skills, education, and experience. No tedious forms to fill out.",
       bullets: [
-        "Top 5 picks ranked by personal fit",
-        "Closing-this-week section",
-        "Saved + applied with deadlines highlighted",
+        "Instant AI resume parsing",
+        "Matches you to internships and full-time roles",
+        "Constantly updates as new jobs drop",
       ],
       visual: <FeatureEmailVisual />,
       tone: "amber",
     },
     {
-      eyebrow: "Application tracker",
-      title: "Saved → Applied → Interviewing → Won.",
-      body: "Drag cards between columns to update status. See your active pipeline, response rate, wins this month — the data you need to know what's working.",
+      eyebrow: "Status Tracking",
+      title: "Manage your hunt from one place.",
+      body: "Save roles you want to apply to later, mark the ones you've applied to, and hide the ones you don't care about. Train your feed to show you exactly what you want.",
       bullets: [
-        "Kanban with all your in-flight applications",
-        "Stats strip: active · response rate · wins",
-        "Calendar feed of every saved deadline",
+        "One-click Save and Hide",
+        "Track what you've already applied to",
+        "Dedicated Saved section to review your pipeline",
       ],
       visual: <KanbanVisual />,
       tone: "emerald",
@@ -513,9 +511,9 @@ function HowItWorks() {
     },
     {
       n: "03",
-      title: "You open Telegram",
-      body: "Daily digest is ready. High-urgency drops ping you the moment they arrive. Click, apply, move on.",
-      icon: <Send className="size-4" />,
+      title: "You manage your feed",
+      body: "Log in to see your personalized Top Matches, Good Fits, and Explore groups. Click, apply, and mark them as applied so you never lose track.",
+      icon: <Check className="size-4" />,
       visual: <StepPingVisual />,
     },
   ];
