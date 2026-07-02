@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       prompt: buildExtractPrompt({ rawText: text, sourceUrl: source_url, hint }),
       schema: ExtractedOpportunitySchema,
       systemInstruction: EXTRACT_SYSTEM_INSTRUCTION,
+      maxTokens: 2000,
+      groqModel: "llama-3.3-70b-versatile",
     });
 
     void logIngestion({
