@@ -44,7 +44,7 @@ export async function callLLM<T>({
   schema: ZodSchema<T>;
   systemInstruction?: string;
   maxTokens?: number;
-  /** Override Groq model for this call. Use 'qwen3.6-27b' for
+  /** Override Groq model for this call. Use 'gpt-oss-120b' for
    * larger / pickier structured outputs that the 8B model truncates. */
   groqModel?: string;
   /** Primary provider to try first. Defaults to "gemini". */
