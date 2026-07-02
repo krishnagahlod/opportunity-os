@@ -1,0 +1,28 @@
+name: Trigger n8n Pipelines
+on:
+  schedule:
+    # Runs twice a day: 02:30 UTC and 14:30 UTC
+    - cron: '30 2,14 * * *'
+  workflow_dispatch: 
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake up Render instance
+        run: |
+          echo "Pinging n8n webhook to wake up the Render instance..."
+          # We use a short 10-second timeout. It will likely timeout if asleep,
+          # but the HTTP request reaches Render and triggers the cold start.
+          curl -s -m 10 -X GET ${{ secrets.N8N_WEBHOOK_URL }} || true
+          
+      - name: Wait for Boot
+        run: |
+          echo "Waiting 75 seconds to ensure n8n is fully online..."
+          sleep 75
+          
+      - name: Execute Pipeline
+        run: |
+          echo "Executing the actual pipeline..."
+          # POST request to the webhook to trigger the workflow securely
+          curl --fail -s -m 120 -X POST ${{ secrets.N8N_WEBHOOK_URL }}
