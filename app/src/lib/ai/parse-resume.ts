@@ -51,7 +51,7 @@ export async function parseResumePdf(
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
     maxTokens: 2500,
-    groqModel: "llama-3.3-70b-versatile",
+    groqModel: "qwen3.6-27b",
     primaryProvider: "groq",
   });
 

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       schema: ExtractedOpportunitySchema,
       systemInstruction: EXTRACT_SYSTEM_INSTRUCTION,
       maxTokens: 2000,
-      groqModel: "llama-3.3-70b-versatile",
+      groqModel: "qwen3.6-27b",
     });
 
     void logIngestion({

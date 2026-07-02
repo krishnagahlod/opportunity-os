@@ -84,8 +84,8 @@ export async function GET(req: NextRequest) {
       prompt,
       schema: ResumeMatchSchema,
       systemInstruction: AI_MATCH_SYSTEM_INSTRUCTION,
-      maxTokens: 1000,
-      groqModel: "llama-3.3-70b-versatile",
+      maxTokens: 500,
+      groqModel: "qwen3.6-27b",
       primaryProvider: "groq", // We use Groq first for speed
     });
 
