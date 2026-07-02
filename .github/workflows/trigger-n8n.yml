@@ -34,5 +34,15 @@ jobs:
               sleep 900
             fi
             echo "Triggering webhook..."
-            curl --fail -s -m 120 -X POST "$url"
+            response=$(curl -s -w "\n%{http_code}" -m 120 -X POST "$url")
+            body=$(echo "$response" | sed '$d')
+            status=$(echo "$response" | tail -n1)
+            
+            echo "Status Code: $status"
+            echo "Response: $body"
+            
+            if [ "$status" -ge 400 ]; then
+              echo "Error: Webhook failed!"
+              exit 1
+            fi
           done
