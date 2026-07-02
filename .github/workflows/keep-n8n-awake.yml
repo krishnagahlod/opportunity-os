@@ -1,0 +1,28 @@
+name: Keep n8n Awake During Night
+on:
+  schedule:
+    # Render sleeps if it doesn't receive an inbound HTTP request for 15 mins.
+    # n8n's internal schedules DO NOT prevent Render from sleeping!
+    # To keep n8n awake for your 12:00 AM to 2:30 AM IST schedules, 
+    # we ping Render every 10 minutes during that exact window.
+    
+    # 18:20 UTC to 18:50 UTC (11:50 PM to 12:20 AM IST)
+    - cron: '20,30,40,50 18 * * *'
+    # 19:00 UTC to 19:50 UTC (12:30 AM to 1:20 AM IST)
+    - cron: '0,10,20,30,40,50 19 * * *'
+    # 20:00 UTC to 20:50 UTC (1:30 AM to 2:20 AM IST)
+    - cron: '0,10,20,30,40,50 20 * * *'
+    # 21:00 UTC (2:30 AM IST - Final run to finish the last workflow)
+    - cron: '0 21 * * *'
+  workflow_dispatch: 
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping n8n URL
+        run: |
+          echo "Pinging n8n to keep Render and Neon awake..."
+          # A simple GET request to the homepage is enough to reset the 15-minute sleep timer on Render
+          curl -s -m 15 -o /dev/null https://opportunity-os-n8n.onrender.com/ || true
