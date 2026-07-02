@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
       schema: ResumeMatchSchema,
       systemInstruction: AI_MATCH_SYSTEM_INSTRUCTION,
       maxTokens: 500,
-      groqModel: "gpt-oss-120b",
+      groqModel: "qwen3.6-27b",
       primaryProvider: "groq", // We use Groq first for speed
     });
 
