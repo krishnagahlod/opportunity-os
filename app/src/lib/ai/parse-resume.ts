@@ -51,7 +51,7 @@ export async function parseResumePdf(
     schema: ResumeExtractionSchema,
     systemInstruction: RESUME_SYSTEM_INSTRUCTION,
     maxTokens: 2500,
-    groqModel: "qwen3.6-27b",
+    groqModel: "openai/gpt-oss-120b",
     primaryProvider: "groq",
   });
 
