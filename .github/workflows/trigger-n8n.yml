@@ -24,8 +24,15 @@ jobs:
       - name: Execute Pipeline
         run: |
           echo "Executing the actual pipeline(s)..."
+          first=true
           # Iterate over each URL provided in the secret (separated by spaces or newlines)
           for url in ${{ secrets.N8N_WEBHOOK_URL }}; do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo "Waiting 15 minutes (900 seconds) before triggering the next workflow to prevent API overload..."
+              sleep 900
+            fi
             echo "Triggering webhook..."
             curl --fail -s -m 120 -X POST "$url"
           done
