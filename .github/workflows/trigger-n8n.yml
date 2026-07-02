@@ -23,6 +23,9 @@ jobs:
           
       - name: Execute Pipeline
         run: |
-          echo "Executing the actual pipeline..."
-          # POST request to the webhook to trigger the workflow securely
-          curl --fail -s -m 120 -X POST ${{ secrets.N8N_WEBHOOK_URL }}
+          echo "Executing the actual pipeline(s)..."
+          # Iterate over each URL provided in the secret (separated by spaces or newlines)
+          for url in ${{ secrets.N8N_WEBHOOK_URL }}; do
+            echo "Triggering webhook..."
+            curl --fail -s -m 120 -X POST "$url"
+          done
