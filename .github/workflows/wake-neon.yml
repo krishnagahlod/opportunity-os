@@ -1,0 +1,18 @@
+name: Wake Up Neon Database
+on:
+  schedule:
+    # Runs at 18:28 UTC (11:58 PM IST) every day
+    - cron: '28 18 * * *'
+  workflow_dispatch: # Allows manual testing
+
+jobs:
+  wake-up-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Neon Database
+        run: |
+          echo "Pinging Neon to wake it up from sleep..."
+          # We use a 15-second timeout. Even if it times out, the connection attempt wakes up the DB!
+          psql "$NEON_DATABASE_URL" -c "SELECT 1;" || echo "Ping sent! Neon is waking up."
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
