@@ -225,6 +225,38 @@ export function OpportunityDrawer({
           )}
         </section>
 
+        {((opp as any).variants?.length > 0) && (
+          <section className="mt-8">
+            <h3 className="mb-3 text-[13px] font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="size-4 text-blue-500" />
+              Similar Roles from {opp.organization}
+            </h3>
+            <div className="flex flex-col gap-2">
+              {(opp as any).variants.map((variant: Opportunity, idx: number) => (
+                <div key={idx} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 p-3">
+                  <div>
+                    <div className="text-[13px] font-medium text-foreground">{variant.title}</div>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <span className="flex items-center gap-1"><MapPin className="size-3" /> {variant.is_remote ? "Remote" : variant.location || "N/A"}</span>
+                    </div>
+                  </div>
+                  <ExternalApplyLink
+                    href={variant.apply_url || ""}
+                    onClick={() => {
+                      if (!isSaved && !applicationStatus) {
+                        recordPendingApply(variant.id);
+                      }
+                    }}
+                    className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20 flex items-center gap-1"
+                  >
+                    Apply <ArrowUpRight className="size-3" />
+                  </ExternalApplyLink>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Decision Intelligence Teaser */}
         <section className="mt-8">
           <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5 shadow-sm">

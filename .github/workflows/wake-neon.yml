@@ -1,8 +1,8 @@
 name: Wake Up Neon Database
 on:
   schedule:
-    # Runs at 18:28 UTC (11:58 PM IST) every day
-    - cron: '28 18 * * *'
+    # Runs at 18:14 UTC (11:44 PM IST) every day, right before the 11:46 PM n8n ping
+    - cron: '14 18 * * *'
   workflow_dispatch: # Allows manual testing
 
 jobs:

@@ -50,6 +50,13 @@ export async function fetchLever(config: LeverConfig): Promise<SourceListing[]> 
           titleLower.includes("apprentice");
           
         const isFellowship = titleLower.includes("fellow");
+        
+        const isStrictEarlyCareer = titleLower.includes("new grad") || titleLower.includes("junior") || titleLower.includes("entry level") || titleLower.includes("entry-level") || titleLower.includes("associate");
+        
+        if (!isInternship && !isFellowship && !isStrictEarlyCareer) {
+            continue; // Skip generic full-time roles
+        }
+        
         const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
 
         companyListings.push({

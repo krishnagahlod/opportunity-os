@@ -149,6 +149,11 @@ export function OpportunityCard({
                 🔥 High Value
               </span>
             )}
+            {((opportunity as any).variants?.length > 0) && (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                + {(opportunity as any).variants.length} Similar
+              </span>
+            )}
           </div>
         </div>
 

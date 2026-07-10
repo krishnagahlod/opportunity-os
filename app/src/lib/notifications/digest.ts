@@ -282,6 +282,7 @@ export async function markExpiredOpportunities(): Promise<{
     .select(`
       id,
       date_added,
+      category,
       source:sources(name)
     `)
     .eq("status", "active")
@@ -296,7 +297,13 @@ export async function markExpiredOpportunities(): Promise<{
   
   for (const row of (rollingActive || [])) {
     const isLinkedIn = (row.source as unknown as { name: string })?.name?.toLowerCase().includes("linkedin");
-    const maxAgeDays = isLinkedIn ? 21 : ROLLING_EXPIRY_DAYS;
+    let maxAgeDays = isLinkedIn ? 21 : ROLLING_EXPIRY_DAYS;
+    
+    // Aggressive expiration for full-time roles
+    if (row.category === "fulltime") {
+      maxAgeDays = 7;
+    }
+    
     const addedTime = new Date(row.date_added).getTime();
     
     if (now - addedTime > maxAgeDays * 24 * 60 * 60 * 1000) {

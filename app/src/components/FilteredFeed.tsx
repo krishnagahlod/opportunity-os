@@ -308,18 +308,49 @@ export function FilteredFeed({
     // Apply diversity limit to prevent a single company from dominating the feed.
     // If the user is actively searching (inSearchMode), we show all results.
     if (!inSearchMode) {
-      const diversified: Opportunity[] = [];
+      const diversified: (Opportunity & { variants?: Opportunity[] })[] = [];
+      const groupedByOrgAndTitle = new Map<string, Opportunity & { variants?: Opportunity[] }>();
       const orgCounts = new Map<string, number>();
       const ORG_LIMIT = 3; 
 
       for (const opp of arr) {
         const org = (opp.organization || "").toLowerCase().trim();
+        
+        // Base title extraction to group similar roles (e.g. "Software Engineer - Frontend", "Software Engineer - Backend")
+        // Strip out common suffixes, levels, and location markers
+        let baseTitle = opp.title.toLowerCase()
+          .replace(/\s*-\s*.*/, '') // Remove " - anything"
+          .replace(/\s*\(.*\)/, '') // Remove " (anything)"
+          .replace(/\s+ii?i?$/, '') // Remove Roman numerals
+          .replace(/\s+senior\s*/, '') // Remove "senior"
+          .replace(/\s+junior\s*/, '') // Remove "junior"
+          .trim();
+        
+        if (baseTitle === "") {
+           baseTitle = opp.title.toLowerCase();
+        }
+
+        const groupKey = `${org}|${opp.category}|${baseTitle}`;
+        
+        if (groupedByOrgAndTitle.has(groupKey)) {
+          const existing = groupedByOrgAndTitle.get(groupKey)!;
+          if (!existing.variants) existing.variants = [];
+          
+          // Deduplicate exactly identical titles within variants just in case
+          if (existing.title !== opp.title && !existing.variants.some(v => v.title === opp.title)) {
+            existing.variants.push(opp);
+          }
+          continue; // Skip pushing to diversified since it's grouped
+        }
+
         const count = orgCounts.get(org) || 0;
         
         if (count < ORG_LIMIT) {
-          diversified.push(opp);
+          const newOpp = { ...opp };
+          diversified.push(newOpp);
+          groupedByOrgAndTitle.set(groupKey, newOpp);
+          orgCounts.set(org, count + 1);
         }
-        orgCounts.set(org, count + 1);
       }
       arr = diversified;
     }

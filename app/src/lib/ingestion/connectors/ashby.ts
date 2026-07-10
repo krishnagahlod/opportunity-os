@@ -60,6 +60,12 @@ export async function fetchAshbyConnector(config: AshbyConfig): Promise<SourceLi
           category = "internship";
         }
         
+        const isStrictEarlyCareer = titleLower.includes("new grad") || titleLower.includes("junior") || titleLower.includes("entry level") || titleLower.includes("entry-level") || titleLower.includes("associate");
+        
+        if (category === "fulltime" && !isStrictEarlyCareer) {
+            continue; // Skip generic full-time roles
+        }
+        
         // Strip HTML for basic summary/text
         const rawText = job.descriptionHtml.replace(/<[^>]*>?/gm, '');
         

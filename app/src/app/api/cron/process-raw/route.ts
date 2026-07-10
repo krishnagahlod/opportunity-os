@@ -22,9 +22,16 @@ function isRelevantOpportunity(title: string, category: string | null): boolean 
   if (["internship", "fellowship", "scholarship", "hackathon", "bootcamp"].includes(category || "")) return true;
   if (t.includes("intern") || t.includes("fellow") || t.includes("scholar") || t.includes("hackathon") || t.includes("co-op")) return true;
 
-  // Remove the strict 'must be junior' requirement for full-time jobs
-  // If a job doesn't contain "senior" keywords, we allow it.
-  return true;
+  // For full-time jobs, we apply strict filters to rebalance the platform.
+  // We only accept full-time roles if they explicitly say "new grad", "junior", "entry level", or "associate".
+  const isStrictEarlyCareer = t.includes("new grad") || t.includes("junior") || t.includes("entry level") || t.includes("entry-level") || t.includes("associate");
+  if (category === "fulltime" && !isStrictEarlyCareer) {
+    return false; // Skip generic full-time roles to reduce their proportion on the platform
+  }
+
+  // Allow if it passes the checks (e.g. it's early career fulltime or another unhandled category)
+  // Or if category is unknown but title has early career keywords.
+  return isStrictEarlyCareer;
 }
 
 function guessCategoryFast(title: string, hint?: string): string | null {
