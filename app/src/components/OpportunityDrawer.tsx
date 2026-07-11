@@ -242,10 +242,10 @@ export function OpportunityDrawer({
                   </div>
                   <ExternalApplyLink
                     href={variant.apply_url || ""}
-                    onClick={() => {
-                      if (!isSaved && !applicationStatus) {
-                        recordPendingApply(variant.id);
-                      }
+                    opp={{
+                      id: variant.id,
+                      title: variant.title,
+                      organization: variant.organization
                     }}
                     className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20 flex items-center gap-1"
                   >
