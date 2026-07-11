@@ -13,6 +13,8 @@ import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
 import { fetchStaticPages } from "@/lib/ingestion/connectors/static";
 import { fetchEvergreen } from "@/lib/ingestion/connectors/evergreen";
 import { fetchUnstop } from "@/lib/ingestion/connectors/unstop";
+import { fetchWorkday } from "@/lib/ingestion/connectors/workday";
+import { fetchIcims } from "@/lib/ingestion/connectors/icims";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -199,6 +201,30 @@ export async function GET(req: NextRequest) {
     },
     { name: "Unstop", promise: fetchUnstop({ maxItems: 10 }) },
     { name: "Evergreen Catalog", promise: fetchEvergreen() },
+    {
+      name: "Workday",
+      promise: fetchWorkday({
+        companies: [
+          { displayName: "Mastercard", apiUrl: "https://mastercard.wd1.myworkdayjobs.com/wday/cxs/mastercard/CorporateCareers/jobs", jobBaseUrl: "https://mastercard.wd1.myworkdayjobs.com/en-US/CorporateCareers/job" },
+          { displayName: "NVIDIA", apiUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs", jobBaseUrl: "https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job" },
+          { displayName: "Salesforce", apiUrl: "https://salesforce.wd1.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs", jobBaseUrl: "https://salesforce.wd1.myworkdayjobs.com/en-US/External_Career_Site/job" },
+          { displayName: "Workday", apiUrl: "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/jobs", jobBaseUrl: "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job" },
+          { displayName: "Visa", apiUrl: "https://visa.wd1.myworkdayjobs.com/wday/cxs/visa/visa_careers/jobs", jobBaseUrl: "https://visa.wd1.myworkdayjobs.com/en-US/visa_careers/job" },
+          { displayName: "Palo Alto Networks", apiUrl: "https://paloaltonetworks.wd1.myworkdayjobs.com/wday/cxs/paloaltonetworks/Careers/jobs", jobBaseUrl: "https://paloaltonetworks.wd1.myworkdayjobs.com/en-US/Careers/job" }
+        ],
+        searchTerms: ["intern", "new grad", "university"]
+      })
+    },
+    {
+      name: "iCIMS",
+      promise: fetchIcims({
+        companies: [
+          { displayName: "JP Morgan", baseUrl: "https://jpmc.fa.oraclecloud.com" }, // Actually Oracle, but just for example
+          { displayName: "Barclays", baseUrl: "https://search.jobs.barclays" }
+        ],
+        searchTerms: ["intern", "graduate"]
+      })
+    }
   ];
 
   // 1. Fetch from all sources with a strict timeout to prevent Vercel 60s cutoff
