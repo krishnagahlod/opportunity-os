@@ -15,6 +15,7 @@ import { fetchEvergreen } from "@/lib/ingestion/connectors/evergreen";
 import { fetchUnstop } from "@/lib/ingestion/connectors/unstop";
 import { fetchWorkday } from "@/lib/ingestion/connectors/workday";
 import { fetchIcims } from "@/lib/ingestion/connectors/icims";
+import { fetchYcJobs } from "@/lib/ingestion/connectors/yc";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -113,7 +114,11 @@ export async function GET(req: NextRequest) {
 
   
   const sourcesConfig = [
-    { name: "LinkedIn Jobs", promise: fetchLinkedIn({ keywords: "software engineer intern", location: "India", maxPages: 2 }) },
+    { name: "LinkedIn - PM", promise: fetchLinkedIn({ keywords: "Product Management Intern", location: "India", maxPages: 2 }) },
+    { name: "LinkedIn - Founder", promise: fetchLinkedIn({ keywords: "Founder's Office Intern", location: "India", maxPages: 2 }) },
+    { name: "LinkedIn - AI Product", promise: fetchLinkedIn({ keywords: "AI Product Intern", location: "Remote", maxPages: 2 }) },
+    { name: "LinkedIn - Growth", promise: fetchLinkedIn({ keywords: "Growth Intern", location: "India", maxPages: 2 }) },
+    { name: "YC Jobs", promise: fetchYcJobs({ searchTerms: ["intern", "product", "founder", "ai", "growth", "strategy"] }) },
     { name: "Devpost", promise: fetchDevpost({ maxPages: 2 }) },
     { 
       name: "Greenhouse", 
