@@ -19,7 +19,7 @@ export default withSentryConfig(nextConfig, {
   tunnelRoute: "/monitoring",
   
   sourcemaps: {
-    disable: false,
+    disable: true,
   },
   
 });
