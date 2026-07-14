@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+import { PostHogProvider, PostHogPageView } from "@/components/PostHogProvider";
 import { ApplyNudge } from "@/components/ApplyNudge";
-import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,18 +35,22 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-background text-foreground"
         suppressHydrationWarning
       >
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-elevated"
-        >
-          Skip to content
-        </a>
-        {children}
-        <Analytics />
-        {/* Global "did you finish applying?" toast — null-renders when no
-            pending-apply flag is set in localStorage, so it's free for
-            logged-out marketing pages too. */}
-        <ApplyNudge />
+        <PostHogProvider>
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-elevated"
+          >
+            Skip to content
+          </a>
+          {children}
+          {/* Global "did you finish applying?" toast — null-renders when no
+              pending-apply flag is set in localStorage, so it's free for
+              logged-out marketing pages too. */}
+          <ApplyNudge />
+        </PostHogProvider>
       </body>
     </html>
   );
