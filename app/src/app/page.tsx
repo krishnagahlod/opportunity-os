@@ -121,7 +121,28 @@ export default async function HomePage() {
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
 
-      {/* No hero strip — straight into filter + list. The page IS the feed. */}
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-hero-radial dark:bg-hero-radial-dark pt-16 pb-12 sm:pt-24 sm:pb-16 animate-fade-up">
+        <div className="absolute inset-0 bg-grid-dots opacity-30 mask-bottom-fade"></div>
+        <div className="relative mx-auto max-w-4xl px-4 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
+            Discover Your Next <span className="text-gradient-brand">Breakthrough</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+            Curated opportunities for builders and creators. Apply faster, track smarter, and land the role you deserve.
+          </p>
+          
+          {/* Live Counter (Social Proof) */}
+          <div className="mt-8 flex justify-center items-center gap-2 text-sm font-medium text-muted-foreground animate-slide-up-fade" style={{ animationDelay: '150ms' }}>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span>
+            </span>
+            <span>{opps.length}+ Active Opportunities</span>
+          </div>
+        </div>
+      </section>
+
       <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
         {opps.length === 0 ? (
           <EmptyState

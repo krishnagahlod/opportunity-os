@@ -551,10 +551,15 @@ export function FilteredFeed({
                   </>
                 )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((opp, i) => (
+                  {group.items.map((opp, i) => {
+                    const isBento = i === 0 && gi === 0 && (opp.featured || (scoreMap[opp.id]?.score ?? 0) >= 90);
+                    return (
                     <div
                       key={opp.id}
-                      className="animate-fade-up min-w-0"
+                      className={cn(
+                        "animate-fade-up min-w-0",
+                        isBento && "sm:col-span-2 lg:col-span-2"
+                      )}
                       style={{ animationDelay: `${Math.min(i, 11) * 30}ms` }}
                     >
                       <OpportunityCard
@@ -565,7 +570,8 @@ export function FilteredFeed({
                         onSelect={setSelectedOpp}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

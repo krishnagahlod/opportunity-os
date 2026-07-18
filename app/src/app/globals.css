@@ -103,11 +103,11 @@
    Dark theme — rich near-black with lighter indigo primary
    ============================================================ */
 .dark {
-  --background: oklch(0.14 0.008 270);
+  --background: oklch(0.12 0.01 270);
   --foreground: oklch(0.97 0.003 270);
-  --card: oklch(0.18 0.012 270);
+  --card: oklch(0.15 0.012 270);
   --card-foreground: oklch(0.97 0.003 270);
-  --popover: oklch(0.18 0.012 270);
+  --popover: oklch(0.15 0.012 270);
   --popover-foreground: oklch(0.97 0.003 270);
   --primary: oklch(0.72 0.19 272);
   --primary-foreground: oklch(0.15 0.02 272);
@@ -212,7 +212,7 @@
   @keyframes fade-up {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(12px);
     }
     to {
       opacity: 1;
@@ -220,7 +220,36 @@
     }
   }
   .animate-fade-up {
-    animation: fade-up 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: fade-up 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes float-in {
+    from {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .animate-float-in {
+    animation: float-in 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Rolling counter animation */
+  @keyframes slide-up-fade {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-slide-up-fade {
+    animation: slide-up-fade 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   /* Bottom edge gradient mask — adds depth to empty states / scrollable lists */

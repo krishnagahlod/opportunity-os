@@ -79,9 +79,9 @@ export function OpportunityCard({
         }
       }}
       className={cn(
-        "group relative flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-card outline-none transition-all",
+        "group relative flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[1.25rem] border border-white/5 dark:border-white/5 bg-card/50 backdrop-blur-xl shadow-sm outline-none transition-all duration-300",
         "focus-visible:ring-2 focus-visible:ring-primary/40",
-        "hover:-translate-y-0.5 hover:border-border hover:shadow-elevated",
+        "hover:-translate-y-1 hover:border-primary/30 hover:shadow-elevated hover:bg-card/70",
       )}
     >
       {/* Header — title + org + deadline */}
@@ -98,7 +98,7 @@ export function OpportunityCard({
           <DomainIcon className="size-4.5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-[14.5px] font-medium leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary">
+          <h3 className="line-clamp-2 text-base sm:text-[17px] font-bold leading-tight tracking-tight text-foreground transition-colors group-hover:text-primary">
             {opportunity.title}
           </h3>
           <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground min-w-0">
@@ -163,7 +163,7 @@ export function OpportunityCard({
 
       {/* Body — actions visible on mobile (no hover possible on touch),
           hover-swap pattern preserved on sm+ for the desktop experience. */}
-      <div className="relative mt-auto border-t border-border/50">
+      <div className="relative mt-auto border-t border-border/20">
         {/* Metadata layer — hidden entirely on mobile (actions take its space).
             Desktop: shown by default, hover-faded so actions can take over. */}
         <div

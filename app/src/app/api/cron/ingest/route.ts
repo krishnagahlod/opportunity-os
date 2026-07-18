@@ -9,7 +9,6 @@ import { fetchInternshala } from "@/lib/ingestion/connectors/internshala";
 import { fetchHackerNews } from "@/lib/ingestion/connectors/hackernews";
 import { fetchRss } from "@/lib/ingestion/connectors/rss";
 import { fetchAshbyConnector } from "@/lib/ingestion/connectors/ashby";
-import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
 import { fetchStaticPages } from "@/lib/ingestion/connectors/static";
 import { fetchEvergreen } from "@/lib/ingestion/connectors/evergreen";
 import { fetchUnstop } from "@/lib/ingestion/connectors/unstop";
@@ -187,10 +186,8 @@ export async function GET(req: NextRequest) {
     },
     { name: "Internshala", promise: fetchInternshala({ maxPages: 2 }) },
     { name: "Hacker News: Who is hiring", promise: fetchHackerNews({ maxItems: 30 }) },
-    { name: "RemoteOK", promise: fetchRemoteOK() },
     { name: "HN Jobs RSS", promise: fetchRss({ url: "https://hnrss.org/whoishiring", sourceName: "HN Jobs RSS", categoryHint: "fulltime" }) },
     { name: "Lenny's Newsletter", promise: fetchRss({ url: "https://www.lennysnewsletter.com/feed", sourceName: "Lenny's Newsletter" }) },
-    { name: "WeWorkRemotely", promise: fetchRss({ url: "https://weworkremotely.com/remote-jobs.rss", sourceName: "WeWorkRemotely" }) },
     { 
       name: "Top Fellowships", 
       promise: fetchStaticPages({

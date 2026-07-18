@@ -99,33 +99,34 @@ export function FilterBar({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Search row — full-width, prominent */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id={searchId}
-          type="search"
-          value={state.q}
-          onChange={(e) => patch({ q: e.target.value })}
-          placeholder="Search title, organization, or tag…"
-          className="h-11 w-full rounded-xl border-border/70 bg-card pl-10 pr-10 text-[14px] shadow-card transition focus-visible:border-primary/50 focus-visible:shadow-elevated"
-          aria-label="Search opportunities"
-        />
-        {state.q && (
-          <button
-            type="button"
-            onClick={() => patch({ q: "" })}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            aria-label="Clear search"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
+    <div className="sticky top-[84px] z-30 mx-auto w-full max-w-4xl animate-float-in mb-8">
+      <div className="flex flex-col sm:flex-row items-center gap-2 rounded-[2rem] border border-white/10 dark:border-white/5 bg-background/50 p-2 shadow-elevated backdrop-blur-3xl">
+        {/* Search Input */}
+        <div className="relative w-full sm:max-w-[300px] shrink-0">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-foreground/50" />
+          <Input
+            id={searchId}
+            type="search"
+            value={state.q}
+            onChange={(e) => patch({ q: e.target.value })}
+            placeholder="Search opportunities..."
+            className="h-10 w-full rounded-full border-transparent bg-foreground/5 pl-10 pr-10 text-[14px] shadow-none transition focus-visible:border-primary/50 focus-visible:bg-foreground/10 focus-visible:ring-0"
+            aria-label="Search opportunities"
+          />
+          {state.q && (
+            <button
+              type="button"
+              onClick={() => patch({ q: "" })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-foreground/50 transition hover:bg-foreground/10 hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
 
-      {/* Filter row — pill-style buttons */}
-      <div className="flex flex-wrap items-center gap-1.5">
+        {/* Filter row — pill-style buttons */}
+        <div className="flex w-full flex-1 flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-nowrap">
         {/* Category multi-select */}
         <FilterDropdown
           label="Category"
@@ -243,11 +244,12 @@ export function FilterBar({
             ))
           }
         />
+        </div>
       </div>
 
       {/* Active chips + clear */}
       {hasActive && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="mx-2 flex flex-wrap items-center gap-1.5 rounded-b-2xl border border-t-0 border-white/10 dark:border-white/5 bg-background/50 p-2 shadow-elevated backdrop-blur-3xl">
           {state.categories.map((cat) => (
             <Chip
               key={`cat-${cat}`}
@@ -278,22 +280,26 @@ export function FilterBar({
               onRemove={() => patch({ remote: false })}
             />
           )}
-          <button
-            type="button"
-            onClick={clearAll}
-            className="ml-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          >
-            Clear all
-          </button>
-          <span
-            className="ml-auto text-[11px] tabular-nums text-muted-foreground/70"
-            aria-live="polite"
-          >
-            {filteredCount} / {totalCount}
-          </span>
+          <div className="ml-auto flex items-center gap-3 pl-2 pr-4 text-xs font-medium text-foreground/60 shrink-0">
+            <span className="hidden sm:inline">
+              <span className="text-foreground">{filteredCount}</span>{" "}
+              {filteredCount === 1 ? "match" : "matches"}
+            </span>
+            
+            {hasActive && (
+              <button
+                onClick={clearAll}
+                className="text-muted-foreground transition hover:text-foreground flex items-center gap-1"
+                aria-label="Clear all filters"
+              >
+                <X className="size-3" />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
-    </div>
+      </div>
   );
 }
 

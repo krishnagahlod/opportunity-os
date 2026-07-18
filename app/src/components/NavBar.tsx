@@ -15,15 +15,15 @@ export function NavBar({
 }) {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
+    <header className="sticky top-0 z-40 bg-background/40 backdrop-blur-2xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-5 sm:gap-7">
-          <Link href="/" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-background">
-              <Sparkles className="size-3.5" />
+          <Link href="/" className="group flex shrink-0 items-center gap-2 transition-transform hover:scale-105">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background shadow-sm transition-transform group-hover:rotate-12">
+              <Sparkles className="size-4" />
             </span>
-            <span className="text-sm font-semibold tracking-tight">
-              Opportunity <span className="text-muted-foreground">OS</span>
+            <span className="text-base font-semibold tracking-tight">
+              Opportunity <span className="text-muted-foreground transition-colors group-hover:text-foreground">OS</span>
             </span>
           </Link>
           <nav className="hidden gap-1 sm:flex">
@@ -90,10 +90,10 @@ function NavLink({
       href={href}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "rounded-md px-3 py-1.5 text-sm transition",
+        "rounded-full px-4 py-1.5 text-sm transition-all duration-200",
         isActive
-          ? "bg-muted font-medium text-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "bg-foreground/10 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground hover:scale-105 active:scale-95",
       )}
     >
       {children}

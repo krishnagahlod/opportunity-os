@@ -37,51 +37,7 @@ export async function verifyActiveLinks(batchSize = 75): Promise<{ checked: numb
     
     let isDead = false;
     try {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 8000); // 8s timeout
-      
-      const res = await fetch(opp.apply_url, { 
-        method: "GET", // Using GET as some ATS systems block HEAD requests
-        headers: { 
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml"
-        },
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      
-      // Standard HTTP errors
-      if (res.status === 404 || res.status === 410) {
-        isDead = true;
-      } else if (res.ok) {
-        // Look for specific redirect/closed clues in the URL or text
-        const urlStr = res.url.toLowerCase();
-        
-        // LinkedIn redirects to a generic jobs search if closed
-        if (urlStr.includes("unavailable") || urlStr.includes("jobs/search")) {
-           isDead = true;
-        }
-        
-        // Some ATS systems return 200 OK but the content says the job is closed.
-        const text = await res.text();
-        const htmlLower = text.toLowerCase();
-        
-        if (
-          htmlLower.includes("this position has been filled") ||
-          htmlLower.includes("this job is no longer available") ||
-          htmlLower.includes("job posting is no longer available") ||
-          htmlLower.includes("this job has been closed") ||
-          htmlLower.includes("this job is no longer accepting applications") || // Greenhouse
-          htmlLower.includes("this position is no longer available") || // Lever
-          htmlLower.includes("this job posting is currently closed") || // Lever
-          htmlLower.includes("this position has been closed") || // Ashby
-          htmlLower.includes("job not found") || // Ashby
-          htmlLower.includes("the job is no longer posted") || // iCIMS
-          htmlLower.includes("no longer accepting applications") // LinkedIn
-        ) {
-          isDead = true;
-        }
-      }
+      isDead = await checkIsLinkDead(opp.apply_url);
     } catch (e) {
       // Ignore network errors or timeouts to avoid false positives
     }
@@ -95,4 +51,65 @@ export async function verifyActiveLinks(batchSize = 75): Promise<{ checked: numb
   await Promise.allSettled(verifyPromises);
 
   return { checked: opps.length, expired: expiredCount };
+}
+
+/**
+ * Validates a single URL by performing a GET request and checking for common "job closed" patterns.
+ */
+export async function checkIsLinkDead(url: string): Promise<boolean> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 8000); // 8s timeout
+  
+  try {
+    const res = await fetch(url, { 
+      method: "GET", // Using GET as some ATS systems block HEAD requests
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml"
+      },
+      signal: controller.signal
+    });
+    
+    // Standard HTTP errors
+    if (res.status === 404 || res.status === 410) {
+      return true;
+    }
+    
+    if (res.ok) {
+      // Look for specific redirect/closed clues in the URL or text
+      const urlStr = res.url.toLowerCase();
+      
+      // LinkedIn redirects to a generic jobs search if closed
+      if (urlStr.includes("unavailable") || urlStr.includes("jobs/search")) {
+         return true;
+      }
+      
+      // Some ATS systems return 200 OK but the content says the job is closed.
+      const text = await res.text();
+      const htmlLower = text.toLowerCase();
+      
+      if (
+        htmlLower.includes("this position has been filled") ||
+        htmlLower.includes("this job is no longer available") ||
+        htmlLower.includes("job posting is no longer available") ||
+        htmlLower.includes("this job has been closed") ||
+        htmlLower.includes("this job is no longer accepting applications") || // Greenhouse
+        htmlLower.includes("this position is no longer available") || // Lever
+        htmlLower.includes("this job posting is currently closed") || // Lever
+        htmlLower.includes("this position has been closed") || // Ashby
+        htmlLower.includes("job not found") || // Ashby
+        htmlLower.includes("the job is no longer posted") || // iCIMS
+        htmlLower.includes("no longer accepting applications") // LinkedIn
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (e) {
+    // Network errors are considered "not dead" to avoid false positives
+    return false;
+  } finally {
+    clearTimeout(id);
+  }
 }

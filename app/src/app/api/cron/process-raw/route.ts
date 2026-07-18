@@ -7,6 +7,7 @@ import {
   ExtractedOpportunitySchema, 
   EXTRACT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
+import { checkIsLinkDead } from "@/lib/ingestion/link-checker";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; 
@@ -115,6 +116,16 @@ export async function GET(req: NextRequest) {
         await supabase.from("raw_opportunities").update({ status: "skipped", processed_at: new Date().toISOString() }).eq("id", raw.id);
         totalDuplicates++; // treating as skipped
         continue;
+      }
+      
+      // Upfront Link Validation: don't spend AI credits on dead links
+      if (source_url) {
+        const isDead = await checkIsLinkDead(source_url);
+        if (isDead) {
+          await supabase.from("raw_opportunities").update({ status: "failed", processed_at: new Date().toISOString() }).eq("id", raw.id);
+          totalErrors++;
+          continue;
+        }
       }
       
       let extractedData: Partial<typeof opp> = {};
