@@ -52,14 +52,12 @@ export async function GET(req: NextRequest) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-  // Sweep expired opportunities first so today's digest doesn't surface
-  // anything whose deadline already passed.
-  const expiredDb = await markExpiredOpportunities();
+  // Note: markExpiredOpportunities() is now handled entirely by the cleanup cron.
   
   const expired = {
-    count: expiredDb.count,
-    dated: expiredDb.dated,
-    rolling: expiredDb.rolling,
+    count: 0,
+    dated: 0,
+    rolling: 0,
     linkCheckChecked: 0,
     linkCheckExpired: 0
   };

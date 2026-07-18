@@ -170,6 +170,7 @@ export async function GET(req: NextRequest) {
         location: extractedData.location || opp.location || null,
         compensation: extractedData.compensation || opp.compensation || null,
         is_remote: extractedData.is_remote ?? opp.is_remote ?? false,
+        deadline: extractedData.deadline || opp.deadline || null,
         apply_url: extractedData.apply_url || opp.apply_url || null,
         source_url,
         source_id: sourceId,

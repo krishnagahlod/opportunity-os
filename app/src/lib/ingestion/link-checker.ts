@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * 
  * Returns the number of opportunities checked and the number marked as expired.
  */
-export async function verifyActiveLinks(batchSize = 50): Promise<{ checked: number; expired: number }> {
+export async function verifyActiveLinks(batchSize = 75): Promise<{ checked: number; expired: number }> {
   const supabase = createAdminClient();
   
   // Get oldest active opportunities by last_verified_at
@@ -70,7 +70,14 @@ export async function verifyActiveLinks(batchSize = 50): Promise<{ checked: numb
           htmlLower.includes("this position has been filled") ||
           htmlLower.includes("this job is no longer available") ||
           htmlLower.includes("job posting is no longer available") ||
-          htmlLower.includes("this job has been closed")
+          htmlLower.includes("this job has been closed") ||
+          htmlLower.includes("this job is no longer accepting applications") || // Greenhouse
+          htmlLower.includes("this position is no longer available") || // Lever
+          htmlLower.includes("this job posting is currently closed") || // Lever
+          htmlLower.includes("this position has been closed") || // Ashby
+          htmlLower.includes("job not found") || // Ashby
+          htmlLower.includes("the job is no longer posted") || // iCIMS
+          htmlLower.includes("no longer accepting applications") // LinkedIn
         ) {
           isDead = true;
         }

@@ -296,12 +296,25 @@ export async function markExpiredOpportunities(): Promise<{
   const now = Date.now();
   
   for (const row of (rollingActive || [])) {
-    const isLinkedIn = (row.source as unknown as { name: string })?.name?.toLowerCase().includes("linkedin");
-    let maxAgeDays = isLinkedIn ? 21 : ROLLING_EXPIRY_DAYS;
-    
-    // Aggressive expiration for full-time roles
-    if (row.category === "fulltime") {
-      maxAgeDays = 7;
+    let maxAgeDays = 21; // Default fallback
+
+    switch (row.category) {
+      case "internship":
+        maxAgeDays = 14;
+        break;
+      case "hackathon":
+      case "competition":
+        maxAgeDays = 7; // Should have deadlines, so expire fast if missed
+        break;
+      case "fulltime":
+        maxAgeDays = 7;
+        break;
+      case "fellowship":
+        maxAgeDays = 21;
+        break;
+      default:
+        maxAgeDays = 21;
+        break;
     }
     
     const addedTime = new Date(row.date_added).getTime();

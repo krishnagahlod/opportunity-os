@@ -187,6 +187,7 @@ export async function POST(req: NextRequest) {
     estimated_value_score: opp.estimated_value_score,
     extraction_confidence: opp.extraction_confidence,
     status: "active" as const,
+    date_added: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
