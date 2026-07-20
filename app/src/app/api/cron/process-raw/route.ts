@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
       }
       
       // Upfront Link Validation: don't spend AI credits on dead links
-      if (source_url) {
+      if (source_url && !source_url.startsWith("hash:")) {
         const isDead = await checkIsLinkDead(source_url);
         if (isDead) {
           await supabase.from("raw_opportunities").update({ status: "failed", processed_at: new Date().toISOString() }).eq("id", raw.id);
@@ -134,10 +134,11 @@ export async function GET(req: NextRequest) {
       let estimatedValueScore = null;
         try {
           const rawInputText = opp.description || opp.rawText || title;
+          const realUrl = (source_url && !source_url.startsWith("hash:")) ? source_url : (opp.apply_url || null);
           const extractionResult = await callLLM({
             prompt: buildExtractPrompt({ 
               rawText: rawInputText, 
-              sourceUrl: source_url, 
+              sourceUrl: realUrl, 
               hint: `title: ${title}, org: ${organization}` 
             }),
             schema: ExtractedOpportunitySchema,
