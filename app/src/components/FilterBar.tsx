@@ -21,14 +21,18 @@ import { CATEGORY_META } from "@/lib/categories";
 import type { OpportunityCategory } from "@/types/db";
 
 export type DeadlineWindow = "any" | "week" | "month";
-export type SortMode = "relevance" | "deadline" | "newest";
+export type FreshnessWindow = "any" | "today" | "week";
+export type SortMode = "relevance" | "deadline" | "newest" | "value";
 
 export type FilterState = {
   q: string;
   categories: OpportunityCategory[];
   sources: string[];
   deadline: DeadlineWindow;
+  freshness: FreshnessWindow;
+  difficulty: string[];
   remote: boolean;
+  paidOnly: boolean;
   sort: SortMode;
 };
 
@@ -37,7 +41,10 @@ export const DEFAULT_FILTERS: FilterState = {
   categories: [],
   sources: [],
   deadline: "any",
+  freshness: "any",
+  difficulty: [],
   remote: false,
+  paidOnly: false,
   sort: "relevance",
 };
 
@@ -47,10 +54,23 @@ const DEADLINE_LABELS: Record<DeadlineWindow, string> = {
   month: "Closing this month",
 };
 
+const FRESHNESS_LABELS: Record<FreshnessWindow, string> = {
+  any: "Any time",
+  today: "Past 24 hours",
+  week: "Past week",
+};
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  low: "Beginner Friendly",
+  medium: "Intermediate",
+  high: "Advanced",
+};
+
 const SORT_LABELS: Record<SortMode, string> = {
   relevance: "Best fit",
   deadline: "Closing soon",
   newest: "Newest",
+  value: "Highest Value",
 };
 
 export function FilterBar({
@@ -92,6 +112,13 @@ export function FilterBar({
       ? state.sources.filter((s) => s !== src)
       : [...state.sources, src];
     patch({ sources: next });
+  }
+
+  function toggleDifficulty(diff: string) {
+    const next = state.difficulty.includes(diff)
+      ? state.difficulty.filter((d) => d !== diff)
+      : [...state.difficulty, diff];
+    patch({ difficulty: next });
   }
 
   function clearAll() {
@@ -217,11 +244,71 @@ export function FilterBar({
           size="sm"
           onClick={() => patch({ remote: !state.remote })}
           aria-pressed={state.remote}
-          className="gap-1.5"
+          className="gap-1.5 shrink-0"
         >
           <Wifi className="size-3.5" />
           Remote
         </Button>
+
+        {/* Paid toggle */}
+        <Button
+          type="button"
+          variant={state.paidOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => patch({ paidOnly: !state.paidOnly })}
+          aria-pressed={state.paidOnly}
+          className="gap-1.5 shrink-0"
+        >
+          <span>$</span>
+          Paid
+        </Button>
+
+        {/* Difficulty multi-select */}
+        <FilterDropdown
+          label="Difficulty"
+          activeCount={state.difficulty.length}
+          render={() =>
+            Object.keys(DIFFICULTY_LABELS).map((diff) => {
+              const checked = state.difficulty.includes(diff);
+              return (
+                <DropdownMenuItem
+                  key={diff}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleDifficulty(diff);
+                  }}
+                  closeOnClick={false}
+                  className="justify-between"
+                >
+                  <span>{DIFFICULTY_LABELS[diff]}</span>
+                  {checked && <Check className="size-3.5 text-primary" />}
+                </DropdownMenuItem>
+              );
+            })
+          }
+        />
+
+        {/* Freshness single-select */}
+        <FilterDropdown
+          label="Posted"
+          activeLabel={
+            state.freshness !== "any" ? FRESHNESS_LABELS[state.freshness] : undefined
+          }
+          render={() =>
+            (Object.keys(FRESHNESS_LABELS) as FreshnessWindow[]).map((f) => (
+              <DropdownMenuItem
+                key={f}
+                onClick={() => patch({ freshness: f })}
+                className="justify-between"
+              >
+                {FRESHNESS_LABELS[f]}
+                {state.freshness === f && (
+                  <Check className="size-3.5 text-primary" />
+                )}
+              </DropdownMenuItem>
+            ))
+          }
+        />
 
         {/* Spacer pushes sort to far right on desktop */}
         <div className="hidden flex-1 sm:block" />
@@ -273,11 +360,33 @@ export function FilterBar({
               onRemove={() => patch({ deadline: "any" })}
             />
           )}
+          {state.freshness !== "any" && (
+            <Chip
+              label={FRESHNESS_LABELS[state.freshness]}
+              type="Posted"
+              onRemove={() => patch({ freshness: "any" })}
+            />
+          )}
+          {state.difficulty.map((diff) => (
+            <Chip
+              key={`diff-${diff}`}
+              label={DIFFICULTY_LABELS[diff]}
+              type="Difficulty"
+              onRemove={() => toggleDifficulty(diff)}
+            />
+          ))}
           {state.remote && (
             <Chip
               label="Remote only"
               type="Mode"
               onRemove={() => patch({ remote: false })}
+            />
+          )}
+          {state.paidOnly && (
+            <Chip
+              label="Paid only"
+              type="Comp"
+              onRemove={() => patch({ paidOnly: false })}
             />
           )}
           <div className="ml-auto flex items-center gap-3 pl-2 pr-4 text-xs font-medium text-foreground/60 shrink-0">

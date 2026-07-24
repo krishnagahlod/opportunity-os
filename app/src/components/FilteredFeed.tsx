@@ -234,7 +234,29 @@ export function FilteredFeed({
         if (!name || !srcSet.has(name)) return false;
       }
 
-      if (state.remote && !o.is_remote) return false;
+      if (state.remote) {
+        const isRemote = o.is_remote || 
+                        o.location?.toLowerCase().includes("remote") || 
+                        o.title.toLowerCase().includes("remote");
+        if (!isRemote) return false;
+      }
+
+      if (state.paidOnly) {
+        if (!o.compensation) return false;
+        const comp = o.compensation.toLowerCase();
+        if (comp.includes("unpaid") || comp.includes("0/hr") || comp.includes("volunteer")) return false;
+      }
+
+      if (state.difficulty && state.difficulty.length > 0) {
+        if (!o.difficulty || !state.difficulty.includes(o.difficulty)) return false;
+      }
+
+      if (state.freshness !== "any") {
+        if (!o.date_added) return false;
+        const daysSinceAdded = differenceInDays(now, parseISO(o.date_added));
+        if (state.freshness === "today" && daysSinceAdded > 1) return false;
+        if (state.freshness === "week" && daysSinceAdded > 7) return false;
+      }
 
       if (state.deadline !== "any") {
         if (!o.deadline) return false;
@@ -298,6 +320,9 @@ export function FilteredFeed({
         break;
       case "newest":
         arr.sort(byDateAddedDesc);
+        break;
+      case "value":
+        arr.sort((a, b) => (b.estimated_value_score ?? 0) - (a.estimated_value_score ?? 0));
         break;
       case "relevance":
       default:
@@ -694,6 +719,11 @@ function parseFilters(sp: URLSearchParams | ReturnType<typeof useSearchParams>):
     .map((s) => s.trim())
     .filter(Boolean);
   const deadline = (get("deadline") ?? "any") as FilterState["deadline"];
+  const freshness = (get("freshness") ?? "any") as FilterState["freshness"];
+  const difficulty = (get("difficulty") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const sort = (get("sort") ?? "relevance") as SortMode;
   return {
     q: get("q") ?? "",
@@ -701,8 +731,12 @@ function parseFilters(sp: URLSearchParams | ReturnType<typeof useSearchParams>):
     sources: src,
     deadline:
       deadline === "week" || deadline === "month" ? deadline : "any",
+    freshness:
+      freshness === "today" || freshness === "week" ? freshness : "any",
+    difficulty,
     remote: get("remote") === "1",
-    sort: sort === "deadline" || sort === "newest" ? sort : "relevance",
+    paidOnly: get("paidOnly") === "1",
+    sort: sort === "deadline" || sort === "newest" || sort === "value" ? sort : "relevance",
   };
 }
 
@@ -712,7 +746,10 @@ function serializeFilters(s: FilterState): string {
   if (s.categories.length) p.set("cat", s.categories.join(","));
   if (s.sources.length) p.set("src", s.sources.join(","));
   if (s.deadline !== "any") p.set("deadline", s.deadline);
+  if (s.freshness !== "any") p.set("freshness", s.freshness);
+  if (s.difficulty.length) p.set("difficulty", s.difficulty.join(","));
   if (s.remote) p.set("remote", "1");
+  if (s.paidOnly) p.set("paidOnly", "1");
   if (s.sort !== "relevance") p.set("sort", s.sort);
   return p.toString();
 }
