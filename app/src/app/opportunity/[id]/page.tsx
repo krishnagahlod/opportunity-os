@@ -130,6 +130,7 @@ export default async function OpportunityDetailPage({
   const description = stripHtml(opp.description);
   const summary = stripHtml(opp.summary);
   const compensation = stripHtml(opp.compensation);
+  const eligibility = opp.eligibility ? stripHtml(opp.eligibility) : null;
   const location = opp.is_remote ? "Remote" : opp.location;
   const deadlineDate = opp.deadline ? parseISO(opp.deadline) : null;
   const deadlineRel = deadlineDate
