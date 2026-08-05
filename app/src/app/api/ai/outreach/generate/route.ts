@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchHunterLeads } from "@/lib/companies/hunter";
 import { callLLM } from "@/lib/ai/fallover";
+import { z } from "zod";
 
 export const maxDuration = 60; // Allow enough time for LLM call
 
@@ -27,7 +28,7 @@ Write a short, compelling cold email (max 4-5 sentences).
 - End with a soft, low-friction call to action (e.g. asking for a quick 10-minute chat or advice).
 - DO NOT use placeholders like [Insert Date] - make it sound complete.
 
-Output ONLY the email text (including the subject line on the first line prefixed with "Subject:"). No extra pleasantries before or after.
+Respond with a JSON object containing a single 'email' field containing the generated email text. The email text should include the subject line on the first line prefixed with "Subject:". No extra pleasantries before or after.
 `;
 
 export async function POST(req: NextRequest) {
@@ -107,12 +108,11 @@ export async function POST(req: NextRequest) {
       .replace("{LEAD_EMAIL}", targetLead.email || "")
       .replace("{OPPORTUNITY_DETAILS}", oppText);
 
-    const { raw } = await callLLM({
+    const { data: { email: emailDraft } } = await callLLM({
       prompt,
+      schema: z.object({ email: z.string() }),
       systemInstruction: "You are an expert cold email writer.",
     });
-
-    const emailDraft = raw.trim();
 
     // 4. Save to outreach_logs
     const { data: log } = await supabase
