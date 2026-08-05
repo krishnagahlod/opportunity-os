@@ -48,8 +48,6 @@ import { OutreachButton } from "@/components/OutreachButton";
 import { ResumeMatchScore } from "@/components/ResumeMatchScore";
 import { EnrichmentInsights } from "@/components/EnrichmentInsights";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
-import { ScoreBadge } from "@/components/ScoreBadge";
-import { Fact } from "@/components/Fact";
 
 export const dynamic = "force-dynamic";
 
