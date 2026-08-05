@@ -28,6 +28,8 @@ import {
   CategoryRefinementSchema, 
   CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
+import { enrichCompany } from "@/lib/companies/enrich";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Max allowed for hobby plan
@@ -302,6 +304,31 @@ export async function GET(req: NextRequest) {
           totalErrors++;
         } else {
           totalUpserted += rawRows.length; // Approximate, as ignoreDuplicates might skip some
+          
+          // Phase 1A: Auto-enrich company intelligence in the background
+          for (const row of rawRows) {
+            const org = row.raw_data.organization;
+            if (org) {
+               enrichCompany(org).then((companyEnrichment) => {
+                  if (companyEnrichment) {
+                    supabaseAdmin
+                      .from('companies')
+                      .select('id')
+                      .eq('domain', companyEnrichment.domain)
+                      .single()
+                      .then(({ data: cData }) => {
+                        if (cData?.id) {
+                          supabaseAdmin
+                            .from('opportunities')
+                            .update({ company_id: cData.id })
+                            .eq('apply_url', row.raw_data.apply_url)
+                            .then();
+                        }
+                      });
+                  }
+               }).catch(e => console.error("Company enrichment failed:", e));
+            }
+          }
         }
       }
     }

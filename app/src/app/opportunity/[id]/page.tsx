@@ -12,7 +12,9 @@ import {
   Activity,
   TrendingUp,
   ShieldAlert,
+  ShieldCheck,
   CheckCircle,
+  Users,
 } from "lucide-react";
 import {
   format,
@@ -41,10 +43,13 @@ import type {
   Opportunity,
   Profile,
 } from "@/types/db";
+import { OutreachButton } from "@/components/OutreachButton";
 
 import { ResumeMatchScore } from "@/components/ResumeMatchScore";
 import { EnrichmentInsights } from "@/components/EnrichmentInsights";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
+import { ScoreBadge } from "@/components/ScoreBadge";
+import { Fact } from "@/components/Fact";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +84,7 @@ export default async function OpportunityDetailPage({
 
   // Fetch opportunity + user state in parallel
   const [oppRes, savedRes, appRes] = await Promise.all([
-    supabase.from("opportunities").select("*").eq("id", id).maybeSingle(),
+    supabase.from("opportunities").select("*,company:companies(*)").eq("id", id).maybeSingle(),
     supabase
       .from("saved_opportunities")
       .select("opportunity_id")
@@ -124,11 +129,9 @@ export default async function OpportunityDetailPage({
   const missingSkills = findMissingRequirements(profile as Profile, opp);
 
   const cat = getCategoryStyle(opp.category);
-  const Icon = cat.Icon;
   const description = stripHtml(opp.description);
   const summary = stripHtml(opp.summary);
   const compensation = stripHtml(opp.compensation);
-  const eligibility = stripHtml(opp.eligibility);
   const location = opp.is_remote ? "Remote" : opp.location;
   const deadlineDate = opp.deadline ? parseISO(opp.deadline) : null;
   const deadlineRel = deadlineDate
@@ -205,6 +208,7 @@ export default async function OpportunityDetailPage({
             currentStatus={applicationStatus}
           />
           <ActionPlanButton opportunityId={opp.id} defaultOpen={action === "plan"} />
+          {opp.company && <OutreachButton opportunityId={opp.id} />}
           {opp.apply_url && (
             <ExternalApplyLink
               href={opp.apply_url}
@@ -234,6 +238,75 @@ export default async function OpportunityDetailPage({
         <div className="mt-6">
           <EnrichmentInsights opportunity={opp} missingSkills={missingSkills} />
         </div>
+
+        {/* Company Intelligence */}
+        {opp.company && (
+          <section className="mt-8">
+            <h2 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              <Building2 className="size-3" />
+              Company Intelligence
+            </h2>
+            <div className="rounded-2xl border border-border/60 bg-card/40 p-5 shadow-sm transition-all hover:border-border/80">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                {opp.company.logo_url ? (
+                  <img src={opp.company.logo_url} alt="Logo" className="size-12 shrink-0 rounded-lg object-contain bg-white p-1 shadow-sm" />
+                ) : (
+                  <div className={cn("size-12 shrink-0 rounded-lg flex items-center justify-center shadow-sm", cat.chipBg, cat.chipText)}>
+                    <Building2 className="size-6" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-foreground truncate">
+                      {opp.company.name}
+                    </h3>
+                    {opp.company.trust_score >= 60 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        <ShieldCheck className="size-3" />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  {opp.company.industry && (
+                    <p className="text-[13px] text-muted-foreground mt-0.5">{opp.company.industry}</p>
+                  )}
+                  {opp.company.description && (
+                    <p className="mt-2.5 text-[13px] leading-relaxed text-foreground/80 line-clamp-3">
+                      {opp.company.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {opp.company.founded_year && (
+                  <Fact icon={<Clock className="size-3" />} label="Founded" value={opp.company.founded_year} />
+                )}
+                {opp.company.employee_count && (
+                  <Fact icon={<Users className="size-3" />} label="Employees" value={opp.company.employee_count} />
+                )}
+                {opp.company.headquarters && (
+                  <Fact icon={<MapPin className="size-3" />} label="HQ" value={opp.company.headquarters} />
+                )}
+                {opp.company.total_funding && (
+                  <Fact icon={<Wallet className="size-3" />} label="Funding" value={opp.company.total_funding} />
+                )}
+              </div>
+              
+              {opp.company.website && (
+                <div className="mt-4 flex justify-end">
+                  <Link
+                    href={opp.company.website}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+                  >
+                    Visit Website <ArrowUpRight className="size-3" />
+                  </Link>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Quick facts strip */}
         <section className="mt-8 grid gap-3 sm:grid-cols-2">

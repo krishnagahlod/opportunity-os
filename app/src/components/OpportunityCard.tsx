@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Clock, MapPin, Wallet, ShieldCheck } from "lucide-react";
 import { formatDistanceToNowStrict, isPast, parseISO } from "date-fns";
 import { SaveButton } from "./SaveButton";
 import { ApplyButton } from "./ApplyButton";
@@ -86,12 +86,26 @@ export function OpportunityCard({
     >
       {/* Header — title + org + deadline */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        {/* Domain Icon */}
+        {/* Logo or Domain Icon */}
+        {opportunity.company?.logo_url ? (
+          <img
+            src={opportunity.company.logo_url}
+            alt={`${opportunity.organization} logo`}
+            className="mt-0.5 size-9 shrink-0 rounded-lg shadow-sm object-contain bg-white p-0.5"
+            onError={(e) => {
+              // Fallback to domain icon if logo fails to load
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+        ) : null}
+        
         <div
           className={cn(
             "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm",
             domain.bg,
             domain.text,
+            opportunity.company?.logo_url ? "hidden" : "" // Hidden by default if logo exists, revealed on error
           )}
           title={domain.label}
         >
@@ -144,6 +158,15 @@ export function OpportunityCard({
             >
               {domain.label}
             </span>
+            {opportunity.company && opportunity.company.trust_score >= 60 && (
+              <span 
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                title={`Verified Company (Trust Score: ${opportunity.company.trust_score})`}
+              >
+                <ShieldCheck className="size-3" />
+                Verified
+              </span>
+            )}
             {opportunity.estimated_value_score != null && opportunity.estimated_value_score >= 80 && (
               <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-700 dark:bg-red-500/15 dark:text-red-300">
                 🔥 High Value

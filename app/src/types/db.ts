@@ -101,6 +101,8 @@ export type Opportunity = {
   date_added: string;
   featured: boolean;
   status: OpportunityStatus;
+  company_id: string | null;
+  company?: Company | null;
 
   // Enrichment fields (Populated on-demand via /api/ai/enrich)
   role_seniority?: string | null;
@@ -178,4 +180,52 @@ export type RawOpportunity = {
   created_at: string;
   processed_at?: string;
 };
+
+export interface Company {
+  id: string;
+  name: string;
+  domain: string;
+  logo_url: string | null;
+  description: string | null;
+  industry: string | null;
+  founded_year: number | null;
+  employee_count: string | null;
+  headquarters: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  funding_stage: string | null;
+  total_funding: string | null;
+  trust_score: number;
+  trust_signals: any;
+  enriched_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachLead {
+  id: string;
+  company_id: string;
+  name: string;
+  title: string | null;
+  lead_type: string | null;
+  source: string | null;
+  linkedin_url: string | null;
+  email: string | null;
+  email_verified: boolean;
+  relevance_score: number;
+  created_at: string;
+}
+
+export interface OutreachLog {
+  id: string;
+  user_id: string;
+  lead_id: string | null;
+  opportunity_id: string | null;
+  status: string;
+  email_draft: string | null;
+  sent_at: string | null;
+  follow_up_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 

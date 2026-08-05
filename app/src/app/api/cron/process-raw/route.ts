@@ -8,6 +8,7 @@ import {
   EXTRACT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
 import { checkIsLinkDead } from "@/lib/ingestion/link-checker";
+import { enrichCompany } from "@/lib/companies/enrich";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; 
@@ -207,6 +208,30 @@ export async function GET(req: NextRequest) {
       } else if (data) {
         totalUpserted++;
         await supabase.from("raw_opportunities").update({ status: "processed", processed_at: new Date().toISOString() }).eq("id", raw.id);
+        
+        // Phase 1A: Auto-enrich company intelligence in the background
+        const orgToEnrich = extractedData.organization || organization;
+        if (orgToEnrich) {
+           enrichCompany(orgToEnrich).then((companyEnrichment) => {
+              if (companyEnrichment) {
+                const supabaseAdminLocal = createAdminClient();
+                supabaseAdminLocal
+                  .from('companies')
+                  .select('id')
+                  .eq('domain', companyEnrichment.domain)
+                  .single()
+                  .then(({ data: cData }) => {
+                    if (cData?.id) {
+                      supabaseAdminLocal
+                        .from('opportunities')
+                        .update({ company_id: cData.id })
+                        .eq('id', data.id)
+                        .then();
+                    }
+                  });
+              }
+           }).catch(e => console.error("Company enrichment failed in process-raw:", e));
+        }
       }
     } catch (err) {
       console.error(`Error processing raw id ${raw.id}`, err);

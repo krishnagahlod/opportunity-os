@@ -12,7 +12,9 @@ import {
   Activity,
   TrendingUp,
   ShieldAlert,
+  ShieldCheck,
   CheckCircle,
+  Users,
 } from "lucide-react";
 import {
   format,
@@ -23,6 +25,7 @@ import {
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
+import { OutreachButton } from "@/components/OutreachButton";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { Drawer } from "@/components/Drawer";
@@ -138,6 +141,7 @@ export function OpportunityDrawer({
             opportunityId={opp.id}
             currentStatus={applicationStatus}
           />
+          {opp.company && <OutreachButton opportunityId={opp.id} />}
           {opp.apply_url && (
             <ExternalApplyLink
               href={opp.apply_url}
@@ -253,6 +257,75 @@ export function OpportunityDrawer({
                   </ExternalApplyLink>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Company Intelligence */}
+        {opp.company && (
+          <section className="mt-8">
+            <h2 className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              <Building2 className="size-3" />
+              Company Intelligence
+            </h2>
+            <div className="rounded-2xl border border-border/60 bg-card/40 p-5 shadow-sm transition-all hover:border-border/80">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                {opp.company.logo_url ? (
+                  <img src={opp.company.logo_url} alt="Logo" className="size-12 shrink-0 rounded-lg object-contain bg-white p-1 shadow-sm" />
+                ) : (
+                  <div className={cn("size-12 shrink-0 rounded-lg flex items-center justify-center shadow-sm", domain.bg, domain.text)}>
+                    <DomainIcon className="size-6" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-foreground truncate">
+                      {opp.company.name}
+                    </h3>
+                    {opp.company.trust_score >= 60 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        <ShieldCheck className="size-3" />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  {opp.company.industry && (
+                    <p className="text-[13px] text-muted-foreground mt-0.5">{opp.company.industry}</p>
+                  )}
+                  {opp.company.description && (
+                    <p className="mt-2.5 text-[13px] leading-relaxed text-foreground/80 line-clamp-3">
+                      {opp.company.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {opp.company.founded_year && (
+                  <Fact icon={<Clock className="size-3" />} label="Founded" value={opp.company.founded_year} />
+                )}
+                {opp.company.employee_count && (
+                  <Fact icon={<Users className="size-3" />} label="Employees" value={opp.company.employee_count} />
+                )}
+                {opp.company.headquarters && (
+                  <Fact icon={<MapPin className="size-3" />} label="HQ" value={opp.company.headquarters} />
+                )}
+                {opp.company.total_funding && (
+                  <Fact icon={<Wallet className="size-3" />} label="Funding" value={opp.company.total_funding} />
+                )}
+              </div>
+              
+              {opp.company.website && (
+                <div className="mt-4 flex justify-end">
+                  <Link
+                    href={opp.company.website}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+                  >
+                    Visit Website <ArrowUpRight className="size-3" />
+                  </Link>
+                </div>
+              )}
             </div>
           </section>
         )}

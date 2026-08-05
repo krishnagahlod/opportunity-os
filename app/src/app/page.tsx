@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // (`description`, `eligibility`, `source_url`, etc.) which would otherwise
 // add hundreds of KB to the RSC payload for a 120-row pool.
 const FEED_COLUMNS =
-  "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status";
+  "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status,company:companies(*)";
 
 export default async function HomePage() {
   const supabase = await createClient();
