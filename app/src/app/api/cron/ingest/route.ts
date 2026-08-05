@@ -17,6 +17,9 @@ import { fetchIcims } from "@/lib/ingestion/connectors/icims";
 import { fetchYcJobs } from "@/lib/ingestion/connectors/yc";
 import { fetchWellfound } from "@/lib/ingestion/connectors/wellfound";
 import { fetchSimplify } from "@/lib/ingestion/connectors/simplify";
+import { fetchRemotive } from "@/lib/ingestion/connectors/remotive";
+import { fetchRemoteOK } from "@/lib/ingestion/connectors/remoteok";
+import { fetchGithubVansh } from "@/lib/ingestion/connectors/github-vansh";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -122,6 +125,9 @@ export async function GET(req: NextRequest) {
     { name: "YC Jobs", promise: fetchYcJobs({ searchTerms: ["intern", "product", "founder", "ai", "growth", "strategy"] }) },
     { name: "Wellfound", promise: fetchWellfound({ maxItems: 30 }) },
     { name: "Simplify GitHub", promise: fetchSimplify({ maxItems: 50 }) },
+    { name: "Vansh GitHub", promise: fetchGithubVansh({ maxItems: 50 }) },
+    { name: "Remotive", promise: fetchRemotive({ maxItems: 30 }) },
+    { name: "RemoteOK", promise: fetchRemoteOK({ maxItems: 30 }) },
     { name: "Devpost", promise: fetchDevpost({ maxPages: 2 }) },
     { 
       name: "Greenhouse", 

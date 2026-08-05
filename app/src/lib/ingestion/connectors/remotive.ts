@@ -1,36 +1,35 @@
 import { type SourceListing } from "../types";
 
-export interface RemoteOKConfig {
+export interface RemotiveConfig {
   maxItems?: number;
 }
 
 /**
- * Fetches remote jobs from RemoteOK API.
+ * Fetches remote software development jobs from Remotive API.
  * Filters locally for internship and entry-level/junior roles.
  */
-export async function fetchRemoteOK(config: RemoteOKConfig): Promise<SourceListing[]> {
+export async function fetchRemotive(config: RemotiveConfig): Promise<SourceListing[]> {
   const { maxItems = 30 } = config;
   const listings: SourceListing[] = [];
   
   try {
-    const res = await fetch("https://remoteok.com/api", {
+    const res = await fetch("https://remotive.com/api/remote-jobs?category=software-dev", {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       }
     });
     
     if (!res.ok) {
-      console.error(`RemoteOK fetch failed: ${res.status}`);
+      console.error(`Remotive fetch failed: ${res.status}`);
       return listings;
     }
     
     const data = await res.json();
-    // RemoteOK API returns a legal disclaimer as the first item in the array, so we slice it
-    const jobs = Array.isArray(data) ? data.slice(1) : [];
+    const jobs = data.jobs || [];
     
     let count = 0;
     for (const job of jobs) {
-      const titleLower = (job.position || "").toLowerCase();
+      const titleLower = (job.title || "").toLowerCase();
       
       // Filter for entry-level and internships
       const isEarlyCareer = 
@@ -47,21 +46,21 @@ export async function fetchRemoteOK(config: RemoteOKConfig): Promise<SourceListi
       
       listings.push({
         sourceUrl: job.url,
-        title: job.position,
-        organization: job.company,
+        title: job.title,
+        organization: job.company_name,
         rawText: JSON.stringify(job),
         structured: {
-          title: job.position,
-          organization: job.company,
+          title: job.title,
+          organization: job.company_name,
           category: isInternship ? "internship" : "fulltime",
-          location: job.location || "Remote",
-          is_remote: true, // RemoteOK is strictly remote
+          location: job.candidate_required_location || "Remote",
+          is_remote: true, // Remotive is strictly remote
           apply_url: job.url,
-          description: "Found via RemoteOK",
-          tags: job.tags || ["remote"]
+          description: "Found via Remotive.com",
+          tags: job.tags || ["remote", "tech"]
         },
         sourceSpecific: {
-          source: "remoteok",
+          source: "remotive",
           job_id: job.id
         }
       });
@@ -70,7 +69,7 @@ export async function fetchRemoteOK(config: RemoteOKConfig): Promise<SourceListi
       if (count >= maxItems) break;
     }
   } catch (e) {
-    console.error("Error fetching from RemoteOK", e);
+    console.error("Error fetching from Remotive", e);
   }
   
   return listings;
