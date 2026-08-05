@@ -29,7 +29,6 @@ import {
   CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
 import { enrichCompany } from "@/lib/companies/enrich";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Max allowed for hobby plan
