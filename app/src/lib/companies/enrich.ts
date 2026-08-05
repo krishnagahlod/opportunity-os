@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../supabase/admin";
+import { createAdminClient } from "../supabase/admin";
 
 export interface CompanyEnrichmentResult {
   name: string;
@@ -39,6 +39,7 @@ export async function enrichCompany(companyName: string, knownDomain?: string): 
   const domain = knownDomain || guessDomain(companyName);
   
   // 1. Check if we already have it in DB
+  const supabaseAdmin = createAdminClient();
   const { data: existing } = await supabaseAdmin
     .from("companies")
     .select("*")
@@ -119,6 +120,7 @@ export async function enrichCompany(companyName: string, knownDomain?: string): 
   
   // 4. Save to DB
   try {
+    const supabaseAdmin = createAdminClient();
     const { data: saved, error } = await supabaseAdmin
       .from("companies")
       .insert({

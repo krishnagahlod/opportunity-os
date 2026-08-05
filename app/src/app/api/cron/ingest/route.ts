@@ -29,7 +29,7 @@ import {
   CATEGORY_REFINEMENT_SYSTEM_INSTRUCTION 
 } from "@/lib/ai/prompts";
 import { enrichCompany } from "@/lib/companies/enrich";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Max allowed for hobby plan
@@ -311,14 +311,14 @@ export async function GET(req: NextRequest) {
             if (org) {
                enrichCompany(org).then((companyEnrichment) => {
                   if (companyEnrichment) {
-                    supabaseAdmin
+                    supabase
                       .from('companies')
                       .select('id')
                       .eq('domain', companyEnrichment.domain)
                       .single()
                       .then(({ data: cData }) => {
                         if (cData?.id) {
-                          supabaseAdmin
+                          supabase
                             .from('opportunities')
                             .update({ company_id: cData.id })
                             .eq('apply_url', row.raw_data.apply_url)
