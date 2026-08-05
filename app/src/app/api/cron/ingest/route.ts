@@ -15,6 +15,8 @@ import { fetchUnstop } from "@/lib/ingestion/connectors/unstop";
 import { fetchWorkday } from "@/lib/ingestion/connectors/workday";
 import { fetchIcims } from "@/lib/ingestion/connectors/icims";
 import { fetchYcJobs } from "@/lib/ingestion/connectors/yc";
+import { fetchWellfound } from "@/lib/ingestion/connectors/wellfound";
+import { fetchSimplify } from "@/lib/ingestion/connectors/simplify";
 import { type SourceListing } from "@/lib/ingestion/types";
 import { logIngestion, estimateTokens } from "@/lib/ingestion/logs";
 import { callLLM } from "@/lib/ai/fallover";
@@ -118,6 +120,8 @@ export async function GET(req: NextRequest) {
     { name: "LinkedIn - AI Product", promise: fetchLinkedIn({ keywords: "AI Product Intern", location: "Remote", maxPages: 2 }) },
     { name: "LinkedIn - Growth", promise: fetchLinkedIn({ keywords: "Growth Intern", location: "India", maxPages: 2 }) },
     { name: "YC Jobs", promise: fetchYcJobs({ searchTerms: ["intern", "product", "founder", "ai", "growth", "strategy"] }) },
+    { name: "Wellfound", promise: fetchWellfound({ maxItems: 30 }) },
+    { name: "Simplify GitHub", promise: fetchSimplify({ maxItems: 50 }) },
     { name: "Devpost", promise: fetchDevpost({ maxPages: 2 }) },
     { 
       name: "Greenhouse", 

@@ -47,6 +47,16 @@ export async function fetchInternshala(config: InternshalaConfig): Promise<Sourc
         
         const stipend = $(el).find(".stipend").text().trim() || "Unpaid";
         
+        // Skip explicitly unpaid or purely performance-based internships
+        const stipendLower = stipend.toLowerCase();
+        if (
+          stipendLower.includes("unpaid") ||
+          stipendLower.includes("performance based") ||
+          stipendLower === "unpaid"
+        ) {
+          return; // skip this element in .each() loop
+        }
+        
         if (title && organization && jobUrl) {
           listings.push({
             sourceUrl: jobUrl,

@@ -73,8 +73,11 @@ export async function fetchHackerNews(config: HackerNewsConfig): Promise<SourceL
           combinedLower.includes("apprentice") ||
           combinedLower.includes("co-op") ||
           combinedLower.includes("working student");
+          
+        if (!isInternship) continue;
+
         const isFellowship = combinedLower.includes("fellow");
-        const category = isInternship ? "internship" : isFellowship ? "fellowship" : "fulltime";
+        const category = isFellowship ? "fellowship" : "internship";
 
         const plainText = comment.text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
