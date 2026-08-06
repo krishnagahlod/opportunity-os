@@ -68,8 +68,8 @@ export default async function AdminAnalyticsPage() {
   const totalApplies = sources.reduce((sum: number, s: any) => sum + s.total_applies, 0);
   const totalDismisses = sources.reduce((sum: number, s: any) => sum + s.total_dismisses, 0);
 
-  const totalFetched7d = Object.values(ingestionBySource).reduce((sum, s) => sum + s.fetched, 0);
-  const totalInserted7d = Object.values(ingestionBySource).reduce((sum, s) => sum + s.inserted, 0);
+  const totalFetched7d = Object.values(ingestionBySource).reduce((sum: number, s: any) => sum + s.fetched, 0);
+  const totalInserted7d = Object.values(ingestionBySource).reduce((sum: number, s: any) => sum + s.inserted, 0);
 
   // Identify noisy sources (High insert volume, 0 saves)
   const noisySources = sources.filter(
