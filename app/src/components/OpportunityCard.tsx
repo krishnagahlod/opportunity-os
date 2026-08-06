@@ -198,15 +198,15 @@ export function OpportunityCard({
           aria-hidden="true"
         >
           {location && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="size-3" />
-              {location}
+            <span className="inline-flex items-center gap-1 max-w-[200px]" title={location}>
+              <MapPin className="size-3 shrink-0" />
+              <span className="truncate">{location}</span>
             </span>
           )}
           {compensation && (
-            <span className="inline-flex items-center gap-1 font-medium text-foreground/85">
-              <Wallet className="size-3 text-muted-foreground" />
-              {compensation}
+            <span className="inline-flex items-center gap-1 font-medium text-foreground/85 max-w-[150px]" title={compensation}>
+              <Wallet className="size-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{compensation}</span>
             </span>
           )}
           <span
