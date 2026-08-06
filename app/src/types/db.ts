@@ -229,3 +229,45 @@ export interface OutreachLog {
   updated_at: string;
 }
 
+
+export type SourceConnector = {
+  id: string;
+  name: string;
+  connector_type: string;
+  url: string | null;
+  config: Record<string, any>;
+  target_personas: string[];
+  categories: string[];
+  country_focus: string[];
+  enabled: boolean;
+  trust_tier: number;
+  fetch_frequency_minutes: number;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SourceQualityDaily = {
+  source_connector_id: string;
+  day: string;
+  fetched_count: number;
+  inserted_count: number;
+  duplicate_count: number;
+  expired_count: number;
+  low_confidence_count: number;
+  hidden_count: number;
+  save_count: number;
+  apply_count: number;
+  dismiss_count: number;
+  avg_score: number | null;
+  avg_confidence: number | null;
+};
+
+export type OpportunityFeedback = {
+  user_id: string;
+  opportunity_id: string;
+  feedback: 'not_interested' | 'bad_match' | 'already_seen' | 'ineligible' | 'low_quality' | 'broken_link' | 'great_match';
+  created_at: string;
+};

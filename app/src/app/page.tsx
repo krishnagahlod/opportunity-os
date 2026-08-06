@@ -34,8 +34,8 @@ export default async function HomePage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
-  // Parallel batch — these 3 queries don't depend on each other.
-  const [oppsRes, savedRes, appsRes] = await Promise.all([
+  // Parallel batch — these 4 queries don't depend on each other.
+  const [oppsRes, savedRes, appsRes, feedbackRes] = await Promise.all([
     supabase
       .from("opportunities")
       .select(FEED_COLUMNS)
@@ -53,9 +53,15 @@ export default async function HomePage() {
       .from("applications")
       .select("opportunity_id,status")
       .eq("user_id", user.id),
+    supabase
+      .from("opportunity_feedback")
+      .select("opportunity_id")
+      .eq("user_id", user.id)
+      .eq("feedback", "not_interested"),
   ]);
 
-  const opps: Opportunity[] = (oppsRes.data as Opportunity[] | null) ?? [];
+  const dismissedSet = new Set((feedbackRes.data ?? []).map((f) => f.opportunity_id));
+  const opps: Opportunity[] = ((oppsRes.data as Opportunity[] | null) ?? []).filter(o => !dismissedSet.has(o.id));
 
   // Two more parallel queries that need `opps` before they can run:
   //   - sources: only the ids we actually have in this pool

@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
     );
 
-    const [savedRes, appsRes, sourcesRes] = await Promise.all([
+    const [savedRes, appsRes, sourcesRes, feedbackRes] = await Promise.all([
       supabase
         .from("saved_opportunities")
         .select("opportunity_id")
@@ -129,6 +129,12 @@ export async function GET(req: NextRequest) {
       sourceIds.length > 0
         ? supabase.from("sources").select("id,name").in("id", sourceIds)
         : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      supabase
+        .from("opportunity_feedback")
+        .select("opportunity_id")
+        .eq("user_id", user.id)
+        .eq("feedback", "not_interested")
+        .in("opportunity_id", oppIds),
     ]);
 
     const savedSet = (savedRes.data ?? []).map(
@@ -157,11 +163,16 @@ export async function GET(req: NextRequest) {
       scoreMap[o.id] = { score: s.score, why: s.why };
     }
 
+    const dismissedSet = new Set((feedbackRes.data ?? []).map(f => f.opportunity_id as string));
+
     // Strip `description` before returning — the cards don't render it.
-    const lean: Opportunity[] = opps.map((o) => ({
-      ...o,
-      description: null,
-    }));
+    // Also filter out any dismissed opportunities.
+    const lean: Opportunity[] = opps
+      .filter((o) => !dismissedSet.has(o.id))
+      .map((o) => ({
+        ...o,
+        description: null,
+      }));
 
     const payload: SearchPayload = {
       opportunities: lean,
