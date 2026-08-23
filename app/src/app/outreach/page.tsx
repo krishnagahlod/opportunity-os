@@ -22,6 +22,10 @@ export default async function OutreachPage() {
 
   if (!profile?.onboarded) redirect("/onboarding");
 
+  const { getUserEntitlement } = await import("@/lib/auth/entitlements");
+  const entitlement = await getUserEntitlement(user.id);
+  const canViewHotLeads = entitlement.isPro || entitlement.isIITB || entitlement.isAdmin;
+
   // Fetch outreach leads and logs
   const { data: logs } = await supabase
     .from("outreach_logs")
@@ -31,15 +35,17 @@ export default async function OutreachPage() {
 
   const outreachLogs = logs || [];
 
-  // Fetch Hot Leads
-  const { data: hotLeadsData } = await supabase
-    .from("outreach_leads")
-    .select("*, company:companies(*)")
-    .eq("lead_type", "founder")
-    .order("created_at", { ascending: false })
-    .limit(3);
-    
-  const hotLeads = hotLeadsData || [];
+  // Fetch Hot Leads if entitled
+  let hotLeads: any[] = [];
+  if (canViewHotLeads) {
+    const { data: hotLeadsData } = await supabase
+      .from("outreach_leads")
+      .select("*, company:companies(*)")
+      .eq("lead_type", "founder")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    hotLeads = hotLeadsData || [];
+  }
 
   return (
     <div className="min-h-screen">
@@ -59,6 +65,23 @@ export default async function OutreachPage() {
             Track your cold emails, generate AI outreach drafts, and connect directly with hiring managers and founders for your saved opportunities.
           </p>
         </header>
+
+        {!canViewHotLeads && (
+          <div className="mb-10 rounded-2xl border border-primary/20 bg-primary/5 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-sm">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary mb-2">
+                <Sparkles className="size-3" /> Pro & IITB Exclusive
+              </span>
+              <h3 className="text-lg font-bold text-foreground">Unlock Hot Leads & Hiring Manager Contacts</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                Get direct access to founder & hiring manager emails for newly funded startups, plus 50 AI cold outreach drafts per month.
+              </p>
+            </div>
+            <Link href="/pricing">
+              <Button className="shrink-0 font-medium">Upgrade to Pro</Button>
+            </Link>
+          </div>
+        )}
 
         {hotLeads.length > 0 && (
           <section className="mb-10">

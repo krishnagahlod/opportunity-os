@@ -40,7 +40,10 @@ supabase/seed.dev.sql
 # Named Docker volume lives in Docker, not the repo.
 # We DO commit exported workflow JSON in n8n-workflows/ so they're version-controlled.
 
-# ==== Misc ====
+# ==== Misc & Scratch Scripts ====
 .turbo
 .vercel
 *.tsbuildinfo
+app/scripts/
+app/query.js
+

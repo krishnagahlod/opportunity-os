@@ -6,6 +6,9 @@ import { SettingsForm } from "./SettingsForm";
 import { CalendarSection } from "./CalendarSection";
 import { ResumeSection } from "./ResumeSection";
 import { TargetAlertsSection } from "./TargetAlertsSection";
+import { CreditCard, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import type { Profile } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +46,23 @@ export default async function SettingsPage() {
             next page load.
           </p>
         </header>
+        <div className="mb-8 rounded-2xl border border-primary/20 bg-primary/5 p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <CreditCard className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Billing & Subscription Passes</h3>
+              <p className="text-xs text-muted-foreground">Manage your Pro pass, quota usage, and active device sessions.</p>
+            </div>
+          </div>
+          <Link href="/settings/billing">
+            <Button size="sm" variant="outline" className="text-xs gap-1.5 shrink-0">
+              Manage Billing <ArrowRight className="size-3.5" />
+            </Button>
+          </Link>
+        </div>
+
         <SettingsForm profile={profile as Profile} />
         <div className="mt-10">
           <ResumeSection

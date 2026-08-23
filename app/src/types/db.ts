@@ -271,3 +271,164 @@ export type OpportunityFeedback = {
   feedback: 'not_interested' | 'bad_match' | 'already_seen' | 'ineligible' | 'low_quality' | 'broken_link' | 'great_match';
   created_at: string;
 };
+
+// ============================================================================
+// SaaS Subscription & Entitlement Types
+// ============================================================================
+
+export type PlanKey =
+  | "free"
+  | "iitb_free"
+  | "pro_30d"
+  | "pro_90d"
+  | "pro_365d"
+  | "lifetime"
+  | "admin";
+
+export type Plan = {
+  id: string;
+  product: string;
+  slug: PlanKey;
+  display_name: string;
+  description: string | null;
+  price_inr: number;
+  duration_days: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EntitlementStatus = "active" | "scheduled" | "expired" | "revoked" | "suspended";
+export type EntitlementSource = "iitb" | "admin" | "razorpay" | "promo" | "topmate" | "system";
+
+export type Entitlement = {
+  id: string;
+  user_id: string;
+  product: string;
+  plan_key: PlanKey;
+  status: EntitlementStatus;
+  source: EntitlementSource;
+  starts_at: string;
+  expires_at: string | null;
+  granted_by: string | null;
+  external_reference: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SubscriptionStatus = "created" | "pending" | "active" | "cancelled" | "expired" | "refunded";
+
+export type Subscription = {
+  id: string;
+  user_id: string;
+  product: string;
+  plan_key: PlanKey;
+  provider: string;
+  provider_customer_id: string | null;
+  provider_order_id: string | null;
+  provider_payment_id: string | null;
+  provider_subscription_id: string | null;
+  status: SubscriptionStatus;
+  started_at: string;
+  current_period_start: string;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+  ended_at: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentStatus = "created" | "pending" | "paid" | "failed" | "refunded" | "cancelled";
+
+export type PaymentTransaction = {
+  id: string;
+  user_id: string;
+  product: string;
+  plan_key: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  provider_order_id: string;
+  provider_payment_id: string | null;
+  provider_signature: string | null;
+  status: PaymentStatus;
+  raw_reference: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeatureKey =
+  | "opportunity_feed_limit"
+  | "search_query"
+  | "ai_cold_outreach"
+  | "verified_contact_info"
+  | "hot_leads_access"
+  | "ai_action_plan"
+  | "company_trust_scores"
+  | "priority_instant_alerts";
+
+export type FeatureLimit = {
+  id: string;
+  product: string;
+  plan_key: PlanKey;
+  feature_key: FeatureKey;
+  enabled: boolean;
+  limit_value: number; // -1 = unlimited
+  period: "daily" | "weekly" | "monthly" | "lifetime" | "forever";
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UsageEvent = {
+  id: string;
+  user_id: string;
+  product: string;
+  feature_key: FeatureKey;
+  period_key: string;
+  count: number;
+  last_used_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserSession = {
+  id: string;
+  user_id: string;
+  session_token_hash: string;
+  device_hash: string | null;
+  device_name: string | null;
+  user_agent: string | null;
+  ip_hash: string | null;
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+};
+
+export type AdminAuditLog = {
+  id: string;
+  admin_user_id: string;
+  target_user_id: string | null;
+  product: string;
+  action: string;
+  before_state: Record<string, any> | null;
+  after_state: Record<string, any> | null;
+  reason: string | null;
+  created_at: string;
+};
+
+export type UserEntitlementState = {
+  planKey: PlanKey;
+  displayName: string;
+  isPro: boolean;
+  isIITB: boolean;
+  isAdmin: boolean;
+  isLifetime: boolean;
+  expiresAt: string | null;
+  daysRemaining: number | null;
+  limits: Record<FeatureKey, { enabled: boolean; limitValue: number; period: string }>;
+  usage: Record<FeatureKey, number>;
+};
+

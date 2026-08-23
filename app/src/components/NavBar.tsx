@@ -29,8 +29,13 @@ export function NavBar({
           <nav className="hidden gap-1 sm:flex">
             <NavLink href="/" pathname={pathname}>Feed</NavLink>
             <NavLink href="/saved" pathname={pathname}>Saved</NavLink>
+            <NavLink href="/outreach" pathname={pathname}>Outreach</NavLink>
             <NavLink href="/applications" pathname={pathname}>Applications</NavLink>
-            <NavLink href="/submit" pathname={pathname}>Submit</NavLink>
+            <NavLink href="/pricing" pathname={pathname}>
+              <span className="flex items-center gap-1">
+                Pricing <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-bold text-primary">PRO</span>
+              </span>
+            </NavLink>
             {isAdmin && (
               <NavLink href="/admin" pathname={pathname}>Admin</NavLink>
             )}
@@ -63,8 +68,9 @@ export function NavBar({
       <nav className="flex gap-1 overflow-x-auto border-t border-border/60 px-3 py-1.5 sm:hidden">
         <NavLink href="/" pathname={pathname}>Feed</NavLink>
         <NavLink href="/saved" pathname={pathname}>Saved</NavLink>
+        <NavLink href="/outreach" pathname={pathname}>Outreach</NavLink>
         <NavLink href="/applications" pathname={pathname}>Apps</NavLink>
-        <NavLink href="/submit" pathname={pathname}>Submit</NavLink>
+        <NavLink href="/pricing" pathname={pathname}>Pricing</NavLink>
         {isAdmin && (
           <NavLink href="/admin" pathname={pathname}>Admin</NavLink>
         )}

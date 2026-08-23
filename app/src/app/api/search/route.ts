@@ -62,6 +62,21 @@ export async function GET(req: NextRequest) {
     const tokens = buildSearchTokens(q);
     if (tokens.length === 0) return NextResponse.json(emptyPayload());
 
+    // Enforce server-side search quota (10 searches/day on Free tier)
+    const { checkAndConsumeQuota } = await import("@/lib/auth/entitlements");
+    const quotaResult = await checkAndConsumeQuota(user.id, "search_query", 1);
+    if (!quotaResult.allowed) {
+      return NextResponse.json(
+        {
+          error: "Daily search limit reached (10 searches/day on Free tier). Upgrade to Pro or use an @iitb.ac.in account for unlimited searches.",
+          code: "QUOTA_EXCEEDED",
+          upgradeRequired: true,
+          remaining: 0,
+        },
+        { status: 403 }
+      );
+    }
+
     // Build query: each token AND-chains a 3-column OR group via .or().
     // Hard quality gate at the DB level: exclude low-confidence extractions
     // (< 0.5) from search results. They go to the admin Needs-review queue

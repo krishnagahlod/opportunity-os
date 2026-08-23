@@ -8,11 +8,13 @@ import { refreshScores } from "@/lib/scoring/refresh";
 import type { ApplicationStatus, Opportunity, Profile } from "@/types/db";
 import { Landing } from "./Landing";
 
+import { getUserEntitlement } from "@/lib/auth/entitlements";
+import { recordSessionActivity } from "@/lib/auth/sessions";
+import { headers } from "next/headers";
+
 export const dynamic = "force-dynamic";
 
-// Columns the feed UI actually consumes. Skips long-text fields
-// (`description`, `eligibility`, `source_url`, etc.) which would otherwise
-// add hundreds of KB to the RSC payload for a 120-row pool.
+// Columns the feed UI actually consumes.
 const FEED_COLUMNS =
   "id,title,organization,category,summary,tags,deadline,location,compensation,is_remote,apply_url,source_id,date_added,featured,status,company:companies(*)";
 
@@ -26,7 +28,6 @@ export default async function HomePage() {
   if (!user) return <Landing />;
 
   // Profile is needed before we can decide onboarding gating, so it's serial.
-  // Everything after the onboarding check is independent and runs in parallel.
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
@@ -34,17 +35,34 @@ export default async function HomePage() {
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
 
+  // Track session and resolve user entitlements
+  const reqHeaders = await headers();
+  const userAgent = reqHeaders.get("user-agent") || "";
+  const clientIp = reqHeaders.get("x-forwarded-for")?.split(",")[0] || "";
+
+  const [entitlement] = await Promise.all([
+    getUserEntitlement(user.id),
+    recordSessionActivity({
+      userId: user.id,
+      sessionToken: user.id + "_" + userAgent.slice(0, 32),
+      userAgent,
+      ip: clientIp,
+    }),
+  ]);
+
+  // Determine feed limit based on user entitlement
+  const feedLimit = entitlement.limits.opportunity_feed_limit?.limitValue ?? 25;
+  const fetchLimit = feedLimit === -1 ? 5000 : feedLimit;
+
   // Parallel batch — these 4 queries don't depend on each other.
   const [oppsRes, savedRes, appsRes, feedbackRes] = await Promise.all([
     supabase
       .from("opportunities")
       .select(FEED_COLUMNS)
       .eq("status", "active")
-      // Hide low-confidence extractions (< 0.5) from the dashboard — they
-      // go to the admin Needs-review queue. NULL kept (pre-Phase-2.5 rows).
       .or("extraction_confidence.is.null,extraction_confidence.gte.0.5")
       .order("date_added", { ascending: false })
-      .limit(5000), // Bypass implicit 500 row max_rows config in Supabase
+      .limit(fetchLimit),
     supabase
       .from("saved_opportunities")
       .select("opportunity_id")
@@ -61,7 +79,21 @@ export default async function HomePage() {
   ]);
 
   const dismissedSet = new Set((feedbackRes.data ?? []).map((f) => f.opportunity_id));
-  const opps: Opportunity[] = ((oppsRes.data as Opportunity[] | null) ?? []).filter(o => !dismissedSet.has(o.id));
+  let opps: Opportunity[] = ((oppsRes.data as Opportunity[] | null) ?? []).filter(o => !dismissedSet.has(o.id));
+
+  // If user is on Free tier, mask premium trust scores
+  if (!entitlement.isPro && !entitlement.isIITB && !entitlement.isAdmin) {
+    opps = opps.map((o) => ({
+      ...o,
+      company: o.company
+        ? {
+            ...o.company,
+            trust_score: 0,
+            trust_signals: {},
+          }
+        : null,
+    }));
+  }
 
   // Two more parallel queries that need `opps` before they can run:
   //   - sources: only the ids we actually have in this pool

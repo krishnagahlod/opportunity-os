@@ -41,6 +41,22 @@ export async function POST(req: NextRequest) {
     const { opportunity_id } = body;
     if (!opportunity_id) return NextResponse.json({ error: "opportunity_id required" }, { status: 400 });
 
+    // Enforce AI Cold Outreach quota (2/month for Free, 50/month for Pro/IITB)
+    const { checkAndConsumeQuota, hasFeatureAccess } = await import("@/lib/auth/entitlements");
+    const quotaCheck = await checkAndConsumeQuota(user.id, "ai_cold_outreach", 1);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: "Monthly cold email generation limit reached (2 drafts/month on Free tier). Upgrade to Pro for 50 drafts/month + verified hiring manager emails.",
+          code: "QUOTA_EXCEEDED",
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      );
+    }
+
+    const canSeeVerifiedContacts = await hasFeatureAccess(user.id, "verified_contact_info");
+
     // 1. Fetch Opportunity, Company, and Profile
     const { data: opp } = await supabase
       .from("opportunities")

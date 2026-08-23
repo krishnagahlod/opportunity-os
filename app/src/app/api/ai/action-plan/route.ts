@@ -22,6 +22,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing opportunity_id" }, { status: 400 });
     }
 
+    // Enforce Pro / IITB entitlement or quota
+    const { checkAndConsumeQuota } = await import("@/lib/auth/entitlements");
+    const quotaCheck = await checkAndConsumeQuota(user.id, "ai_action_plan", 1);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: "AI Action Plans are exclusive to Pro & IIT Bombay accounts. Upgrade to unlock step-by-step application prep tailored to your resume.",
+          code: "UPGRADE_REQUIRED",
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      );
+    }
+
     // Fetch opportunity
     const { data: opp, error: oppErr } = await supabase
       .from("opportunities")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { Play, Trash2, Power, TrendingUp } from "lucide-react";
+import { Play, Trash2, Power, TrendingUp, Users, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { AdminActionButton } from "./AdminActionButton";
 import { reEnableAllAutoDisabled, expireStaleOpportunities, triggerCronEndpoint } from "./actions";
@@ -11,6 +11,22 @@ export function AdminQuickActions() {
     <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card/50 p-4">
       <div className="text-sm font-medium tracking-tight mr-2">Quick Actions:</div>
       
+      <Link
+        href="/admin/users"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+      >
+        <Users className="size-3.5" />
+        Users & Access
+      </Link>
+
+      <Link
+        href="/admin/subscriptions"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
+      >
+        <CreditCard className="size-3.5" />
+        Subscriptions
+      </Link>
+
       <Link
         href="/admin/analytics"
         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm transition hover:bg-muted hover:text-foreground"
