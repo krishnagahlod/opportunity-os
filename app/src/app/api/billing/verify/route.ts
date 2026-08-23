@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   activateOrExtendEntitlement,
-  getCashfreeOrderStatus,
-} from "@/lib/payments/cashfree";
+  getDodoPaymentStatus,
+} from "@/lib/payments/dodo";
 import type { PlanKey } from "@/types/db";
 
 export async function POST(req: NextRequest) {
@@ -18,34 +18,34 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { orderId, planKey } = body as {
-      orderId: string;
+    const { paymentId, planKey } = body as {
+      paymentId: string;
       planKey: PlanKey;
     };
 
-    if (!orderId || !planKey) {
+    if (!paymentId || !planKey) {
       return NextResponse.json(
-        { error: "Missing required orderId or planKey" },
+        { error: "Missing required paymentId or planKey" },
         { status: 400 }
       );
     }
 
-    // 1. Query Cashfree API directly for order verification
-    const orderStatus = await getCashfreeOrderStatus(orderId);
+    // 1. Verify payment status directly with Dodo Payments
+    const paymentStatus = await getDodoPaymentStatus(paymentId);
 
-    if (orderStatus.status !== "PAID") {
+    if (paymentStatus.status !== "succeeded") {
       return NextResponse.json(
-        { error: `Payment not completed. Current status: ${orderStatus.status}` },
+        { error: `Payment not completed. Current status: ${paymentStatus.status}` },
         { status: 400 }
       );
     }
 
-    // 2. Activate / Extend entitlement
+    // 2. Activate or Extend entitlement
     const result = await activateOrExtendEntitlement({
       userId: user.id,
       planKey,
-      orderId,
-      amount: orderStatus.orderAmount,
+      paymentId,
+      amount: paymentStatus.totalAmount,
     });
 
     return NextResponse.json({

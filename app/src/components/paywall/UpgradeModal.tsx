@@ -58,11 +58,14 @@ export function UpgradeModal({
     setError(null);
 
     try {
-      // 1. Create Cashfree order on backend
+      // 1. Create Dodo Payments Checkout session
       const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey: selectedPlan }),
+        body: JSON.stringify({
+          planKey: selectedPlan,
+          returnUrl: `${window.location.origin}/settings/billing?status=success`,
+        }),
       });
 
       if (!res.ok) {
@@ -72,55 +75,12 @@ export function UpgradeModal({
 
       const order = await res.json();
 
-      // 2. Load Cashfree JS SDK v3 if not already in document
-      if (typeof window !== "undefined" && !(window as any).Cashfree) {
-        const script = document.createElement("script");
-        script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
-        script.async = true;
-        document.body.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
+      if (order.checkoutUrl) {
+        // Redirect to Dodo Payments secure hosted checkout (branded as Opportunity OS)
+        window.location.href = order.checkoutUrl;
+      } else {
+        throw new Error("No checkout URL received");
       }
-
-      const envMode = order.envMode === "production" ? "production" : "sandbox";
-      const cashfree = (window as any).Cashfree({ mode: envMode });
-
-      // 3. Open Cashfree Checkout Modal
-      const checkoutOptions = {
-        paymentSessionId: order.paymentSessionId,
-        redirectTarget: "_modal",
-      };
-
-      cashfree.checkout(checkoutOptions).then(async (result: any) => {
-        if (result.error) {
-          console.error("Cashfree checkout error:", result.error);
-          setError(result.error.message || "Payment cancelled or failed");
-          setLoading(false);
-          return;
-        }
-
-        if (result.paymentDetails) {
-          // Payment completed or closed in modal
-          try {
-            const verifyRes = await fetch("/api/billing/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                orderId: order.orderId,
-                planKey: selectedPlan,
-              }),
-            });
-
-            if (verifyRes.ok) {
-              window.location.reload();
-            } else {
-              setError("Verifying your payment activation...");
-              setTimeout(() => window.location.reload(), 2000);
-            }
-          } catch {
-            setTimeout(() => window.location.reload(), 2000);
-          }
-        }
-      });
     } catch (err: any) {
       setError(err.message || "Failed to open checkout");
       setLoading(false);
@@ -228,18 +188,18 @@ export function UpgradeModal({
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Opening Cashfree Checkout...
+              Redirecting to Secure Checkout...
             </>
           ) : (
             <>
-              Unlock Pro with Cashfree <ArrowRight className="size-4" />
+              Proceed to Payment <ArrowRight className="size-4" />
             </>
           )}
         </Button>
 
         <p className="mt-3 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
           <ShieldCheck className="size-3.5 text-emerald-500" />
-          Supports UPI (GPay, PhonePe, Paytm), Cards, and Netbanking.
+          Supports UPI (GPay, PhonePe, Paytm), QR, and Cards.
         </p>
       </div>
     </div>

@@ -214,7 +214,7 @@ export function PricingClient({
       {/* Safety Guarantee */}
       <div className="mt-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
         <ShieldCheck className="size-4 text-emerald-500" />
-        <span>One-time fixed payment. No recurring credit card auto-debits. 100% secure payment via Cashfree (UPI & Cards).</span>
+        <span>One-time fixed payment. No recurring credit card auto-debits. 100% secure payment via Dodo Payments (UPI & Cards).</span>
       </div>
 
       {/* Upgrade Modal */}

@@ -1,78 +1,79 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   activateOrExtendEntitlement,
-  verifyCashfreeWebhookSignature,
-} from "@/lib/payments/cashfree";
+  verifyDodoWebhookSignature,
+} from "@/lib/payments/dodo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PlanKey } from "@/types/db";
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
-    const signature = req.headers.get("x-webhook-signature");
-    const timestamp = req.headers.get("x-webhook-timestamp") || "";
+    const headers = req.headers;
 
-    if (signature) {
-      const isValid = verifyCashfreeWebhookSignature({ rawBody, timestamp, signature });
-      if (!isValid) {
-        console.warn("[billing-webhook] Invalid Cashfree webhook signature");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-      }
+    const isValid = verifyDodoWebhookSignature({ rawBody, headers });
+    if (!isValid) {
+      console.warn("[billing-webhook] Invalid Dodo Payments webhook signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
     const payload = JSON.parse(rawBody);
-    // Cashfree PG webhook payload structure
-    const orderId = payload.data?.order?.order_id || payload.orderId;
-    const paymentStatus = payload.data?.payment?.payment_status || payload.txStatus;
-    const paymentId = payload.data?.payment?.cf_payment_id || payload.referenceId;
-    const amount = payload.data?.payment?.payment_amount || payload.orderAmount;
+    const eventType = payload.type || payload.event_type || payload.event;
+    const data = payload.data || payload;
 
-    if (!orderId) {
+    const paymentId = data.payment_id || data.id || data.metadata?.paymentId;
+    const userId = data.metadata?.userId || data.customer?.metadata?.userId;
+    const planKey = data.metadata?.planKey as PlanKey | undefined;
+    const totalAmount = data.total_amount || data.amount;
+
+    if (!paymentId) {
       return NextResponse.json({ received: true });
     }
 
     const supabase = createAdminClient();
 
-    // Find the matching transaction in database
+    // Check transaction record
     const { data: transaction } = await supabase
       .from("payment_transactions")
       .select("*")
-      .eq("provider_order_id", orderId)
+      .eq("provider_order_id", paymentId)
       .maybeSingle();
 
-    if (!transaction) {
-      console.warn("[billing-webhook] Unrecognized Cashfree order id:", orderId);
+    const targetUserId = userId || transaction?.user_id;
+    const targetPlanKey = (planKey || transaction?.plan_key || "pro_30d") as PlanKey;
+
+    if (!targetUserId) {
+      console.warn("[billing-webhook] Could not resolve user for Dodo payment:", paymentId);
       return NextResponse.json({ received: true });
     }
 
-    // Idempotency check: if transaction is already processed as paid, return 200 immediately
-    if (transaction.status === "paid") {
+    // Idempotency: if already marked paid, return 200
+    if (transaction?.status === "paid") {
       return NextResponse.json({ received: true, message: "Already processed" });
     }
 
-    if (paymentStatus === "SUCCESS" || paymentStatus === "PAID") {
+    if (eventType === "payment.succeeded" || eventType === "payment_success" || eventType === "order.paid") {
       await activateOrExtendEntitlement({
-        userId: transaction.user_id,
-        planKey: transaction.plan_key as PlanKey,
-        orderId,
-        paymentId: paymentId?.toString(),
-        amount,
+        userId: targetUserId,
+        planKey: targetPlanKey,
+        paymentId,
+        amount: totalAmount,
       });
 
-      console.log(`[billing-webhook] Successfully processed Cashfree payment for user ${transaction.user_id}`);
-    } else if (paymentStatus === "FAILED" || paymentStatus === "USER_DROPPED") {
+      console.log(`[billing-webhook] Activated Pro entitlement for user ${targetUserId} via Dodo Payments`);
+    } else if (eventType === "payment.failed" || eventType === "payment_failed") {
       await supabase
         .from("payment_transactions")
         .update({
           status: "failed",
           updated_at: new Date().toISOString(),
         })
-        .eq("provider_order_id", orderId);
+        .eq("provider_order_id", paymentId);
     }
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error("[billing-webhook] Error processing Cashfree webhook:", error);
+    console.error("[billing-webhook] Error processing Dodo webhook:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

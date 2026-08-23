@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createCashfreeOrder, PLAN_PRICING } from "@/lib/payments/cashfree";
+import { createDodoPayment, PLAN_PRICING } from "@/lib/payments/dodo";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,27 +14,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { planKey } = body as { planKey: "pro_30d" | "pro_90d" | "pro_365d" };
+    const { planKey, returnUrl } = body as {
+      planKey: "pro_30d" | "pro_90d" | "pro_365d";
+      returnUrl?: string;
+    };
 
     if (!planKey || !PLAN_PRICING[planKey]) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }
 
-    const order = await createCashfreeOrder({
+    const payment = await createDodoPayment({
       userId: user.id,
       userEmail: user.email,
+      userName: user.user_metadata?.full_name || user.email?.split("@")[0],
       planKey,
+      returnUrl,
     });
 
     return NextResponse.json({
       success: true,
-      orderId: order.orderId,
-      paymentSessionId: order.paymentSessionId,
-      amount: order.amount,
-      currency: order.currency,
-      envMode: order.envMode,
+      paymentId: payment.paymentId,
+      checkoutUrl: payment.checkoutUrl,
+      amount: payment.amount,
+      currency: payment.currency,
       planName: PLAN_PRICING[planKey].name,
-      userEmail: user.email,
     });
   } catch (error: any) {
     console.error("[billing] create-order error:", error);
