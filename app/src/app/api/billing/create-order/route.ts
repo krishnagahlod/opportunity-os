@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createRazorpayOrder, PLAN_PRICING } from "@/lib/payments/razorpay";
-import type { PlanKey } from "@/types/db";
+import { createCashfreeOrder, PLAN_PRICING } from "@/lib/payments/cashfree";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,17 +20,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }
 
-    const order = await createRazorpayOrder({
+    const order = await createCashfreeOrder({
       userId: user.id,
+      userEmail: user.email,
       planKey,
     });
 
     return NextResponse.json({
       success: true,
-      orderId: order.id,
+      orderId: order.orderId,
+      paymentSessionId: order.paymentSessionId,
       amount: order.amount,
       currency: order.currency,
-      keyId: order.keyId,
+      envMode: order.envMode,
       planName: PLAN_PRICING[planKey].name,
       userEmail: user.email,
     });

@@ -1,34 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   activateOrExtendEntitlement,
-  verifyWebhookSignature,
-} from "@/lib/payments/razorpay";
+  verifyCashfreeWebhookSignature,
+} from "@/lib/payments/cashfree";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PlanKey } from "@/types/db";
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
-    const signature = req.headers.get("x-razorpay-signature");
+    const signature = req.headers.get("x-webhook-signature");
+    const timestamp = req.headers.get("x-webhook-timestamp") || "";
 
-    if (!signature) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-    }
-
-    const isValid = verifyWebhookSignature({ rawBody, signature });
-    if (!isValid) {
-      console.warn("[billing-webhook] Invalid webhook signature received");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    if (signature) {
+      const isValid = verifyCashfreeWebhookSignature({ rawBody, timestamp, signature });
+      if (!isValid) {
+        console.warn("[billing-webhook] Invalid Cashfree webhook signature");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+      }
     }
 
     const payload = JSON.parse(rawBody);
-    const event = payload.event;
-    const paymentEntity = payload.payload?.payment?.entity;
-    const orderEntity = payload.payload?.order?.entity;
-
-    const orderId = paymentEntity?.order_id || orderEntity?.id;
-    const paymentId = paymentEntity?.id;
-    const amount = paymentEntity?.amount;
+    // Cashfree PG webhook payload structure
+    const orderId = payload.data?.order?.order_id || payload.orderId;
+    const paymentStatus = payload.data?.payment?.payment_status || payload.txStatus;
+    const paymentId = payload.data?.payment?.cf_payment_id || payload.referenceId;
+    const amount = payload.data?.payment?.payment_amount || payload.orderAmount;
 
     if (!orderId) {
       return NextResponse.json({ received: true });
@@ -44,7 +41,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!transaction) {
-      console.warn("[billing-webhook] Unrecognized order id:", orderId);
+      console.warn("[billing-webhook] Unrecognized Cashfree order id:", orderId);
       return NextResponse.json({ received: true });
     }
 
@@ -53,17 +50,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, message: "Already processed" });
     }
 
-    if (event === "payment.captured" || event === "order.paid") {
+    if (paymentStatus === "SUCCESS" || paymentStatus === "PAID") {
       await activateOrExtendEntitlement({
         userId: transaction.user_id,
         planKey: transaction.plan_key as PlanKey,
         orderId,
-        paymentId,
+        paymentId: paymentId?.toString(),
         amount,
       });
 
-      console.log(`[billing-webhook] Successfully processed payment for user ${transaction.user_id}`);
-    } else if (event === "payment.failed") {
+      console.log(`[billing-webhook] Successfully processed Cashfree payment for user ${transaction.user_id}`);
+    } else if (paymentStatus === "FAILED" || paymentStatus === "USER_DROPPED") {
       await supabase
         .from("payment_transactions")
         .update({
@@ -75,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error("[billing-webhook] Error processing webhook:", error);
+    console.error("[billing-webhook] Error processing Cashfree webhook:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

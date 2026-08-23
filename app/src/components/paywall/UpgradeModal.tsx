@@ -58,7 +58,7 @@ export function UpgradeModal({
     setError(null);
 
     try {
-      // 1. Create order on backend
+      // 1. Create Cashfree order on backend
       const res = await fetch("/api/billing/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,39 +72,40 @@ export function UpgradeModal({
 
       const order = await res.json();
 
-      // Check if Razorpay SDK script is available in browser
-      if (typeof window !== "undefined" && !(window as any).Razorpay) {
+      // 2. Load Cashfree JS SDK v3 if not already in document
+      if (typeof window !== "undefined" && !(window as any).Cashfree) {
         const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
         script.async = true;
         document.body.appendChild(script);
         await new Promise((resolve) => (script.onload = resolve));
       }
 
-      // 2. Open Razorpay Modal
-      const options = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Opportunity OS",
-        description: `${order.planName} Access`,
-        order_id: order.orderId,
-        prefill: {
-          email: userEmail || order.userEmail || "",
-        },
-        theme: {
-          color: "#4f46e5",
-        },
-        handler: async function (response: any) {
+      const envMode = order.envMode === "production" ? "production" : "sandbox";
+      const cashfree = (window as any).Cashfree({ mode: envMode });
+
+      // 3. Open Cashfree Checkout Modal
+      const checkoutOptions = {
+        paymentSessionId: order.paymentSessionId,
+        redirectTarget: "_modal",
+      };
+
+      cashfree.checkout(checkoutOptions).then(async (result: any) => {
+        if (result.error) {
+          console.error("Cashfree checkout error:", result.error);
+          setError(result.error.message || "Payment cancelled or failed");
+          setLoading(false);
+          return;
+        }
+
+        if (result.paymentDetails) {
+          // Payment completed or closed in modal
           try {
-            // 3. Verify on server
             const verifyRes = await fetch("/api/billing/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
+                orderId: order.orderId,
                 planKey: selectedPlan,
               }),
             });
@@ -112,23 +113,14 @@ export function UpgradeModal({
             if (verifyRes.ok) {
               window.location.reload();
             } else {
-              setError("Payment recorded, verifying activation...");
+              setError("Verifying your payment activation...");
               setTimeout(() => window.location.reload(), 2000);
             }
-          } catch (e: any) {
-            setError("Payment received. Refreshing status...");
+          } catch {
             setTimeout(() => window.location.reload(), 2000);
           }
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          },
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+        }
+      });
     } catch (err: any) {
       setError(err.message || "Failed to open checkout");
       setLoading(false);
@@ -236,18 +228,18 @@ export function UpgradeModal({
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Securing Checkout...
+              Opening Cashfree Checkout...
             </>
           ) : (
             <>
-              Unlock Pro Now <ArrowRight className="size-4" />
+              Unlock Pro with Cashfree <ArrowRight className="size-4" />
             </>
           )}
         </Button>
 
         <p className="mt-3 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
           <ShieldCheck className="size-3.5 text-emerald-500" />
-          One-time payment. Fixed duration access. No recurring auto-debit.
+          Supports UPI (GPay, PhonePe, Paytm), Cards, and Netbanking.
         </p>
       </div>
     </div>
