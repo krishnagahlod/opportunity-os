@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Sparkles,
   ShieldCheck,
@@ -30,10 +31,25 @@ export function BillingClient({
   transactions: PaymentTransaction[];
   userEmail?: string | null;
 }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [sessionList, setSessionList] = useState<UserSession[]>(sessions);
   const [revoking, setRevoking] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    const paymentId = searchParams.get("payment_id");
+
+    if (status === "success" || paymentId) {
+      setPaymentSuccess(true);
+      setMsg("🎉 Payment successful! Your Opportunity OS Pro pass is active.");
+      // Clean query params from URL
+      router.replace("/settings/billing");
+    }
+  }, [searchParams, router]);
 
   async function handleRevokeOthers() {
     setRevoking(true);
