@@ -41,44 +41,75 @@ export async function recordSessionActivity({
     else inferredDevice = "Web Browser";
   }
 
-  // Check if session is already recorded and revoked
-  const { data: existing } = await supabase
+  // 1. Check if an active session already exists for this user on this exact device
+  const { data: existingDevice } = await supabase
     .from("user_sessions")
     .select("id, revoked_at")
-    .eq("session_token_hash", tokenHash)
+    .eq("user_id", userId)
+    .eq("device_hash", deviceHash)
+    .is("revoked_at", null)
     .maybeSingle();
-
-  if (existing?.revoked_at) {
-    return { revoked: true, activeCount: 0 };
-  }
 
   const nowIso = new Date().toISOString();
 
-  if (existing) {
-    // Update last seen
+  if (existingDevice) {
+    // Update existing device session timestamp
     await supabase
       .from("user_sessions")
       .update({
+        session_token_hash: tokenHash,
         last_seen_at: nowIso,
         ip_hash: ipHash,
         device_name: inferredDevice || "Web Browser",
       })
-      .eq("id", existing.id);
+      .eq("id", existingDevice.id);
   } else {
-    // Insert new session
-    await supabase.from("user_sessions").insert({
-      user_id: userId,
-      session_token_hash: tokenHash,
-      device_hash: deviceHash,
-      device_name: inferredDevice || "Web Browser",
-      user_agent: userAgent.slice(0, 255),
-      ip_hash: ipHash,
-      created_at: nowIso,
-      last_seen_at: nowIso,
-    });
+    // Check if matching session token exists
+    const { data: existingToken } = await supabase
+      .from("user_sessions")
+      .select("id, revoked_at")
+      .eq("session_token_hash", tokenHash)
+      .maybeSingle();
+
+    if (existingToken?.revoked_at) {
+      return { revoked: true, activeCount: 0 };
+    }
+
+    if (existingToken) {
+      await supabase
+        .from("user_sessions")
+        .update({
+          last_seen_at: nowIso,
+          ip_hash: ipHash,
+          device_hash: deviceHash,
+          device_name: inferredDevice || "Web Browser",
+        })
+        .eq("id", existingToken.id);
+    } else {
+      // Insert brand new device session
+      await supabase.from("user_sessions").insert({
+        user_id: userId,
+        session_token_hash: tokenHash,
+        device_hash: deviceHash,
+        device_name: inferredDevice || "Web Browser",
+        user_agent: userAgent.slice(0, 255),
+        ip_hash: ipHash,
+        created_at: nowIso,
+        last_seen_at: nowIso,
+      });
+    }
   }
 
-  // Fetch all active (non-revoked) sessions for this user
+  // 2. Auto-revoke stale sessions (older than 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("user_sessions")
+    .update({ revoked_at: nowIso })
+    .eq("user_id", userId)
+    .is("revoked_at", null)
+    .lt("last_seen_at", sevenDaysAgo);
+
+  // 3. Fetch all active (non-revoked) sessions for this user
   const { data: activeSessions } = await supabase
     .from("user_sessions")
     .select("id, last_seen_at")
@@ -103,16 +134,20 @@ export async function recordSessionActivity({
 }
 
 /**
- * Returns all registered sessions for a user.
+ * Returns all registered active sessions for a user (seen in the last 7 days).
  */
 export async function getUserActiveSessions(userId: string): Promise<UserSession[]> {
   const supabase = createAdminClient();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   const { data } = await supabase
     .from("user_sessions")
     .select("*")
     .eq("user_id", userId)
     .is("revoked_at", null)
-    .order("last_seen_at", { ascending: false });
+    .gte("last_seen_at", sevenDaysAgo)
+    .order("last_seen_at", { ascending: false })
+    .limit(MAX_ACTIVE_DEVICES);
 
   return (data as UserSession[]) || [];
 }
