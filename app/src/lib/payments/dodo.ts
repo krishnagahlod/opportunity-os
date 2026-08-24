@@ -38,11 +38,11 @@ export function getDodoCredentials() {
       ? "https://live.dodopayments.com"
       : "https://test.dodopayments.com";
 
-  // Product IDs created inside Dodo Payments Dashboard
+  // Product IDs created inside Dodo Payments Dashboard (Live Mode)
   const productIds = {
-    pro_30d: process.env.DODO_PRODUCT_PRO_30D || "pdt_0Nm5W5I244ZWrOS1nKZoT",
-    pro_90d: process.env.DODO_PRODUCT_PRO_90D || "pdt_0Nm5WQl2Nmshe2jz2Any2",
-    pro_365d: process.env.DODO_PRODUCT_PRO_365D || "pdt_0Nm5WbDdKzHom69blkpO5",
+    pro_30d: process.env.DODO_PRODUCT_PRO_30D || "pdt_0Nm5ZvBT1VXnVYRStBHaV",
+    pro_90d: process.env.DODO_PRODUCT_PRO_90D || "pdt_0Nm5a0fKbrIACD6UeE76W",
+    pro_365d: process.env.DODO_PRODUCT_PRO_365D || "pdt_0Nm5a9H8Fj11Ro2INkrpY",
   };
 
   return { apiKey, webhookKey, envMode, apiBase, productIds };
