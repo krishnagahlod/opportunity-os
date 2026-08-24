@@ -32,20 +32,30 @@ export const PLAN_PRICING: Record<
 export function getDodoCredentials() {
   const apiKey = process.env.DODO_PAYMENTS_API_KEY || "dodo_test_placeholder";
   const webhookKey = process.env.DODO_PAYMENTS_WEBHOOK_KEY || "";
-  const envMode = (process.env.DODO_PAYMENTS_MODE || process.env.NEXT_PUBLIC_DODO_PAYMENTS_MODE || "test_mode").toLowerCase();
-  const apiBase =
-    envMode === "live_mode" || envMode === "live" || envMode === "production"
-      ? "https://live.dodopayments.com"
-      : "https://test.dodopayments.com";
+  
+  // Auto-detect environment from API key prefix
+  let isLive = apiKey.startsWith("live_") || process.env.DODO_PAYMENTS_MODE === "live_mode" || process.env.DODO_PAYMENTS_MODE === "live";
+  if (apiKey.startsWith("test_")) {
+    isLive = false;
+  }
 
-  // Product IDs created inside Dodo Payments Dashboard (Live Mode)
-  const productIds = {
-    pro_30d: process.env.DODO_PRODUCT_PRO_30D || "pdt_0Nm5ZvBT1VXnVYRStBHaV",
-    pro_90d: process.env.DODO_PRODUCT_PRO_90D || "pdt_0Nm5a0fKbrIACD6UeE76W",
-    pro_365d: process.env.DODO_PRODUCT_PRO_365D || "pdt_0Nm5a9H8Fj11Ro2INkrpY",
-  };
+  const envMode = isLive ? "live_mode" : "test_mode";
+  const apiBase = isLive ? "https://live.dodopayments.com" : "https://test.dodopayments.com";
 
-  return { apiKey, webhookKey, envMode, apiBase, productIds };
+  // Product IDs created inside Dodo Payments Dashboard
+  const productIds = isLive
+    ? {
+        pro_30d: process.env.DODO_PRODUCT_PRO_30D || "pdt_0Nm5ZvBT1VXnVYRStBHaV",
+        pro_90d: process.env.DODO_PRODUCT_PRO_90D || "pdt_0Nm5a0fKbrIACD6UeE76W",
+        pro_365d: process.env.DODO_PRODUCT_PRO_365D || "pdt_0Nm5a9H8Fj11Ro2INkrpY",
+      }
+    : {
+        pro_30d: process.env.DODO_PRODUCT_PRO_30D || "pdt_0Nm5W5I244ZWrOS1nKZoT",
+        pro_90d: process.env.DODO_PRODUCT_PRO_90D || "pdt_0Nm5WQl2Nmshe2jz2Any2",
+        pro_365d: process.env.DODO_PRODUCT_PRO_365D || "pdt_0Nm5WbDdKzHom69blkpO5",
+      };
+
+  return { apiKey, webhookKey, envMode, apiBase, productIds, isLive };
 }
 
 /**
@@ -91,19 +101,6 @@ export async function createDodoPayment({
   if (apiKey && apiKey !== "dodo_test_placeholder") {
     const configuredProductId = productIds[planKey];
 
-    // Payload supporting product_id or dynamic line items
-    const productCart = configuredProductId
-      ? [{ product_id: configuredProductId, quantity: 1 }]
-      : [
-          {
-            amount: planInfo.amountPaise,
-            currency: "INR",
-            name: planInfo.name,
-            description: planInfo.description,
-            quantity: 1,
-          },
-        ];
-
     const bodyPayload: any = {
       billing: {
         country: "IN",
@@ -113,7 +110,17 @@ export async function createDodoPayment({
         name: userName || "Opportunity OS User",
       },
       payment_link: true,
-      product_cart: productCart,
+      product_cart: configuredProductId
+        ? [{ product_id: configuredProductId, quantity: 1 }]
+        : [
+            {
+              amount: planInfo.amountPaise,
+              currency: "INR",
+              name: planInfo.name,
+              description: planInfo.description,
+              quantity: 1,
+            },
+          ],
       return_url: defaultReturnUrl,
       metadata: {
         userId,
@@ -122,7 +129,7 @@ export async function createDodoPayment({
       },
     };
 
-    const response = await fetch(`${apiBase}/payments`, {
+    let response = await fetch(`${apiBase}/payments`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -131,9 +138,32 @@ export async function createDodoPayment({
       body: JSON.stringify(bodyPayload),
     });
 
+    // If product_id failed (e.g. 404 or product mismatch), retry with dynamic amount line item
+    if (!response.ok && configuredProductId) {
+      console.warn(`[dodo] Product ID ${configuredProductId} failed (${response.status}), retrying with dynamic item payload...`);
+      bodyPayload.product_cart = [
+        {
+          amount: planInfo.amountPaise,
+          currency: "INR",
+          name: planInfo.name,
+          description: planInfo.description,
+          quantity: 1,
+        },
+      ];
+
+      response = await fetch(`${apiBase}/payments`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bodyPayload),
+      });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Dodo Payments order creation failed (${response.status}): ${errorText}`);
+      throw new Error(`Dodo Payments checkout creation failed (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();

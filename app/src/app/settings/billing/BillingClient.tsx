@@ -287,9 +287,19 @@ export function BillingClient({
                       {t.provider_order_id}
                     </td>
                     <td className="py-3">
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">
-                        {t.status}
-                      </span>
+                      {t.status === "paid" ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">
+                          Paid
+                        </span>
+                      ) : t.status === "created" || t.status === "pending" ? (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                          Initiated (Unpaid)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-destructive">
+                          {t.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
