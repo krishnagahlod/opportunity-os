@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Zap, ShieldCheck, CheckCircle2, GraduationCap, Clock, Sparkles } from "lucide-react";
+import { ArrowRight, Zap, ShieldCheck, CheckCircle2, GraduationCap, Bell, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InteractiveFeedHero } from "@/components/landing/InteractiveFeedHero";
 import { LiveSourcesStrip } from "@/components/landing/LiveSourcesStrip";
+import { PipelineWorkflowSection } from "@/components/landing/PipelineWorkflowSection";
 import { SuperpowersShowcase } from "@/components/landing/SuperpowersShowcase";
+import { AlertsAndDigestShowcase } from "@/components/landing/AlertsAndDigestShowcase";
+import { FeatureComparisonSection } from "@/components/landing/FeatureComparisonSection";
 import { CampusPartnerSection } from "@/components/landing/CampusPartnerSection";
 import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingFAQ } from "@/components/landing/LandingFAQ";
@@ -13,7 +16,7 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-[#FBFBFC] text-zinc-900 selection:bg-blue-100 selection:text-blue-900 font-sans">
       {/* 1. Navbar */}
-      <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/85 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2 font-bold text-sm text-zinc-900 tracking-tight">
             <span className="flex size-7 items-center justify-center rounded-lg bg-zinc-900 text-white font-mono text-xs shadow-2xs">
@@ -22,12 +25,21 @@ export function Landing() {
             <span>Opportunity OS</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-zinc-600">
+          <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-zinc-600">
             <Link href="#feed-preview" className="hover:text-zinc-900 transition-colors">
               Live Feed
             </Link>
-            <Link href="#features" className="hover:text-zinc-900 transition-colors">
-              Features
+            <Link href="#workflow" className="hover:text-zinc-900 transition-colors">
+              Workflow
+            </Link>
+            <Link href="#superpowers" className="hover:text-zinc-900 transition-colors">
+              Decision Radar
+            </Link>
+            <Link href="#alerts" className="hover:text-zinc-900 transition-colors">
+              Closing Alerts
+            </Link>
+            <Link href="#comparison" className="hover:text-zinc-900 transition-colors">
+              Comparison
             </Link>
             <Link href="#pricing" className="hover:text-zinc-900 transition-colors">
               Passes
@@ -52,10 +64,10 @@ export function Landing() {
         </div>
       </header>
 
-      {/* 2. Asymmetric Split Hero Section */}
+      {/* 2. Hero Section */}
       <section className="relative pt-12 pb-20 md:pt-16 md:pb-24 border-b border-zinc-200/80 bg-gradient-to-b from-white via-[#FBFBFC] to-zinc-50/50">
         <div className="mx-auto max-w-6xl px-4 space-y-12">
-          {/* Hero Pitch */}
+          {/* Hero Header */}
           <div className="mx-auto max-w-3xl text-center space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 py-1 text-xs font-mono font-semibold text-zinc-800 shadow-2xs">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -98,36 +110,51 @@ export function Landing() {
             </div>
           </div>
 
-          {/* Interactive Live Opportunity Feed Demo (Workstation) */}
+          {/* Interactive Live Opportunity Feed Demo */}
           <div id="feed-preview">
             <InteractiveFeedHero />
           </div>
         </div>
       </section>
 
-      {/* 3. Live Sources Scrapers Ticker */}
+      {/* 3. Infinite Horizontal Moving Marquee Ticker */}
       <LiveSourcesStrip />
 
-      {/* 4. Superpowers Walkthrough */}
-      <div id="features">
+      {/* 4. Interactive 4-Step Pipeline Workflow */}
+      <div id="workflow">
+        <PipelineWorkflowSection />
+      </div>
+
+      {/* 5. Decision Intelligence & Recruiter Radar Superpowers */}
+      <div id="superpowers">
         <SuperpowersShowcase />
       </div>
 
-      {/* 5. Campus Partner Tier */}
+      {/* 6. Closing Alerts & Morning Digest */}
+      <div id="alerts">
+        <AlertsAndDigestShowcase />
+      </div>
+
+      {/* 7. Feature Comparison Matrix */}
+      <div id="comparison">
+        <FeatureComparisonSection />
+      </div>
+
+      {/* 8. IIT Bombay Campus Partner Tier */}
       <CampusPartnerSection />
 
-      {/* 6. Pricing Passes */}
+      {/* 9. Transparent Career Passes */}
       <LandingPricing />
 
-      {/* 7. FAQ */}
+      {/* 10. Interactive FAQ */}
       <LandingFAQ />
 
-      {/* 8. Bottom Call to Action */}
+      {/* 11. Final Call to Action */}
       <section className="py-24 border-b border-zinc-200/80 bg-white text-center">
         <div className="mx-auto max-w-3xl px-4 space-y-6">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wider text-zinc-700">
             <Zap className="size-3.5 text-blue-600 fill-blue-600" />
-            <span>Launch Your Career Hunt</span>
+            <span>Placement Sprint Engine</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-900 leading-tight">
             Stop scrolling 10 different job boards.
@@ -145,7 +172,7 @@ export function Landing() {
         </div>
       </section>
 
-      {/* 9. Footer */}
+      {/* 12. Footer */}
       <LandingFooter />
     </div>
   );
