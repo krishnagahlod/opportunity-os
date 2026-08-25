@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FAQItem {
@@ -50,40 +50,41 @@ export function LandingFAQ() {
   };
 
   return (
-    <section id="faq" className="py-24 border-b border-border/70 bg-card/20">
+    <section id="faq" className="py-24 border-b border-zinc-200/80 bg-white">
       <div className="mx-auto max-w-4xl px-4 space-y-12">
         <div className="text-center space-y-2">
-          <p className="text-xs font-mono font-semibold uppercase tracking-widest text-primary">
-            Clear Answers
-          </p>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wider text-zinc-700">
+            <HelpCircle className="size-3.5 text-blue-600" />
+            <span>Clear Answers</span>
+          </div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-4xl">
             Frequently Asked Questions
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-zinc-600">
             Everything you need to know about Opportunity OS, scoring, and passes.
           </p>
         </div>
 
-        <div className="divide-y divide-border/60 rounded-2xl border border-border/80 bg-card overflow-hidden">
+        <div className="divide-y divide-zinc-200/80 rounded-2xl border border-zinc-200 bg-zinc-50/50 overflow-hidden shadow-xs">
           {FAQS.map((faq, idx) => {
             const isOpen = openIndex === idx;
             return (
-              <div key={faq.question} className="p-5 sm:p-6 transition-colors hover:bg-muted/20">
+              <div key={faq.question} className="p-5 sm:p-6 transition-colors bg-white hover:bg-zinc-50/70">
                 <button
                   type="button"
                   onClick={() => toggle(idx)}
-                  className="flex w-full items-center justify-between gap-4 text-left font-semibold text-sm sm:text-base text-foreground"
+                  className="flex w-full items-center justify-between gap-4 text-left font-bold text-sm sm:text-base text-zinc-900"
                 >
                   <span>{faq.question}</span>
                   <ChevronDown
                     className={cn(
-                      "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                      isOpen && "rotate-180 text-primary"
+                      "size-4 shrink-0 text-zinc-400 transition-transform duration-200",
+                      isOpen && "rotate-180 text-zinc-900"
                     )}
                   />
                 </button>
                 {isOpen && (
-                  <p className="mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <p className="mt-3 text-xs sm:text-sm text-zinc-600 leading-relaxed pt-2 border-t border-zinc-100">
                     {faq.answer}
                   </p>
                 )}

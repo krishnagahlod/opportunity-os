@@ -1,35 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  Building2,
-  Star,
-  Mail,
+  Search,
   Zap,
   ShieldCheck,
-  Search,
+  Building2,
+  Clock,
+  Star,
+  Mail,
+  Copy,
+  Check,
+  SlidersHorizontal,
+  ArrowRight,
   ExternalLink,
   ChevronRight,
-  TrendingUp,
-  SlidersHorizontal,
+  Sparkles,
+  MapPin,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface DemoOpportunity {
+export interface DemoRole {
   id: string;
   title: string;
   company: string;
   category: "Internship" | "Fulltime" | "Fellowship" | "Hackathon";
-  location: string;
+  location: "Bengaluru" | "Remote" | "Mumbai" | "San Francisco" | "Delhi NCR";
   stipend: string;
   deadline: string;
-  urgency: string;
+  urgency: "urgent" | "closing_soon" | "normal" | "rolling";
   fitScore: number;
+  tags: string[];
   matchReason: string;
   missingSkills: string[];
   glassdoor: number;
@@ -42,19 +46,20 @@ interface DemoOpportunity {
   };
 }
 
-const DEMO_DATA: DemoOpportunity[] = [
+const DEMO_ROLES: DemoRole[] = [
   {
-    id: "opp-1",
+    id: "opp-rzp",
     title: "Associate Product Manager Intern",
     company: "Razorpay",
     category: "Internship",
-    location: "Bengaluru, India (Hybrid)",
+    location: "Bengaluru",
     stipend: "₹65,000 / mo",
-    deadline: "Closing in 3 days",
+    deadline: "3 days left",
     urgency: "urgent",
-    fitScore: 94,
-    matchReason: "Strong overlap with your Next.js payment integration and fintech projects.",
-    missingSkills: ["SQL query optimization"],
+    fitScore: 95,
+    tags: ["Product", "Fintech", "Next.js", "SQL"],
+    matchReason: "Strong correlation with your payment integration work, user analytics, and system architecture projects.",
+    missingSkills: ["SQL query profiling"],
     glassdoor: 4.3,
     funding: "Series F ($750M)",
     recruiter: {
@@ -65,17 +70,18 @@ const DEMO_DATA: DemoOpportunity[] = [
     },
   },
   {
-    id: "opp-2",
-    title: "Software Engineer (Founding Team)",
+    id: "opp-linear",
+    title: "Founding Software Engineer (React / TypeScript)",
     company: "Linear",
     category: "Fulltime",
-    location: "Remote (Global)",
+    location: "Remote",
     stipend: "$130k – $160k + Equity",
-    deadline: "Closing in 5 days",
+    deadline: "5 days left",
     urgency: "closing_soon",
-    fitScore: 91,
-    matchReason: "High correlation with your TypeScript performance work and reactive state systems.",
-    missingSkills: ["Rust internals"],
+    fitScore: 92,
+    tags: ["TypeScript", "React 19", "CRDTs", "Remote"],
+    matchReason: "Direct match for your local-first state synchronization, web performance, and clean UI engineering.",
+    missingSkills: ["Rust state machine"],
     glassdoor: 4.8,
     funding: "Series B ($50M)",
     recruiter: {
@@ -86,19 +92,20 @@ const DEMO_DATA: DemoOpportunity[] = [
     },
   },
   {
-    id: "opp-3",
+    id: "opp-bcg",
     title: "BCG ACE Strategy Case Competition 2026",
     company: "Boston Consulting Group",
     category: "Hackathon",
-    location: "Pan-India · Open to All Colleges",
+    location: "Mumbai",
     stipend: "₹15,00,000 Prize + Fast-Track PPI",
     deadline: "12 days left",
     urgency: "normal",
-    fitScore: 88,
-    matchReason: "Matches your analytical leadership background and consulting interest tags.",
-    missingSkills: ["Financial modeling"],
+    fitScore: 89,
+    tags: ["Strategy", "Case Comp", "Pre-Placement"],
+    matchReason: "High alignment with your analytical case study submissions, leadership roles, and problem solving tags.",
+    missingSkills: ["Financial Modeling"],
     glassdoor: 4.5,
-    funding: "Enterprise Global",
+    funding: "Global Enterprise",
     recruiter: {
       name: "BCG Campus Hiring Team",
       role: "Campus Relations India",
@@ -107,17 +114,18 @@ const DEMO_DATA: DemoOpportunity[] = [
     },
   },
   {
-    id: "opp-4",
-    title: "AI Research & Product Fellow",
+    id: "opp-yc",
+    title: "AI Product & Systems Fellow",
     company: "Y Combinator Fellowship",
     category: "Fellowship",
-    location: "San Francisco / Remote",
+    location: "San Francisco",
     stipend: "$500,000 Standard Deal + Mentorship",
     deadline: "Rolling Deadline",
     urgency: "rolling",
-    fitScore: 86,
-    matchReason: "Aligns with your autonomous agent experiments and open-source contributions.",
-    missingSkills: ["Distributed training"],
+    fitScore: 88,
+    tags: ["AI Agents", "LLM Evals", "Startup"],
+    matchReason: "Matches your autonomous AI agent projects, prompt architecture work, and fast builder velocity.",
+    missingSkills: ["Distributed inference"],
     glassdoor: 4.9,
     funding: "Top Accelerator",
     recruiter: {
@@ -127,41 +135,102 @@ const DEMO_DATA: DemoOpportunity[] = [
       verified: true,
     },
   },
+  {
+    id: "opp-cred",
+    title: "Backend Engineering Intern (Go / Distributed Systems)",
+    company: "CRED",
+    category: "Internship",
+    location: "Bengaluru",
+    stipend: "₹75,000 / mo",
+    deadline: "Closing in 48h",
+    urgency: "urgent",
+    fitScore: 91,
+    tags: ["Go", "Kafka", "Microservices", "Fintech"],
+    matchReason: "Matches your high-throughput queue processing and distributed locking implementations.",
+    missingSkills: ["gRPC service mesh"],
+    glassdoor: 4.2,
+    funding: "Series E ($800M)",
+    recruiter: {
+      name: "Ankit Goel",
+      role: "Talent Acquisition Lead",
+      email: "ankit.g@cred.club",
+      verified: true,
+    },
+  },
 ];
 
 export function InteractiveFeedHero() {
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedId, setSelectedId] = useState<string>(DEMO_DATA[0].id);
+  const [selectedLocation, setSelectedLocation] = useState<string>("All");
+  const [selectedId, setSelectedId] = useState<string>(DEMO_ROLES[0].id);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
-  const filteredOpps = DEMO_DATA.filter((item) =>
-    selectedCategory === "All" ? true : item.category === selectedCategory
-  );
+  // Filtered dataset
+  const filteredRoles = useMemo(() => {
+    return DEMO_ROLES.filter((role) => {
+      const matchesCat = selectedCategory === "All" || role.category === selectedCategory;
+      const matchesLoc = selectedLocation === "All" || role.location === selectedLocation;
+      const query = searchQuery.toLowerCase().trim();
+      const matchesQuery =
+        !query ||
+        role.title.toLowerCase().includes(query) ||
+        role.company.toLowerCase().includes(query) ||
+        role.tags.some((t) => t.toLowerCase().includes(query));
 
-  const activeOpp = DEMO_DATA.find((item) => item.id === selectedId) || DEMO_DATA[0];
+      return matchesCat && matchesLoc && matchesQuery;
+    });
+  }, [searchQuery, selectedCategory, selectedLocation]);
+
+  const activeRole = useMemo(() => {
+    return filteredRoles.find((r) => r.id === selectedId) || filteredRoles[0] || DEMO_ROLES[0];
+  }, [filteredRoles, selectedId]);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2000);
+  };
 
   return (
-    <div className="relative mx-auto mt-12 w-full max-w-5xl">
-      {/* Container Frame */}
-      <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl">
-        {/* Terminal / App Navigation Bar */}
-        <div className="flex flex-wrap items-center justify-between border-b border-border/70 bg-muted/40 px-4 py-3 gap-2">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-border" />
-              <span className="size-2.5 rounded-full bg-border" />
-              <span className="size-2.5 rounded-full bg-border" />
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>opportunity-os.app/live-feed</span>
-              <span className="rounded bg-muted px-1 py-0.2 text-[10px] text-muted-foreground font-mono">
-                1,248 roles
-              </span>
-            </div>
+    <div className="w-full rounded-2xl border border-zinc-200/90 bg-white shadow-xl overflow-hidden text-left">
+      {/* Top Application Header / Command Bar */}
+      <div className="border-b border-zinc-200/80 bg-zinc-50/80 px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Live Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by role, skill (e.g. React, Fintech, Go) or company..."
+              className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 hover:text-zinc-600 font-mono"
+              >
+                CLEAR
+              </button>
+            )}
           </div>
 
-          {/* Interactive Category Filter Tabs */}
-          <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/60 p-1">
+          {/* Telemetry Counter */}
+          <div className="flex items-center gap-2 shrink-0 text-xs font-mono text-zinc-500">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-zinc-800">{filteredRoles.length} matches</span>
+            <span className="text-zinc-300">|</span>
+            <span>1,248 indexed</span>
+          </div>
+        </div>
+
+        {/* Category & Location Filter Strip */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200/60">
+          {/* Category Tabs */}
+          <div className="flex flex-wrap items-center gap-1">
             {["All", "Internship", "Fulltime", "Hackathon", "Fellowship"].map((cat) => (
               <button
                 key={cat}
@@ -170,184 +239,217 @@ export function InteractiveFeedHero() {
                 className={cn(
                   "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
                   selectedCategory === cat
-                    ? "bg-foreground text-background shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-zinc-900 text-white shadow-xs font-semibold"
+                    : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900"
                 )}
               >
                 {cat}
               </button>
             ))}
           </div>
+
+          {/* Location Quick Filter */}
+          <div className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+            <MapPin className="size-3 text-zinc-400" />
+            <select
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="bg-transparent border-0 text-zinc-700 font-medium text-xs focus:ring-0 cursor-pointer"
+            >
+              <option value="All">All Locations</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Remote">Remote (Global)</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="San Francisco">San Francisco</option>
+            </select>
+          </div>
         </div>
+      </div>
 
-        {/* Live Feed + Detail Inspection Workspace */}
-        <div className="grid lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border/70 min-h-[460px]">
-          {/* Left Column: Interactive Cards List */}
-          <div className="lg:col-span-6 p-4 space-y-2.5 overflow-y-auto max-h-[500px]">
-            <div className="flex items-center justify-between px-1 pb-1 text-[11px] font-medium text-muted-foreground">
-              <span>Top Scored Matches (Demo Feed)</span>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-primary font-semibold">
-                Click any role to inspect
-              </span>
+      {/* Main Interactive Split Workstation */}
+      <div className="grid lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-zinc-200 min-h-[480px]">
+        {/* Left Column: Feed Listings */}
+        <div className="lg:col-span-6 p-3 sm:p-4 space-y-2.5 overflow-y-auto max-h-[520px] bg-zinc-50/40">
+          {filteredRoles.length === 0 ? (
+            <div className="p-8 text-center text-xs text-zinc-500 space-y-2">
+              <p className="font-semibold text-zinc-700">No matching demo roles found.</p>
+              <p>Try searching for &quot;React&quot;, &quot;Fintech&quot;, or clearing the filter.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("All");
+                  setSelectedLocation("All");
+                }}
+                className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
+              >
+                Reset Filters
+              </button>
             </div>
-
-            {filteredOpps.map((opp) => {
-              const isSelected = opp.id === activeOpp.id;
+          ) : (
+            filteredRoles.map((role) => {
+              const isSelected = role.id === activeRole?.id;
               return (
                 <div
-                  key={opp.id}
-                  onClick={() => setSelectedId(opp.id)}
+                  key={role.id}
+                  onClick={() => setSelectedId(role.id)}
                   className={cn(
-                    "group relative cursor-pointer rounded-xl border p-4 transition-all",
+                    "group relative cursor-pointer rounded-xl border p-3.5 transition-all text-left",
                     isSelected
-                      ? "border-primary/80 bg-primary/5 shadow-xs"
-                      : "border-border/70 bg-card hover:border-border hover:bg-muted/30"
+                      ? "border-zinc-900 bg-white shadow-sm ring-1 ring-zinc-900/10"
+                      : "border-zinc-200/80 bg-white hover:border-zinc-300 hover:shadow-xs"
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {opp.company}
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-900 font-mono">
+                          {role.company}
                         </span>
-                        <span className="text-muted-foreground/40 text-xs">·</span>
+                        <span className="text-zinc-300 text-xs">·</span>
                         <span
                           className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                            opp.category === "Internship" && "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-                            opp.category === "Fulltime" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                            opp.category === "Hackathon" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                            opp.category === "Fellowship" && "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                            "rounded px-1.5 py-0.2 text-[10px] font-semibold uppercase",
+                            role.category === "Internship" && "bg-sky-50 text-sky-700 border border-sky-200/60",
+                            role.category === "Fulltime" && "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
+                            role.category === "Hackathon" && "bg-amber-50 text-amber-700 border border-amber-200/60",
+                            role.category === "Fellowship" && "bg-purple-50 text-purple-700 border border-purple-200/60"
                           )}
                         >
-                          {opp.category}
+                          {role.category}
                         </span>
                       </div>
-                      <h4 className="text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-1">
-                        {opp.title}
+                      <h4 className="text-xs sm:text-[13px] font-bold text-zinc-900 leading-snug group-hover:text-blue-600 transition-colors line-clamp-1">
+                        {role.title}
                       </h4>
                     </div>
 
-                    {/* Fit Score Ring / Pill */}
+                    {/* Fit Score Badge */}
                     <div className="flex flex-col items-end shrink-0">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-0.5 text-xs font-mono font-bold">
+                      <span className="inline-flex items-center gap-1 rounded bg-zinc-900 text-white px-2 py-0.5 text-xs font-mono font-bold">
                         <Zap className="size-3 text-amber-400 fill-amber-400" />
-                        {opp.fitScore}%
+                        {role.fitScore}%
                       </span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5">Fit Score</span>
+                      <span className="text-[9px] font-mono text-zinc-400 mt-0.5 uppercase">Match</span>
                     </div>
                   </div>
 
                   {/* Metadata Row */}
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2.5">
-                    <span className="font-medium text-foreground">{opp.stipend}</span>
+                  <div className="mt-2.5 flex items-center justify-between text-xs text-zinc-500 border-t border-zinc-100 pt-2 font-mono">
+                    <span className="font-semibold text-zinc-900">{role.stipend}</span>
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 text-[11px]",
-                        opp.urgency === "urgent" && "text-destructive font-medium",
-                        opp.urgency === "closing_soon" && "text-amber-600 dark:text-amber-400 font-medium"
+                        role.urgency === "urgent" && "text-rose-600 font-semibold",
+                        role.urgency === "closing_soon" && "text-amber-700 font-medium"
                       )}
                     >
                       <Clock className="size-3" />
-                      {opp.deadline}
+                      {role.deadline}
                     </span>
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
+        </div>
 
-          {/* Right Column: Deep Opportunity & Company Intelligence Inspector */}
-          <div className="lg:col-span-6 p-5 bg-background/50 flex flex-col justify-between">
+        {/* Right Column: Deep Intelligence & Verified Recruiter Radar */}
+        {activeRole && (
+          <div className="lg:col-span-6 p-4 sm:p-5 bg-white flex flex-col justify-between space-y-4">
             <div className="space-y-4">
               {/* Header */}
-              <div className="border-b border-border/60 pb-3.5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-primary">
-                    AI Decision Analysis
+              <div className="border-b border-zinc-100 pb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-zinc-400">
+                    Decision Analysis
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    <ShieldCheck className="size-3" /> Verified Opportunity
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                    <ShieldCheck className="size-3.5 text-emerald-600" /> Verified Opening
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-foreground leading-snug">
-                  {activeOpp.title}
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 leading-snug">
+                  {activeRole.title}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                  <Building2 className="size-3.5" /> {activeOpp.company} · {activeOpp.location}
+                <p className="text-xs text-zinc-500 mt-0.5 flex items-center gap-2">
+                  <Building2 className="size-3.5 text-zinc-400" />
+                  <span className="font-semibold text-zinc-800">{activeRole.company}</span> · {activeRole.location}
                 </p>
               </div>
 
-              {/* Match Rationale */}
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
-                <p className="font-semibold text-primary mb-1 flex items-center gap-1.5">
-                  <CheckCircle2 className="size-3.5" /> Why this role matches your resume:
+              {/* Match Rationale Card */}
+              <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3 text-xs space-y-1">
+                <p className="font-bold text-zinc-900 flex items-center gap-1.5 text-[11.5px]">
+                  <Zap className="size-3.5 text-blue-600" /> Why this matches your resume:
                 </p>
-                <p className="text-foreground/90 leading-relaxed text-[11.5px]">
-                  {activeOpp.matchReason}
+                <p className="text-zinc-600 text-[11.5px] leading-relaxed">
+                  {activeRole.matchReason}
                 </p>
               </div>
 
-              {/* Company Signals & Glassdoor Rating */}
+              {/* Company Metrics & Glassdoor */}
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-xl border border-border/70 bg-card p-3">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">
-                    Company Sentiment
+                <div className="rounded-xl border border-zinc-200/80 bg-white p-2.5">
+                  <span className="text-[10px] text-zinc-400 font-mono uppercase block mb-1">
+                    Glassdoor Rating
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-foreground flex items-center gap-1">
-                      <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                      {activeOpp.glassdoor} / 5.0
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">Glassdoor</span>
+                    <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                    <span className="text-xs font-bold text-zinc-900">{activeRole.glassdoor} / 5.0</span>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border/70 bg-card p-3">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">
-                    Growth / Funding
+                <div className="rounded-xl border border-zinc-200/80 bg-white p-2.5">
+                  <span className="text-[10px] text-zinc-400 font-mono uppercase block mb-1">
+                    Company Stage
                   </span>
-                  <span className="text-xs font-bold text-foreground truncate block">
-                    {activeOpp.funding}
+                  <span className="text-xs font-bold text-zinc-900 truncate block">
+                    {activeRole.funding}
                   </span>
                 </div>
               </div>
 
-              {/* Verified Hiring Manager Contact */}
-              <div className="rounded-xl border border-border/70 bg-card p-3.5 space-y-1.5">
+              {/* Verified Hiring Manager Radar */}
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-foreground flex items-center gap-1.5">
-                    <Mail className="size-3.5 text-primary" /> Verified Hiring Contact
+                  <span className="font-bold text-zinc-900 flex items-center gap-1.5 text-[11.5px]">
+                    <Mail className="size-3.5 text-blue-600" /> Direct Recruiter Radar
                   </span>
-                  <span className="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-600 px-1.5 py-0.2 rounded font-bold">
-                    Hunter.io 98%
+                  <span className="text-[9px] font-mono uppercase bg-emerald-100/80 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                    Hunter.io Verified
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs pt-1">
+
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-200/60">
                   <div>
-                    <p className="font-semibold text-foreground">{activeOpp.recruiter.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{activeOpp.recruiter.role}</p>
+                    <p className="font-bold text-zinc-900 text-xs">{activeRole.recruiter.name}</p>
+                    <p className="text-[10.5px] text-zinc-500">{activeRole.recruiter.role}</p>
                   </div>
-                  <span className="font-mono text-[11px] bg-muted px-2 py-1 rounded text-foreground font-medium">
-                    {activeOpp.recruiter.email}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(activeRole.recruiter.email)}
+                    className="inline-flex items-center gap-1 font-mono text-[11px] bg-white border border-zinc-200 px-2 py-1 rounded text-zinc-800 font-medium hover:bg-zinc-100 transition-colors shadow-2xs"
+                  >
+                    {copiedEmail ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3 text-zinc-400" />}
+                    <span>{activeRole.recruiter.email}</span>
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Direct CTA */}
-            <div className="pt-4 mt-4 border-t border-border/60 flex items-center justify-between gap-3">
-              <span className="text-[11px] text-muted-foreground">
-                Drop your resume to score 1,200+ live listings.
+            {/* Bottom Instant Feed Link */}
+            <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-zinc-500">
+                Drop your resume to score 1,200+ live openings.
               </span>
               <Link href="/login">
-                <Button size="sm" className="font-semibold text-xs gap-1.5 shrink-0 shadow-sm">
-                  Get Full Feed <ArrowRight className="size-3.5" />
+                <Button size="sm" className="font-bold text-xs h-8 px-3.5 gap-1 shadow-xs bg-zinc-900 hover:bg-zinc-800 text-white">
+                  Unlock Live Feed <ArrowRight className="size-3.5" />
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
