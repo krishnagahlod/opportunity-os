@@ -56,11 +56,11 @@ export function PricingClient({
     <div className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary mb-4">
-          <Sparkles className="size-3.5" /> Simple, Transparent Career Passes
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+          <Zap className="size-3 text-primary fill-primary" /> Transparent Career Passes
         </div>
         <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
-          Supercharge your <span className="text-gradient-brand">Career Intelligence</span>
+          Supercharge your placement velocity.
         </h1>
         <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
           Access the full database of 1,000+ opportunities, direct hiring manager contact info, and AI cold outreach generators with fixed-duration passes.

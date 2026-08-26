@@ -38,8 +38,15 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { opportunity_id } = body;
+    const { opportunity_id, tone = "concise" } = body;
     if (!opportunity_id) return NextResponse.json({ error: "opportunity_id required" }, { status: 400 });
+
+    const toneInstructions = 
+      tone === "technical"
+        ? "Tone: Technical & Direct. Emphasize deep architectural alignment, GitHub open-source projects, and engineering velocity."
+        : tone === "casual"
+          ? "Tone: High-agency startup enthusiast. Passionate, fast-moving, eager to build alongside the founders."
+          : "Tone: Concise & Executive. Ultra-crisp 3-4 sentences, minimal fluff, high-impact hook with a soft CTA.";
 
     // Enforce AI Cold Outreach quota (2/month for Free, 50/month for Pro/IITB)
     const { checkAndConsumeQuota, hasFeatureAccess } = await import("@/lib/auth/entitlements");
@@ -122,7 +129,7 @@ export async function POST(req: NextRequest) {
       .replace("{LEAD_NAME}", targetLead.name)
       .replace("{LEAD_TITLE}", targetLead.title || "Team Member")
       .replace("{LEAD_EMAIL}", targetLead.email || "")
-      .replace("{OPPORTUNITY_DETAILS}", oppText);
+      .replace("{OPPORTUNITY_DETAILS}", oppText) + `\n\nSpecific Tone Requirement:\n${toneInstructions}`;
 
     const { data: { email: emailDraft } } = await callLLM({
       prompt,

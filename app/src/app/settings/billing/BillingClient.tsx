@@ -137,6 +137,35 @@ export function BillingClient({
             </Button>
           </div>
         </div>
+
+        {entitlement.daysRemaining !== null && isPro && (
+          <div className="mt-5 pt-4 border-t border-border/60">
+            <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+              <span className="text-muted-foreground font-medium">Sprint Validity Progress</span>
+              <span className="text-primary font-bold">{entitlement.daysRemaining} days active</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full bg-zinc-900 dark:bg-zinc-100 rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(
+                      8,
+                      (entitlement.daysRemaining /
+                        (entitlement.planKey === "pro_365d"
+                          ? 365
+                          : entitlement.planKey === "pro_90d"
+                          ? 90
+                          : 30)) *
+                        100
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Usage Quotas & Limits */}

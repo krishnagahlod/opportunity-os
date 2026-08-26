@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,54 +13,58 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Google OAuth */}
+      {/* Google OAuth Button with tactile physics */}
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className="w-full gap-2"
-        disabled={isGooglePending}
+        className="w-full h-11 gap-2.5 font-bold text-xs border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 hover:border-zinc-300 shadow-2xs active:scale-[0.98] transition-all"
+        disabled={isGooglePending || isMagicPending}
         onClick={() =>
           startGoogleTransition(() => signInWithGoogle(next))
         }
       >
-        <GoogleIcon className="size-4" />
-        {isGooglePending ? "Redirecting..." : "Continue with Google"}
+        {isGooglePending ? (
+          <Loader2 className="size-4 animate-spin text-zinc-500" />
+        ) : (
+          <GoogleIcon className="size-4" />
+        )}
+        <span>{isGooglePending ? "Connecting to Google..." : "Continue with Google"}</span>
       </Button>
 
-      <div className="relative">
+      <div className="relative py-1">
         <div className="absolute inset-0 flex items-center" aria-hidden>
-          <div className="w-full border-t border-border/60" />
+          <div className="w-full border-t border-zinc-200" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-card px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            or
+          <span className="bg-white px-2.5 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+            or use email
           </span>
         </div>
       </div>
 
-      {/* Magic link */}
+      {/* Magic link form */}
       <form
         action={(formData) =>
           startMagicTransition(() => sendMagicLink(formData))
         }
         className="space-y-4"
       >
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-xs font-medium">
-            Email
+        <div className="space-y-1.5 text-left">
+          <Label htmlFor="email" className="text-xs font-bold text-zinc-700">
+            Email Address
           </Label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder="you@example.com or you@iitb.ac.in"
               required
               autoComplete="email"
               autoFocus
-              className="pl-9"
+              className="h-10 pl-9.5 text-xs rounded-xl border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 shadow-2xs"
             />
           </div>
         </div>
@@ -68,11 +72,20 @@ export function LoginForm({ next }: { next?: string }) {
         <Button
           type="submit"
           size="lg"
-          className="w-full gap-2"
-          disabled={isMagicPending}
+          className="w-full h-11 gap-2 font-bold text-xs bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs active:scale-[0.98] transition-all"
+          disabled={isMagicPending || isGooglePending}
         >
-          {isMagicPending ? "Sending link..." : "Send magic link"}
-          {!isMagicPending && <ArrowRight className="size-4" />}
+          {isMagicPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              <span>Sending Magic Link...</span>
+            </>
+          ) : (
+            <>
+              <span>Send Magic Link</span>
+              <ArrowRight className="size-3.5" />
+            </>
+          )}
         </Button>
       </form>
     </div>

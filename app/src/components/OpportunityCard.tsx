@@ -172,6 +172,12 @@ export function OpportunityCard({
                 🔥 High Value
               </span>
             )}
+            {opportunity.date_added && (Date.now() - new Date(opportunity.date_added).getTime()) < 12 * 60 * 60 * 1000 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/80 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300">
+                <span className="size-1.5 rounded-full bg-blue-500 animate-pulse" />
+                New Today
+              </span>
+            )}
             {((opportunity as any).variants?.length > 0) && (
               <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 + {(opportunity as any).variants.length} Similar

@@ -83,7 +83,7 @@ export function OpportunityDrawer({
 
   return (
     <Drawer onClose={onClose}>
-      <div className="px-5 pb-8 sm:px-6">
+      <div className="px-5 pb-24 sm:pb-8 sm:px-6">
         {/* Category + Domain badge */}
         <header>
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em]">
@@ -513,6 +513,26 @@ export function OpportunityDrawer({
             </div>
           </div>
         </footer>
+
+        {/* Mobile Sticky Bottom Action Bar */}
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-zinc-900/95 border-t border-border backdrop-blur-md z-50 flex items-center gap-2 shadow-lg">
+          <SaveButton opportunityId={opp.id} isSaved={isSaved} />
+          {opp.company && <OutreachButton opportunityId={opp.id} />}
+          {opp.apply_url && (
+            <ExternalApplyLink
+              href={opp.apply_url}
+              opp={{
+                id: opp.id,
+                title: opp.title,
+                organization: opp.organization,
+              }}
+              className="flex-1 inline-flex items-center justify-center font-bold text-xs h-10 px-4 gap-1.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 shadow-xs active:scale-[0.98]"
+            >
+              Apply on Official Site
+              <ArrowUpRight className="size-4" />
+            </ExternalApplyLink>
+          )}
+        </div>
       </div>
     </Drawer>
   );
