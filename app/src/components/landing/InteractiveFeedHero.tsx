@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -19,6 +19,7 @@ import {
   Sparkles,
   MapPin,
   Briefcase,
+  Command,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -165,6 +166,27 @@ export function InteractiveFeedHero() {
   const [selectedLocation, setSelectedLocation] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string>(DEMO_ROLES[0].id);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Global Keyboard listener for `/` and `Cmd+K` / `Ctrl+K`
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === "/" || ((e.metaKey || e.ctrlKey) && e.key === "k")) &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "Escape" && document.activeElement === searchInputRef.current) {
+        setSearchQuery("");
+        searchInputRef.current?.blur();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Filtered dataset
   const filteredRoles = useMemo(() => {
@@ -197,25 +219,32 @@ export function InteractiveFeedHero() {
       {/* Top Application Header / Command Bar */}
       <div className="border-b border-zinc-200/80 bg-zinc-50/80 px-4 py-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Live Search Input */}
+          {/* Live Search Input with Keyboard Shortcut */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by role, skill (e.g. React, Fintech, Go) or company..."
-              className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none transition-all shadow-xs"
+              className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-14 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none transition-all shadow-2xs"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 hover:text-zinc-600 font-mono"
-              >
-                CLEAR
-              </button>
-            )}
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-[10px] text-zinc-400 hover:text-zinc-600 font-mono"
+                >
+                  ESC
+                </button>
+              ) : (
+                <kbd className="hidden sm:inline-block rounded border border-zinc-200 bg-zinc-100 px-1.5 py-0.5 text-[9px] font-mono text-zinc-500 shadow-2xs">
+                  /
+                </kbd>
+              )}
+            </div>
           </div>
 
           {/* Telemetry Counter */}
@@ -237,7 +266,7 @@ export function InteractiveFeedHero() {
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-all active:scale-[0.98]",
                   selectedCategory === cat
                     ? "bg-zinc-900 text-white shadow-xs font-semibold"
                     : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900"
@@ -294,7 +323,7 @@ export function InteractiveFeedHero() {
                   key={role.id}
                   onClick={() => setSelectedId(role.id)}
                   className={cn(
-                    "group relative cursor-pointer rounded-xl border p-3.5 transition-all text-left",
+                    "group relative cursor-pointer rounded-xl border p-3.5 transition-all text-left active:scale-[0.99]",
                     isSelected
                       ? "border-zinc-900 bg-white shadow-sm ring-1 ring-zinc-900/10"
                       : "border-zinc-200/80 bg-white hover:border-zinc-300 hover:shadow-xs"
@@ -428,7 +457,7 @@ export function InteractiveFeedHero() {
                   <button
                     type="button"
                     onClick={() => handleCopy(activeRole.recruiter.email)}
-                    className="inline-flex items-center gap-1 font-mono text-[11px] bg-white border border-zinc-200 px-2 py-1 rounded text-zinc-800 font-medium hover:bg-zinc-100 transition-colors shadow-2xs"
+                    className="inline-flex items-center gap-1 font-mono text-[11px] bg-white border border-zinc-200 px-2 py-1 rounded text-zinc-800 font-medium hover:bg-zinc-100 transition-colors shadow-2xs active:scale-[0.97]"
                   >
                     {copiedEmail ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3 text-zinc-400" />}
                     <span>{activeRole.recruiter.email}</span>
@@ -443,7 +472,7 @@ export function InteractiveFeedHero() {
                 Drop your resume to score 1,200+ live openings.
               </span>
               <Link href="/login">
-                <Button size="sm" className="font-bold text-xs h-8 px-3.5 gap-1 shadow-xs bg-zinc-900 hover:bg-zinc-800 text-white">
+                <Button size="sm" className="font-bold text-xs h-8 px-3.5 gap-1 shadow-xs bg-zinc-900 hover:bg-zinc-800 text-white active:scale-[0.98]">
                   Unlock Live Feed <ArrowRight className="size-3.5" />
                 </Button>
               </Link>
