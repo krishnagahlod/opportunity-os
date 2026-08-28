@@ -1,4 +1,3 @@
-import { withReticle } from '@reticlehq/next';
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
@@ -6,7 +5,7 @@ const nextConfig: NextConfig = {
   /* config options here */
 };
 
-export default withReticle(withSentryConfig(nextConfig, {
+export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG || "opportunity-os",
   project: process.env.SENTRY_PROJECT || "javascript-nextjs",
 
@@ -23,4 +22,4 @@ export default withReticle(withSentryConfig(nextConfig, {
     disable: true,
   },
   
-}));
+});

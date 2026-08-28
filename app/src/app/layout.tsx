@@ -1,4 +1,3 @@
-import { ReticleDev } from './reticle-dev';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
@@ -35,7 +34,7 @@ export default function RootLayout({
       <body
         className="min-h-full flex flex-col bg-background text-foreground"
         suppressHydrationWarning
-      >{(process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || process.env.NEXT_PUBLIC_RETICLE_ENABLED === 'true') ? <ReticleDev /> : null}
+      >
         <PostHogProvider>
           <Suspense fallback={null}>
             <PostHogPageView />
