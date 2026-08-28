@@ -1,5 +1,14 @@
 import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
+
+/** Constant-time comparison to prevent side-channel timing attacks */
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 /**
  * Guard for cron-triggered routes. Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`;
@@ -18,7 +27,7 @@ export function requireCronAuth(req: NextRequest): NextResponse | null {
 
   const header = req.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (!match || match[1] !== expected) {
+  if (!match || !safeCompare(match[1], expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

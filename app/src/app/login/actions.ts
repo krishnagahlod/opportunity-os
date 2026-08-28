@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 async function getAppUrl() {
   const headersList = await headers();
@@ -13,6 +14,15 @@ async function getAppUrl() {
 }
 
 export async function signInWithGoogle(next?: string) {
+  const headersList = await headers();
+  const ip = getClientIp(headersList);
+  const rateLimit = checkRateLimit(`login:${ip}`, 5, 60_000);
+  if (!rateLimit.allowed) {
+    redirect(
+      `/login?error=${encodeURIComponent("Too many login attempts. Please wait a minute before trying again.")}`
+    );
+  }
+
   const supabase = await createClient();
   const appUrl = await getAppUrl();
 
@@ -34,6 +44,15 @@ export async function signInWithGoogle(next?: string) {
 }
 
 export async function sendMagicLink(formData: FormData) {
+  const headersList = await headers();
+  const ip = getClientIp(headersList);
+  const rateLimit = checkRateLimit(`magic-link:${ip}`, 5, 60_000);
+  if (!rateLimit.allowed) {
+    redirect(
+      `/login?error=${encodeURIComponent("Too many magic link requests. Please wait a minute before trying again.")}`
+    );
+  }
+
   const email = String(formData.get("email") ?? "").trim();
   const next = String(formData.get("next") ?? "/");
 
@@ -59,3 +78,4 @@ export async function sendMagicLink(formData: FormData) {
     `/login?message=${encodeURIComponent("Check your email for the sign-in link.")}`,
   );
 }
+

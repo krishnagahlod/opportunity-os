@@ -394,3 +394,42 @@ export async function removeResume(): Promise<ResumeMutationResult> {
   revalidatePath("/");
   return { ok: true };
 }
+
+/** Permanently deletes the user's account and all associated personal data. */
+export async function deleteUserAccount(): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const admin = createAdminClient();
+
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("resume_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (prof?.resume_url) {
+    try {
+      await admin.storage.from("resumes").remove([prof.resume_url]);
+    } catch {
+      // Best-effort storage deletion
+    }
+  }
+
+  await admin.from("user_sessions").delete().eq("user_id", user.id);
+  await admin.from("applications").delete().eq("user_id", user.id);
+  await admin.from("saved_opportunities").delete().eq("user_id", user.id);
+  await admin.from("opportunity_feedback").delete().eq("user_id", user.id);
+  await admin.from("user_entitlements").delete().eq("user_id", user.id);
+  await admin.from("profiles").delete().eq("id", user.id);
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.auth.signOut();
+  return { ok: true };
+}
+

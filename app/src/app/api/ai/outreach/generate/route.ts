@@ -37,6 +37,15 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { checkRateLimit } = await import("@/lib/security/rate-limit");
+    const rateLimit = checkRateLimit(`ai-outreach:${user.id}`, 10, 60_000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many AI generation requests. Please wait a minute." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { opportunity_id, tone = "concise" } = body;
     if (!opportunity_id) return NextResponse.json({ error: "opportunity_id required" }, { status: 400 });
@@ -152,7 +161,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, draft: log });
   } catch (err: any) {
-    console.error("Error generating outreach:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const { handleApiError } = await import("@/lib/security/errors");
+    return handleApiError(err, "ai-outreach-generate");
   }
 }

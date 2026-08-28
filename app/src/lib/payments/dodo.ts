@@ -90,9 +90,17 @@ export async function createDodoPayment({
   const supabase = createAdminClient();
   const amount = planInfo.amount;
   const currency = "INR";
-  const defaultReturnUrl =
-    returnUrl ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "https://opportunity-os.vercel.app"}/settings/billing?status=success`;
+
+  // Prevent Open Redirect: ensure returnUrl is relative or belongs to our application domain
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opportunity-os.vercel.app";
+  let defaultReturnUrl = `${appBaseUrl}/settings/billing?status=success`;
+  if (returnUrl) {
+    if (returnUrl.startsWith("/") && !returnUrl.startsWith("//")) {
+      defaultReturnUrl = `${appBaseUrl}${returnUrl}`;
+    } else if (returnUrl.startsWith(appBaseUrl)) {
+      defaultReturnUrl = returnUrl;
+    }
+  }
 
   let paymentId = `dodo_pay_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   let checkoutUrl = `${defaultReturnUrl}&payment_id=${paymentId}`;
@@ -245,8 +253,8 @@ export function verifyDodoWebhookSignature({
 }): boolean {
   const { webhookKey } = getDodoCredentials();
   if (!webhookKey) {
-    // If webhook secret not configured yet, allow for testing
-    return true;
+    console.error("[dodo-webhook] CRITICAL: DODO_PAYMENTS_WEBHOOK_KEY is missing. Rejecting webhook for security.");
+    return false;
   }
 
   const webhookId = headers.get("webhook-id") || headers.get("x-webhook-id") || "";
@@ -298,6 +306,17 @@ export async function activateOrExtendEntitlement({
   const supabase = createAdminClient();
   const planInfo = PLAN_PRICING[planKey as keyof typeof PLAN_PRICING];
   const durationDays = planInfo?.durationDays || 30;
+
+  // 0. Idempotency: Prevent replay attacks by checking if this paymentId was already redeemed
+  const { data: alreadyRedeemed } = await supabase
+    .from("entitlements")
+    .select("id, expires_at")
+    .eq("external_reference", paymentId)
+    .maybeSingle();
+
+  if (alreadyRedeemed) {
+    return { entitlementId: alreadyRedeemed.id, expiresAt: alreadyRedeemed.expires_at };
+  }
 
   // 1. Check existing active entitlement
   const { data: existing } = await supabase
