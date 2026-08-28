@@ -87,6 +87,12 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@reticlehq/next':
+        specifier: 2.12.0
+        version: 2.12.0(next@16.2.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@reticlehq/react':
+        specifier: 2.12.0
+        version: 2.12.0(react@19.2.4)
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.2.4
@@ -941,6 +947,32 @@ packages:
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
     peerDependencies:
       react: ^18.0 || ^19.0 || ^19.0.0-rc
+
+  '@reticlehq/babel-plugin@2.12.0':
+    resolution: {integrity: sha512-KredIqt3y7OjhCjFTncI4fX/O19kdjo86ZLCJJk/qnSKKAJ5F1nzOfQMB4DfrClpTfH0ZGwLBC4l8P57MjaOuQ==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@babel/core': ^7
+
+  '@reticlehq/browser@2.12.0':
+    resolution: {integrity: sha512-vEDQb+JoeRMZ2HjI8KP6WDXpqMtPXFt8sS4fPzhB+e1rgv86BZyZ/BqlEPOJKbPujnkhQKQTvCfxUDqrL0Sz2w==}
+    engines: {node: '>=20.0.0'}
+
+  '@reticlehq/core@2.12.0':
+    resolution: {integrity: sha512-IBJLIW7R55TWFsHJnwXARqTFObR9mCLjSKdRYK+vNR/3++20GK0oFBAmbXoaqr2JgqdLyJDkruouSByd+n7eeQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@reticlehq/next@2.12.0':
+    resolution: {integrity: sha512-AoUukm2rBLS7evf0um4RSVyY0IUamsJ5OQqQe52md1zLYoJDRquGJ2DXkJLqsje5rQf6yWIEJAEk3Ql8/+VfBA==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      next: '>=13'
+
+  '@reticlehq/react@2.12.0':
+    resolution: {integrity: sha512-1hl1+Cg321FhP/XMyWJWKzCfIg+n/p3ugq6mVO2R90J/Yp9ZeKPfPVjZEHMrByUydfcBQ4XWxH2ZWuIHkQY68Q==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      react: '>=18'
 
   '@rollup/plugin-commonjs@28.0.1':
     resolution: {integrity: sha512-+tNWdlWKbpB3WgBN7ijjYkq9X5uhjmcvyjEght4NmH5fAU++zfQzAJ6wumLS+dNcvwEZhKx2Z+skY8m7v0wGSA==}
@@ -4920,6 +4952,33 @@ snapshots:
 
   '@react-email/text@0.1.6(react@19.2.4)':
     dependencies:
+      react: 19.2.4
+
+  '@reticlehq/babel-plugin@2.12.0(@babel/core@7.29.0)':
+    dependencies:
+      '@babel/core': 7.29.0
+      '@reticlehq/core': 2.12.0
+
+  '@reticlehq/browser@2.12.0':
+    dependencies:
+      '@reticlehq/core': 2.12.0
+
+  '@reticlehq/core@2.12.0':
+    dependencies:
+      zod: 3.25.76
+
+  '@reticlehq/next@2.12.0(next@16.2.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
+    dependencies:
+      '@babel/core': 7.29.0
+      '@reticlehq/babel-plugin': 2.12.0(@babel/core@7.29.0)
+      next: 16.2.4(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@reticlehq/react@2.12.0(react@19.2.4)':
+    dependencies:
+      '@reticlehq/browser': 2.12.0
+      '@reticlehq/core': 2.12.0
       react: 19.2.4
 
   '@rollup/plugin-commonjs@28.0.1(rollup@4.62.2)':
