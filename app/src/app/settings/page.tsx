@@ -6,6 +6,7 @@ import { SettingsForm } from "./SettingsForm";
 import { CalendarSection } from "./CalendarSection";
 import { ResumeSection } from "./ResumeSection";
 import { TargetAlertsSection } from "./TargetAlertsSection";
+import { DataPrivacySection } from "./DataPrivacySection";
 import { CreditCard, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -80,6 +81,9 @@ export default async function SettingsPage() {
         </div>
         <div className="mt-10">
           <TargetAlertsSection isPremium={false} />
+        </div>
+        <div className="mt-10">
+          <DataPrivacySection />
         </div>
       </main>
     </div>

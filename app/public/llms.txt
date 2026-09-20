@@ -1,0 +1,35 @@
+# Opportunity OS
+> The High-Velocity Career Intelligence & Opportunity Matching Platform
+
+Opportunity OS is an algorithmic career intelligence engine built for ambitious students, engineers, and early-career professionals. It continuously aggregates verified tech jobs, internships, research fellowships, hackathons, and case competitions across 50+ career networks, applicant tracking systems, and developer communities.
+
+## Core Capabilities
+- **50+ Network Ingestion**: Automated ingestion from Greenhouse, Lever, Ashby, Hacker News ("Who is Hiring?"), Y Combinator Work at a Startup, Devpost, Unstop, and university portals.
+- **Algorithmic 0–100 Resume Scoring**: Evaluates candidate fit against job requirements using local embedding cosine distance and structured LLM extraction.
+- **Skill Gap Analysis**: Pinpoints exact required technical tools and frameworks missing from the candidate's resume for each listing.
+- **Recruiter Radar**: Uncovers verified hiring manager and recruiter contacts to facilitate direct, low-friction professional outreach.
+- **Personalized Deadline Feeds**: Automated digests delivered via opt-in email (Resend) and instant Telegram alerts.
+- **ICS Calendar Sync**: Dynamic iCal feed subscribers can import into Google Calendar or Apple Calendar for closing dates.
+
+## User & Data Privacy Guarantees
+- **Zero Foundation Model Training**: Candidate resumes and profiles are processed ephemerally and are NEVER used to train or fine-tune public AI foundation models.
+- **India DPDPA 2023 & GDPR Compliant**: Self-service machine-readable data export (JSON) and complete one-click account erasure.
+- **Statutory Grievance Redressal**: Appointed Grievance Redressal Officer per DPDP Act Section 13 with 30-day turnaround.
+
+## Pass Tiers & Pricing
+- **Free Tier**: Unlimited live feed search, basic keyword filtering, 2 AI cold outreach drafts/month.
+- **IIT Bombay Partner Access (`@iitb.ac.in`)**: Full Pro platform access with fair-use limits for verified IITB students.
+- **Pro 30-Day Pass (₹299)**: Unlimited 0–100 resume match scoring, verified recruiter radar, closing deadline radar.
+- **Pro 90-Day Quarter Pass (₹799)**: Extended 3-month career sprint pass with priority AI outreach.
+- **Pro 365-Day Annual Pass (₹2,499)**: 1-year career velocity pass with unlimited match scoring.
+
+## Official Links & Resources
+- Web Application: https://opportunity-os.vercel.app
+- Pricing & Career Passes: https://opportunity-os.vercel.app/pricing
+- Candidate Login: https://opportunity-os.vercel.app/login
+- Privacy Policy: https://opportunity-os.vercel.app/privacy
+- Terms of Service: https://opportunity-os.vercel.app/terms
+- Cookie Policy: https://opportunity-os.vercel.app/cookies
+- Refund Policy: https://opportunity-os.vercel.app/refund
+- Contact & Grievances: https://opportunity-os.vercel.app/contact
+- Full Documentation & Schema: https://opportunity-os.vercel.app/llms-full.txt

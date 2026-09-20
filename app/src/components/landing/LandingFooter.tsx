@@ -82,7 +82,7 @@ export function LandingFooter() {
             </ul>
           </div>
 
-          {/* Col 3: Legal */}
+          {/* Col 3: Legal & Statutory */}
           <div className="space-y-3 text-xs">
             <p className="font-mono font-bold uppercase tracking-wider text-zinc-900 text-[11px]">
               Legal & Trust
@@ -99,12 +99,22 @@ export function LandingFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/pricing" className="hover:text-zinc-900 transition-colors">
+                <Link href="/cookies" className="hover:text-zinc-900 transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/refund" className="hover:text-zinc-900 transition-colors">
                   Refund & Cancellation
                 </Link>
               </li>
               <li>
-                <span className="text-zinc-400">UPI & Card via Dodo Payments</span>
+                <Link href="/contact" className="hover:text-zinc-900 transition-colors">
+                  Contact & Grievances
+                </Link>
+              </li>
+              <li className="pt-1">
+                <span className="text-[11px] text-zinc-400 font-mono">UPI & Card via Dodo Payments</span>
               </li>
             </ul>
           </div>
@@ -114,11 +124,16 @@ export function LandingFooter() {
       {/* Sub-Footer */}
       <div className="border-t border-zinc-200/80 bg-zinc-50/70 py-5 text-xs text-zinc-500 font-mono">
         <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-3 px-4">
-          <p>© {new Date().getFullYear()} Opportunity OS · Built for placement velocity.</p>
-          <div className="flex items-center gap-3 text-[11px]">
-            <span>100% Verified Authentic Listings</span>
+          <div className="space-y-1 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} Opportunity OS · Developed & Operated by Krishna Gahlod, Mumbai, India.</p>
+            <p className="text-[10px] text-zinc-400">
+              Grievance Redressal: krishnagahlod@gmail.com · Statutory TAT: 30 days (DPDPA 2023 Sec 13)
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] shrink-0">
+            <span>100% Verified Listings</span>
             <span>·</span>
-            <span>Zero Spam</span>
+            <span>Zero AI Model Training</span>
           </div>
         </div>
       </div>

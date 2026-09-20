@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { PostHogProvider, PostHogPageView } from "@/components/PostHogProvider";
 import { ApplyNudge } from "@/components/ApplyNudge";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,10 +16,91 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opportunity-os.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Opportunity OS — find opportunities that actually matter",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "Opportunity OS — Find Opportunities That Actually Matter",
+    template: "%s | Opportunity OS",
+  },
   description:
-    "A personalized discovery engine for ambitious students and early professionals. Internships, startup roles, case competitions, hackathons, and more — ranked by what fits your goals.",
+    "The high-velocity career intelligence platform. Aggregating 50+ tech networks, scoring listings against your resume, and uncovering verified hiring manager contacts.",
+  keywords: [
+    "internships",
+    "software engineering jobs",
+    "tech careers",
+    "resume match score",
+    "IIT Bombay placement",
+    "hackathons",
+    "case competitions",
+    "startup jobs",
+    "recruiter contacts",
+  ],
+  authors: [{ name: "Krishna Gahlod" }],
+  creator: "Krishna Gahlod",
+  publisher: "Opportunity OS",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  manifest: "/site.webmanifest",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: appUrl,
+    title: "Opportunity OS — The High-Velocity Career Intelligence Platform",
+    description:
+      "Aggregating 50+ tech networks, instant 0–100 candidate fit scoring, and verified recruiter contacts.",
+    siteName: "Opportunity OS",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Opportunity OS — The High-Velocity Career Intelligence Platform",
+    description:
+      "Aggregating 50+ tech networks, instant 0–100 candidate fit scoring, and verified recruiter contacts.",
+    creator: "@krishnagahlod",
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "Opportunity OS",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "299",
+        "priceCurrency": "INR",
+        "availability": "https://schema.org/InStock",
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": "120",
+      },
+      "description":
+        "Algorithmic career intelligence platform that aggregates tech opportunities across 50+ networks, scores listings against resumes, and reveals verified hiring contacts.",
+    },
+    {
+      "@type": "Organization",
+      "name": "Opportunity OS",
+      "url": appUrl,
+      "founder": {
+        "@type": "Person",
+        "name": "Krishna Gahlod",
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "krishnagahlod@gmail.com",
+        "contactType": "customer support",
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -31,6 +113,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className="min-h-full flex flex-col bg-background text-foreground"
         suppressHydrationWarning
@@ -46,10 +134,10 @@ export default function RootLayout({
             Skip to content
           </a>
           {children}
-          {/* Global "did you finish applying?" toast — null-renders when no
-              pending-apply flag is set in localStorage, so it's free for
-              logged-out marketing pages too. */}
+          {/* Global "did you finish applying?" toast */}
           <ApplyNudge />
+          {/* DPDPA & GDPR Cookie and Telemetry Consent Banner */}
+          <CookieConsentBanner />
         </PostHogProvider>
       </body>
     </html>

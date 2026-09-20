@@ -1,0 +1,73 @@
+# Opportunity OS — Comprehensive Architecture & Technical Blueprint
+> Complete AI reference document covering schemas, ingestion pipelines, matching methodology, and legal compliance.
+
+## Platform Metadata
+- **Name**: Opportunity OS
+- **Domain**: https://opportunity-os.vercel.app
+- **Category**: Educational Technology & Career Intelligence
+- **Platform Operator**: Krishna Gahlod, Mumbai, Maharashtra, India
+- **Support Contact**: krishnagahlod@gmail.com
+- **Hosting**: Vercel Serverless & Next.js 16 App Router
+- **Database & Storage**: Supabase (PostgreSQL 15, pgvector, Storage Buckets)
+
+---
+
+## Technical Architecture & Ingestion Engine
+Opportunity OS runs automated periodic ingestion sweeps across 50+ career networks and developer platforms:
+1. **Applicant Tracking Systems (ATS)**:
+   - Greenhouse (`/api/ingest/connectors/greenhouse`)
+   - Lever (`/api/ingest/connectors/lever`)
+   - Ashby (`/api/ingest/connectors/ashby`)
+2. **Startup & Community Portals**:
+   - Y Combinator Work at a Startup
+   - Hacker News ("Who is Hiring?" monthly threads)
+   - Devpost Hackathons & Bounties
+   - Unstop Case Competitions & Scholarships
+   - Curated Open Source Career Repositories
+
+### Opportunity Entity Schema
+```typescript
+interface Opportunity {
+  id: string; // UUID primary key
+  title: string;
+  organization: string;
+  category: "internship" | "fulltime" | "case_competition" | "hackathon" | "fellowship" | "scholarship" | "conference" | "workshop" | "bootcamp" | "networking" | "campus_ambassador" | "remote_gig" | "freebie" | "certification" | "other";
+  description: string | null;
+  summary: string | null;
+  tags: string[];
+  required_skills: string[]; // AI-extracted lowercase skills for gap analysis
+  deadline: string | null; // ISO 8601 string
+  eligibility: string | null;
+  location: string | null;
+  compensation: string | null;
+  is_remote: boolean;
+  apply_url: string | null;
+  difficulty: "low" | "medium" | "high" | null;
+  estimated_value_score: number | null; // 0..100
+  status: "active" | "expired" | "spam" | "pending";
+}
+```
+
+---
+
+## 0–100 Resume Scoring & AI Fallover Architecture
+The platform matches candidate profiles to listings via a two-stage evaluation pipeline:
+1. **Deterministic Skill Vector Matching**: Compares extracted resume skills against `required_skills` using Jaccard index and set intersection.
+2. **LLM Deep Evaluation**:
+   - Primary: Google Gemini 2.0 Flash (`gemini-2.0-flash`) via `@google/generative-ai`.
+   - Secondary Fallover: Groq Llama 3.1 8B / 3.3 70B (`llama-3.1-8b-instant`) via `groq-sdk`.
+   - Strict Zod schema enforcement on structured JSON responses.
+
+### Scoring Breakdown Rubric (0–100 Scale)
+- **Profile Relevance (35%)**: Direct alignment of candidate skills, tools, and past projects.
+- **Career & Brand Upside (25%)**: Company reputation, funding stage, mentorship quality, and tier prestige.
+- **Compensation & Equity (15%)**: Market-competitive salary, stipend, or prize pool value.
+- **Skill Accessibility & Ease (15%)**: Feasibility of candidate clearing technical interview benchmarks.
+- **Urgency (10%)**: Proximity to closing deadline.
+
+---
+
+## Statutory & Regulatory Compliance
+- **Digital Personal Data Protection Act (DPDPA 2023)**: Full compliance with Section 5/6 (Notice & Consent), Section 9 (Protection of Minors), Section 11 (Right to Data Portability via JSON export), Section 12 (Right to Erasure), and Section 13 (Grievance Redressal Officer: Krishna Gahlod, 30-day statutory TAT).
+- **Payment Compliance**: Dodo Payments PCI-DSS Tier 1 Merchant of Record integration with server-side signature validation, anti-replay guards, and 7-day refund policy.
+- **Security Headers**: HSTS, X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin.

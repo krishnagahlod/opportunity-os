@@ -39,6 +39,7 @@ export async function callLLM<T>({
   maxTokens = 1000,
   groqModel = DEFAULT_GROQ_MODEL,
   primaryProvider = "gemini",
+  signal,
 }: {
   prompt: string;
   schema: ZodSchema<T>;
@@ -49,11 +50,13 @@ export async function callLLM<T>({
   groqModel?: string;
   /** Primary provider to try first. Defaults to "gemini". */
   primaryProvider?: LLMProvider;
+  /** AbortSignal to cancel upstream LLM requests on client disconnect */
+  signal?: AbortSignal;
 }): Promise<LLMCallResult<T>> {
   let firstError: unknown = null;
 
   const tryGemini = async () => {
-    const raw = await callGemini(prompt, systemInstruction, maxTokens);
+    const raw = await callGemini(prompt, systemInstruction, maxTokens, signal);
     const parsed = safeParse<T>(raw, schema);
     if (parsed) return { data: parsed, provider: "gemini" as LLMProvider, raw };
     
@@ -61,6 +64,7 @@ export async function callLLM<T>({
       prompt + "\n\nIMPORTANT: respond with ONLY a single JSON object matching the schema. No prose, no markdown fences.",
       systemInstruction,
       maxTokens,
+      signal,
     );
     const parsed2 = safeParse<T>(raw2, schema);
     if (parsed2) return { data: parsed2, provider: "gemini" as LLMProvider, raw: raw2 };
@@ -69,7 +73,7 @@ export async function callLLM<T>({
   };
 
   const tryGroq = async () => {
-    const raw = await callGroq(prompt, systemInstruction, maxTokens, groqModel);
+    const raw = await callGroq(prompt, systemInstruction, maxTokens, groqModel, signal);
     const parsed = safeParse<T>(raw, schema);
     if (parsed) return { data: parsed, provider: "groq" as LLMProvider, raw };
     
@@ -78,6 +82,7 @@ export async function callLLM<T>({
       systemInstruction,
       maxTokens,
       groqModel,
+      signal,
     );
     const parsed2 = safeParse<T>(raw2, schema);
     if (parsed2) return { data: parsed2, provider: "groq" as LLMProvider, raw: raw2 };
@@ -119,6 +124,7 @@ async function callGemini(
   prompt: string,
   systemInstruction: string | undefined,
   maxTokens: number,
+  signal?: AbortSignal,
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
@@ -134,7 +140,10 @@ async function callGemini(
     },
   });
 
-  const result = await model.generateContent(prompt);
+  const result = await model.generateContent(
+    prompt,
+    signal ? { signal } : undefined,
+  );
   return result.response.text();
 }
 
@@ -143,6 +152,7 @@ async function callGroq(
   systemInstruction: string | undefined,
   maxTokens: number,
   model: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY not set");
@@ -158,12 +168,15 @@ async function callGroq(
   // we honor that (capped at 15s) and try again instead of failing the request.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const chat = await client.chat.completions.create({
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature: 0.2,
-      });
+      const chat = await client.chat.completions.create(
+        {
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature: 0.2,
+        },
+        signal ? { signal } : undefined,
+      );
       const choice = chat.choices[0];
       const content = choice?.message?.content ?? "";
       if (!content) throw new Error("Groq returned empty content");
