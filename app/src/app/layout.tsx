@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { PostHogProvider, PostHogPageView } from "@/components/PostHogProvider";
 import { ApplyNudge } from "@/components/ApplyNudge";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -138,6 +139,8 @@ export default function RootLayout({
           <ApplyNudge />
           {/* DPDPA & GDPR Cookie and Telemetry Consent Banner */}
           <CookieConsentBanner />
+          {/* Power user keyboard shortcuts modal */}
+          <KeyboardShortcutsModal />
         </PostHogProvider>
       </body>
     </html>

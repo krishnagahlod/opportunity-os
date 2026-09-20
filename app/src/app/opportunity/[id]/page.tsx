@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   CheckCircle,
   Users,
+  Bookmark,
 } from "lucide-react";
 import {
   format,
@@ -23,11 +24,13 @@ import {
   parseISO,
 } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NavBar } from "@/components/NavBar";
 import { SaveButton } from "@/components/SaveButton";
 import { ApplyButton } from "@/components/ApplyButton";
 import { ExternalApplyLink } from "@/components/ApplyNudge";
 import { ActionPlanButton } from "@/components/ActionPlanButton";
+import { ShareOpportunityButton } from "@/components/ShareOpportunityButton";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategoryStyle, orgInitials } from "@/lib/categories";
 import {
@@ -53,6 +56,46 @@ export const dynamic = "force-dynamic";
 
 type Params = { id: string };
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
+  const { id } = await params;
+  const supabase = createAdminClient();
+  const { data: opp } = await supabase
+    .from("opportunities")
+    .select("title, organization, summary, category, location, compensation")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!opp) {
+    return {
+      title: "Opportunity | Opportunity OS",
+    };
+  }
+
+  const title = `${opp.title} at ${opp.organization}`;
+  const description =
+    opp.summary ||
+    `Apply for ${opp.title} at ${opp.organization} on Opportunity OS. Verified tech opportunities and personalized resume match scoring.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${title} | Opportunity OS`,
+      description,
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | Opportunity OS`,
+      description,
+    },
+  };
+}
+
 export default async function OpportunityDetailPage({
   params,
   searchParams,
@@ -67,64 +110,87 @@ export default async function OpportunityDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/opportunity/${id}`)}`);
 
-  // Profile required for scoring; redirect to onboarding if incomplete.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.onboarded) redirect("/onboarding");
+  const isGuest = !user;
+  let profile: Profile | null = null;
+  let hasResume = false;
+  let isSaved = false;
+  let applicationStatus: ApplicationStatus | undefined = undefined;
+  let fitScore: number = 0;
+  let valueScore: number = 0;
+  let actionabilityScore: number = 0;
+  let score: number = 0;
+  let why: string | null = null;
+  let matchedTerms: string[] = [];
+  let missingSkills: string[] = [];
 
-  // Determine if user has a resume uploaded for the Deep AI Match
-  const hasResume = !!profile.resume_url;
+  // Fetch opportunity (publicly accessible)
+  const { data: oppData } = await supabase
+    .from("opportunities")
+    .select("*,company:companies(*)")
+    .eq("id", id)
+    .maybeSingle();
 
-  // Fetch opportunity + user state in parallel
-  const [oppRes, savedRes, appRes] = await Promise.all([
-    supabase.from("opportunities").select("*,company:companies(*)").eq("id", id).maybeSingle(),
-    supabase
-      .from("saved_opportunities")
-      .select("opportunity_id")
-      .eq("user_id", user.id)
-      .eq("opportunity_id", id)
-      .maybeSingle(),
-    supabase
-      .from("applications")
-      .select("status")
-      .eq("user_id", user.id)
-      .eq("opportunity_id", id)
-      .maybeSingle(),
-  ]);
-
-  const opp = oppRes.data as Opportunity | null;
+  const opp = oppData as Opportunity | null;
   if (!opp || opp.status === "spam") notFound();
 
-  // Source name lookup (small extra query — kept separate for clarity)
+  // Source name lookup
   let sourceName: string | null = null;
   if (opp.source_id) {
-    const { data } = await supabase
+    const { data: src } = await supabase
       .from("sources")
       .select("name")
       .eq("id", opp.source_id)
       .maybeSingle();
-    sourceName = (data?.name as string) ?? null;
+    sourceName = (src?.name as string) ?? null;
   }
 
-  const isSaved = !!savedRes.data;
-  const applicationStatus = (appRes.data?.status ?? undefined) as
-    | ApplicationStatus
-    | undefined;
+  // If authenticated, fetch user-specific state & profile
+  if (user) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    if (!prof?.onboarded) redirect("/onboarding");
+    profile = prof;
+    hasResume = !!prof.resume_url;
 
-  // why-text can mention "similar to opportunities you've saved" when true.
-  const behavioralSignal = await fetchBehavioralSignal(user.id);
-  const { score, fitScore, valueScore, actionabilityScore, why } = computeScore(
-    profile as Profile,
-    opp,
-    behavioralSignal,
-  );
-  const matchedTerms = findMatchedTerms(profile as Profile, opp);
-  const missingSkills = findMissingRequirements(profile as Profile, opp);
+    const [savedRes, appRes, behavioralSignal] = await Promise.all([
+      supabase
+        .from("saved_opportunities")
+        .select("opportunity_id")
+        .eq("user_id", user.id)
+        .eq("opportunity_id", id)
+        .maybeSingle(),
+      supabase
+        .from("applications")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("opportunity_id", id)
+        .maybeSingle(),
+      fetchBehavioralSignal(user.id),
+    ]);
+
+    isSaved = !!savedRes.data;
+    applicationStatus = (appRes.data?.status ?? undefined) as ApplicationStatus | undefined;
+
+    const computed = computeScore(profile as Profile, opp, behavioralSignal);
+    score = computed.score;
+    fitScore = computed.fitScore ?? 0;
+    valueScore = computed.valueScore ?? 0;
+    actionabilityScore = computed.actionabilityScore ?? 0;
+    why = computed.why;
+    matchedTerms = findMatchedTerms(profile as Profile, opp);
+    missingSkills = findMissingRequirements(profile as Profile, opp);
+  } else {
+    // Guest baseline scores
+    valueScore = opp.estimated_value_score ?? 75;
+    fitScore = 70;
+    actionabilityScore = 80;
+    score = Math.round((valueScore + fitScore + actionabilityScore) / 3);
+    missingSkills = opp.required_skills ?? [];
+  }
 
   const cat = getCategoryStyle(opp.category);
   const description = stripHtml(opp.description);
@@ -144,9 +210,51 @@ export default async function OpportunityDetailPage({
     (deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 7;
   const isExpired = opp.status === "expired";
 
+  const jobPostingLd = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: opp.title,
+    description: description || summary || opp.title,
+    identifier: {
+      "@type": "PropertyValue",
+      name: opp.organization,
+      value: opp.id,
+    },
+    datePosted: opp.date_added,
+    ...(opp.deadline ? { validThrough: opp.deadline } : {}),
+    employmentType: opp.category === "internship" ? "INTERN" : "FULL_TIME",
+    hiringOrganization: {
+      "@type": "Organization",
+      name: opp.organization,
+      ...(opp.company?.website ? { sameAs: opp.company.website } : {}),
+      ...(opp.company?.logo_url ? { logo: opp.company.logo_url } : {}),
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: opp.location || "Remote",
+      },
+    },
+    ...(opp.is_remote ? { jobLocationType: "TELECOMMUTE" } : {}),
+    ...(opp.compensation
+      ? {
+          baseSalary: {
+            "@type": "MonetaryAmount",
+            currency: "USD",
+            value: opp.compensation,
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="min-h-screen">
-      <NavBar email={user.email} isAdmin={profile.role === "admin"} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingLd) }}
+      />
+      <NavBar email={user?.email} isAdmin={profile?.role === "admin"} />
 
       <main id="main" className="mx-auto max-w-3xl px-4 py-8 sm:py-10">
         {/* Back link */}
@@ -198,16 +306,45 @@ export default async function OpportunityDetailPage({
           </div>
         </header>
 
-        {/* Action bar — Save/MarkApplied wrap in a flex row, Apply takes full
-            width on mobile (clear primary CTA), content-width on desktop. */}
+        {/* Action bar */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          <SaveButton opportunityId={opp.id} isSaved={isSaved} />
-          <ApplyButton
-            opportunityId={opp.id}
-            currentStatus={applicationStatus}
+          {isGuest ? (
+            <Link
+              href={`/login?next=${encodeURIComponent(`/opportunity/${opp.id}`)}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1")}
+            >
+              <Bookmark className="size-3.5" />
+              Save
+            </Link>
+          ) : (
+            <SaveButton opportunityId={opp.id} isSaved={isSaved} />
+          )}
+
+          {isGuest ? (
+            <Link
+              href={`/login?next=${encodeURIComponent(`/opportunity/${opp.id}`)}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1")}
+            >
+              <CheckCircle className="size-3.5" />
+              Track
+            </Link>
+          ) : (
+            <ApplyButton
+              opportunityId={opp.id}
+              currentStatus={applicationStatus}
+            />
+          )}
+
+          {!isGuest && (
+            <ActionPlanButton opportunityId={opp.id} defaultOpen={action === "plan"} />
+          )}
+          {!isGuest && opp.company && <OutreachButton opportunityId={opp.id} />}
+
+          <ShareOpportunityButton
+            title={opp.title}
+            organization={opp.organization}
           />
-          <ActionPlanButton opportunityId={opp.id} defaultOpen={action === "plan"} />
-          {opp.company && <OutreachButton opportunityId={opp.id} />}
+
           {opp.apply_url && (
             <ExternalApplyLink
               href={opp.apply_url}
@@ -224,6 +361,31 @@ export default async function OpportunityDetailPage({
           )}
         </div>
 
+        {/* Guest Conversion Callout */}
+        {isGuest && (
+          <div className="mt-6 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Unlock your personalized resume match score
+                  </h3>
+                </div>
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  Sign in to see how your skills compare, generate tailored interview prep plans, and track your applications.
+                </p>
+              </div>
+              <Link
+                href={`/login?next=${encodeURIComponent(`/opportunity/${opp.id}`)}`}
+                className={cn(buttonVariants({ size: "sm" }), "shrink-0 shadow-sm")}
+              >
+                Sign in to Match
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="mt-8">
           <ScoreBreakdown 
             fitScore={fitScore ?? 0}
@@ -232,7 +394,9 @@ export default async function OpportunityDetailPage({
           />
         </div>
 
-        <ResumeMatchScore opportunityId={opp.id} hasResume={hasResume} />
+        {!isGuest && (
+          <ResumeMatchScore opportunityId={opp.id} hasResume={hasResume} />
+        )}
         
         <div className="mt-6">
           <EnrichmentInsights opportunity={opp} missingSkills={missingSkills} />

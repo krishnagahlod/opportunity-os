@@ -52,9 +52,6 @@ export async function GET(req: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-    }
 
     const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
     if (q.length < 2) return NextResponse.json(emptyPayload());
@@ -62,19 +59,21 @@ export async function GET(req: NextRequest) {
     const tokens = buildSearchTokens(q);
     if (tokens.length === 0) return NextResponse.json(emptyPayload());
 
-    // Enforce server-side search quota (10 searches/day on Free tier)
-    const { checkAndConsumeQuota } = await import("@/lib/auth/entitlements");
-    const quotaResult = await checkAndConsumeQuota(user.id, "search_query", 1);
-    if (!quotaResult.allowed) {
-      return NextResponse.json(
-        {
-          error: "Daily search limit reached (10 searches/day on Free tier). Upgrade to Pro or use an @iitb.ac.in account for unlimited searches.",
-          code: "QUOTA_EXCEEDED",
-          upgradeRequired: true,
-          remaining: 0,
-        },
-        { status: 403 }
-      );
+    if (user) {
+      // Enforce server-side search quota (10 searches/day on Free tier)
+      const { checkAndConsumeQuota } = await import("@/lib/auth/entitlements");
+      const quotaResult = await checkAndConsumeQuota(user.id, "search_query", 1);
+      if (!quotaResult.allowed) {
+        return NextResponse.json(
+          {
+            error: "Daily search limit reached (10 searches/day on Free tier). Upgrade to Pro or use an @iitb.ac.in account for unlimited searches.",
+            code: "QUOTA_EXCEEDED",
+            upgradeRequired: true,
+            remaining: 0,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Build query: each token AND-chains a 3-column OR group via .or().
@@ -100,29 +99,43 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const [profileRes, oppsRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
-      queryBuilder
-        .order("date_added", { ascending: false })
-        .limit(MAX_RESULTS),
-    ]);
+    let profile: Profile | null = null;
+    let opps: Opportunity[] = [];
 
-    if (oppsRes.error) {
-      console.error("[search] supabase error:", oppsRes.error);
-      return NextResponse.json(
-        { error: `Search failed: ${oppsRes.error.message}` },
-        { status: 500 },
-      );
+    if (user) {
+      const [profileRes, oppsRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        queryBuilder
+          .order("date_added", { ascending: false })
+          .limit(MAX_RESULTS),
+      ]);
+
+      if (oppsRes.error) {
+        console.error("[search] supabase error:", oppsRes.error);
+        return NextResponse.json(
+          { error: `Search failed: ${oppsRes.error.message}` },
+          { status: 500 },
+        );
+      }
+      profile = profileRes.data as Profile | null;
+      opps = (oppsRes.data ?? []) as Opportunity[];
+    } else {
+      const oppsRes = await queryBuilder
+        .order("date_added", { ascending: false })
+        .limit(MAX_RESULTS);
+
+      if (oppsRes.error) {
+        console.error("[search] supabase error:", oppsRes.error);
+        return NextResponse.json(
+          { error: `Search failed: ${oppsRes.error.message}` },
+          { status: 500 },
+        );
+      }
+      opps = (oppsRes.data ?? []) as Opportunity[];
     }
 
-    const profile = profileRes.data as Profile | null;
-    const opps = (oppsRes.data ?? []) as Opportunity[];
-
-    if (!profile || opps.length === 0) {
-      return NextResponse.json({
-        ...emptyPayload(),
-        opportunities: opps,
-      });
+    if (opps.length === 0) {
+      return NextResponse.json(emptyPayload());
     }
 
     const oppIds = opps.map((o) => o.id);
@@ -130,34 +143,43 @@ export async function GET(req: NextRequest) {
       new Set(opps.map((o) => o.source_id).filter((x): x is string => !!x)),
     );
 
-    const [savedRes, appsRes, sourcesRes, feedbackRes] = await Promise.all([
-      supabase
-        .from("saved_opportunities")
-        .select("opportunity_id")
-        .eq("user_id", user.id)
-        .in("opportunity_id", oppIds),
-      supabase
-        .from("applications")
-        .select("opportunity_id,status")
-        .eq("user_id", user.id)
-        .in("opportunity_id", oppIds),
+    let savedSet: string[] = [];
+    const appliedMap: Record<string, ApplicationStatus> = {};
+    let dismissedSet = new Set<string>();
+
+    const [sourcesRes, userArtifactsRes] = await Promise.all([
       sourceIds.length > 0
         ? supabase.from("sources").select("id,name").in("id", sourceIds)
         : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-      supabase
-        .from("opportunity_feedback")
-        .select("opportunity_id")
-        .eq("user_id", user.id)
-        .eq("feedback", "not_interested")
-        .in("opportunity_id", oppIds),
+      user
+        ? Promise.all([
+            supabase
+              .from("saved_opportunities")
+              .select("opportunity_id")
+              .eq("user_id", user.id)
+              .in("opportunity_id", oppIds),
+            supabase
+              .from("applications")
+              .select("opportunity_id,status")
+              .eq("user_id", user.id)
+              .in("opportunity_id", oppIds),
+            supabase
+              .from("opportunity_feedback")
+              .select("opportunity_id")
+              .eq("user_id", user.id)
+              .eq("feedback", "not_interested")
+              .in("opportunity_id", oppIds),
+          ])
+        : Promise.resolve(null),
     ]);
 
-    const savedSet = (savedRes.data ?? []).map(
-      (r) => r.opportunity_id as string,
-    );
-    const appliedMap: Record<string, ApplicationStatus> = {};
-    for (const r of appsRes.data ?? []) {
-      appliedMap[r.opportunity_id as string] = r.status as ApplicationStatus;
+    if (userArtifactsRes) {
+      const [savedRes, appsRes, feedbackRes] = userArtifactsRes;
+      savedSet = (savedRes.data ?? []).map((r) => r.opportunity_id as string);
+      for (const r of appsRes.data ?? []) {
+        appliedMap[r.opportunity_id as string] = r.status as ApplicationStatus;
+      }
+      dismissedSet = new Set((feedbackRes.data ?? []).map((f) => f.opportunity_id as string));
     }
 
     const sourceById = new Map<string, string>();
@@ -174,11 +196,16 @@ export async function GET(req: NextRequest) {
 
     const scoreMap: Record<string, { score: number; why: string | null }> = {};
     for (const o of opps) {
-      const s = computeScore(profile, o);
-      scoreMap[o.id] = { score: s.score, why: s.why };
+      if (profile) {
+        const s = computeScore(profile, o);
+        scoreMap[o.id] = { score: s.score, why: s.why };
+      } else {
+        scoreMap[o.id] = {
+          score: o.estimated_value_score ?? 75,
+          why: null,
+        };
+      }
     }
-
-    const dismissedSet = new Set((feedbackRes.data ?? []).map(f => f.opportunity_id as string));
 
     // Strip `description` before returning — the cards don't render it.
     // Also filter out any dismissed opportunities.

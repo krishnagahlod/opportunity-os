@@ -5,6 +5,7 @@ import { NavBar } from "@/components/NavBar";
 import { EmptyState } from "@/components/EmptyState";
 import { KanbanBoard, type KanbanItem } from "./KanbanBoard";
 import { ApplicationStats } from "./ApplicationStats";
+import { ExportCsvButton } from "./ExportCsvButton";
 import type { ApplicationStatus, Opportunity } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export default async function ApplicationsPage() {
     <div className="min-h-screen">
       <NavBar email={user.email} isAdmin={profile.role === "admin"} />
       <main id="main" className="mx-auto max-w-7xl px-4 py-10">
-        <div className="mb-6 flex items-end justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Applications
@@ -60,6 +61,7 @@ export default async function ApplicationsPage() {
                 : `${items.length} in your tracker. Drag cards between columns to update status.`}
             </p>
           </div>
+          {items.length > 0 && <ExportCsvButton items={items} />}
         </div>
         {items.length === 0 ? (
           <EmptyState

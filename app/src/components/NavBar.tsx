@@ -42,26 +42,36 @@ export function NavBar({
           </nav>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          {/* Desktop: email links to settings; Mobile: tiny Settings icon button */}
-          <Link
-            href="/settings"
-            className="hidden max-w-[160px] truncate text-xs text-muted-foreground transition hover:text-foreground sm:inline"
-            title="Settings"
-          >
-            {email}
-          </Link>
-          <Link
-            href="/settings"
-            aria-label="Settings"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground sm:hidden"
-          >
-            <SettingsIcon className="size-4" />
-          </Link>
-          <form action="/auth/signout" method="post">
-            <Button type="submit" variant="outline" size="sm">
-              Sign out
-            </Button>
-          </form>
+          {email ? (
+            <>
+              {/* Desktop: email links to settings; Mobile: tiny Settings icon button */}
+              <Link
+                href="/settings"
+                className="hidden max-w-[160px] truncate text-xs text-muted-foreground transition hover:text-foreground sm:inline"
+                title="Settings"
+              >
+                {email}
+              </Link>
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground sm:hidden"
+              >
+                <SettingsIcon className="size-4" />
+              </Link>
+              <form action="/auth/signout" method="post">
+                <Button type="submit" variant="outline" size="sm">
+                  Sign out
+                </Button>
+              </form>
+            </>
+          ) : (
+            <Link href="/login">
+              <Button size="sm" className="text-xs">
+                Sign in
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
       {/* Mobile-only secondary nav row — top-level links visible without a hamburger */}
