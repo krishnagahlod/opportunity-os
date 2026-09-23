@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { Zap, Radar, Target, Bell, ShieldCheck } from "lucide-react";
+import { Zap, Radar, Target, Bell, ShieldCheck, UserCheck } from "lucide-react";
 import { LoginForm } from "./LoginForm";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export default async function LoginPage({
@@ -19,6 +20,11 @@ export default async function LoginPage({
     const next = params.next ?? "/";
     redirect(`/auth/callback?code=${params.code}&next=${encodeURIComponent(next)}`);
   }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   return (
     <div className="min-h-screen bg-[#FBFBFC] text-zinc-900 flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900 font-sans">
@@ -93,6 +99,31 @@ export default async function LoginPage({
                   Continue with Google or get a passwordless magic link to your email.
                 </p>
               </div>
+
+              {user && (
+                <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-900">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-zinc-500 font-medium">Currently signed in:</p>
+                      <p className="font-bold text-zinc-900 truncate max-w-[220px]">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href="/"
+                        className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-2xs"
+                      >
+                        Dashboard
+                      </Link>
+                      <a
+                        href="/auth/signout"
+                        className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors shadow-2xs"
+                      >
+                        Sign out
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <LoginForm next={params.next} />
 

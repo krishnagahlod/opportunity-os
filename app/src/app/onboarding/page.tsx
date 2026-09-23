@@ -33,9 +33,17 @@ export default async function OnboardingPage() {
             </span>
             <span>Opportunity OS</span>
           </Link>
-          <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Step 1 of 1 · Profile Initialization</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-zinc-500">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Step 1 of 1 · Profile Initialization</span>
+            </div>
+            <a
+              href="/auth/signout"
+              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-2xs"
+            >
+              Sign out ({user.email})
+            </a>
           </div>
         </div>
       </header>
