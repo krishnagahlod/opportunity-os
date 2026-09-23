@@ -16,7 +16,7 @@ export default async function OnboardingPage() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (profile?.onboarded) redirect("/");
 

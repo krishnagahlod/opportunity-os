@@ -28,11 +28,16 @@ export default async function HomePage() {
   if (!user) return <Landing />;
 
   // Profile is needed before we can decide onboarding gating, so it's serial.
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[HomePage] Error fetching profile for user", user.id, profileError);
+  }
+
   if (!profile?.onboarded) redirect("/onboarding");
 
   // Track session and resolve user entitlements

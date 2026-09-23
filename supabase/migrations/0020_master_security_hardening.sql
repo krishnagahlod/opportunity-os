@@ -25,15 +25,22 @@ ALTER TABLE IF EXISTS public.ingestion_logs ENABLE ROW LEVEL SECURITY;
 
 -- 2. USER ISOLATION POLICIES (Users can only read and mutate their own data)
 
--- Profiles: Users can read and update their own profile; admin has full access
+-- Profiles: Users can read and update their own profile; admin has full access via security definer is_admin()
 DROP POLICY IF EXISTS "profiles_self_manage" ON public.profiles;
-CREATE POLICY "profiles_self_manage" ON public.profiles
-FOR ALL USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-
 DROP POLICY IF EXISTS "profiles_admin_manage" ON public.profiles;
-CREATE POLICY "profiles_admin_manage" ON public.profiles
-FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+CREATE POLICY "profiles_select_policy" ON public.profiles
+FOR SELECT USING (auth.uid() = id OR public.is_admin());
+
+CREATE POLICY "profiles_insert_policy" ON public.profiles
+FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "profiles_update_policy" ON public.profiles
+FOR UPDATE USING (auth.uid() = id OR public.is_admin())
+WITH CHECK (auth.uid() = id OR public.is_admin());
+
+CREATE POLICY "profiles_delete_policy" ON public.profiles
+FOR DELETE USING (auth.uid() = id OR public.is_admin());
 
 -- Saved Opportunities
 DROP POLICY IF EXISTS "saved_opps_self_manage" ON public.saved_opportunities;
